@@ -1,0 +1,43 @@
+package org.example.features.payment.service;
+
+import jakarta.transaction.Transactional;
+import org.example.features.order.repository.InvoiceRepository;
+import org.example.features.order.repository.OrderRepository;
+import org.example.features.order.entity.Invoice;
+import org.example.features.order.entity.Order;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Service
+public class InvoiceService {
+
+    @Autowired
+    private InvoiceRepository invoiceRepository;
+
+    @Autowired
+    private OrderRepository orderRepository;
+
+    @Transactional
+    public Invoice createInvoice(List<Long> orderIds) {
+        // 1. Tạo mới đối tượng Invoice
+        Invoice invoice = new Invoice();
+        // Sinh mã tạm thời (ví dụ: INV-20260127-1234)
+        invoice.setInvoiceNo("INV-" + System.currentTimeMillis());
+
+        // 2. Lưu Invoice vào DB trước để lấy ID
+        Invoice savedInvoice = invoiceRepository.save(invoice);
+
+        // 3. Cập nhật invoice_id cho các đơn hàng được chọn
+        List<Order> orders = orderRepository.findAllById(orderIds);
+        for (Order order : orders) {
+            order.setInvoice(savedInvoice); // Gán invoice vừa tạo
+        }
+
+        // 4. Lưu lại danh sách đơn hàng đã cập nhật
+        orderRepository.saveAll(orders);
+
+        return savedInvoice;
+    }
+}

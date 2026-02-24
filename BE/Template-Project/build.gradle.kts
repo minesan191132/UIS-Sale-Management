@@ -1,6 +1,6 @@
 plugins {
     id("java")
-    id("org.springframework.boot") version "4.0.0"
+    id("org.springframework.boot") version "3.3.0"
     id("io.spring.dependency-management") version "1.1.7"
 }
 
@@ -22,6 +22,12 @@ dependencies {
     implementation("org.apache.logging.log4j:log4j-core:2.20.0")
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
 
+    // Security & JWT
+    implementation("org.springframework.boot:spring-boot-starter-security")
+    implementation("io.jsonwebtoken:jjwt-api:0.11.5")
+    runtimeOnly("io.jsonwebtoken:jjwt-impl:0.11.5")
+    runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.11.5")
+
     // Spring dev tools
     developmentOnly("org.springframework.boot:spring-boot-devtools")
 
@@ -30,6 +36,10 @@ dependencies {
 
     // MSSQL JDBC driver
     implementation("org.postgresql:postgresql:42.7.3")
+    
+    // Flyway (Database Migration)
+    implementation("org.flywaydb:flyway-core")
+    implementation("org.flywaydb:flyway-database-postgresql")
 
     // Lombok
     compileOnly("org.projectlombok:lombok:1.18.38")
@@ -48,6 +58,9 @@ dependencies {
 
     // Testing
     testImplementation("org.springframework.boot:spring-boot-starter-test")
+
+    // Swagger
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.5.0")
 }
 
 tasks.test {

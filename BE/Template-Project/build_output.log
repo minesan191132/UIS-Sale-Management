@@ -1,0 +1,864 @@
+> Task :clean
+
+> Task :compileJava FAILED
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\entity\Payment.java:35: error: cannot find symbol
+    private PaymentMethod paymentMethod;
+            ^
+  symbol:   class PaymentMethod
+  location: class Payment
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\entity\Payment.java:35: error: cannot find symbol
+    private PaymentMethod paymentMethod;
+                          ^
+  symbol:   class PaymentMethod
+  location: class Payment
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\entity\Payment.java:16: error: cannot find symbol
+@Data
+^
+  symbol:   class PaymentMethod
+  location: class Payment
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\company\service\CompanyService.java:4: error: cannot find symbol
+import org.example.DAO.CompanyRepository;
+                      ^
+  symbol:   class CompanyRepository
+  location: package org.example.DAO
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\company\service\CompanyService.java:6: error: cannot find symbol
+import org.example.entity.VerificationStatus;
+                         ^
+  symbol:   class VerificationStatus
+  location: package org.example.entity
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\company\service\CompanyService.java:7: error: cannot find symbol
+import org.example.features.payment.dto.CompanyRegistrationDTO;
+                                       ^
+  symbol:   class CompanyRegistrationDTO
+  location: package org.example.features.payment.dto
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\company\service\CompanyService.java:24: error: cannot find symbol
+    private final CompanyRepository companyRepository;
+                  ^
+  symbol:   class CompanyRepository
+  location: class CompanyService
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\company\service\CompanyService.java:34: error: cannot find symbol
+    public Company registerCompany(CompanyRegistrationDTO dto) {
+                                   ^
+  symbol:   class CompanyRegistrationDTO
+  location: class CompanyService
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\company\service\CompanyService.java:64: error: cannot find symbol
+    public Company verifyCompany(Long companyId, VerificationStatus status) {
+                                                 ^
+  symbol:   class VerificationStatus
+  location: class CompanyService
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\company\service\CompanyService.java:21: error: cannot find symbol
+@RequiredArgsConstructor
+^
+  symbol:   class CompanyRepository
+  location: class CompanyService
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\service\Company.java:38: error: cannot find symbol
+    private VerificationStatus verificationStatus = VerificationStatus.PENDING;
+            ^
+  symbol:   class VerificationStatus
+  location: class Company
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\service\Company.java:51: error: cannot find symbol
+    private List<Order> orders;
+                 ^
+  symbol:   class Order
+  location: class Company
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\service\Company.java:38: error: cannot find symbol
+    private VerificationStatus verificationStatus = VerificationStatus.PENDING;
+                               ^
+  symbol:   class VerificationStatus
+  location: class Company
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\service\Company.java:51: error: cannot find symbol
+    private List<Order> orders;
+                        ^
+  symbol:   class Order
+  location: class Company
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\service\Company.java:15: error: cannot find symbol
+@Data
+^
+  symbol:   class VerificationStatus
+  location: class Company
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\controller\MaterialController.java:3: error: cannot find symbol
+import org.example.features.payment.dto.MasterInventoryDTO;
+                                       ^
+  symbol:   class MasterInventoryDTO
+  location: package org.example.features.payment.dto
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\controller\MaterialController.java:4: error: cannot find symbol
+import org.example.features.payment.dto.MaterialDetailDTO;
+                                       ^
+  symbol:   class MaterialDetailDTO
+  location: package org.example.features.payment.dto
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\controller\MaterialController.java:5: error: cannot find symbol
+import org.example.features.payment.service.ExcelImportService;
+                                           ^
+  symbol:   class ExcelImportService
+  location: package org.example.features.payment.service
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\controller\MaterialController.java:18: error: cannot find symbol
+    private ExcelImportService excelImportService;
+            ^
+  symbol:   class ExcelImportService
+  location: class MaterialController
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\controller\MaterialController.java:35: error: cannot find symbol
+    public ResponseEntity<Page<MasterInventoryDTO>> getDashboard(
+                               ^
+  symbol:   class MasterInventoryDTO
+  location: class MaterialController
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\controller\MaterialController.java:45: error: cannot find symbol
+    public ResponseEntity<Page<MaterialDetailDTO>> getMaterials(
+                               ^
+  symbol:   class MaterialDetailDTO
+  location: class MaterialController
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\controller\OrderController.java:3: error: cannot find symbol
+import org.example.DAO.OrderRepository;
+                      ^
+  symbol:   class OrderRepository
+  location: package org.example.DAO
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\controller\OrderController.java:4: error: cannot find symbol
+import org.example.entity.Order;
+                         ^
+  symbol:   class Order
+  location: package org.example.entity
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\controller\OrderController.java:5: error: cannot find symbol
+import org.example.entity.OrderStatus;
+                         ^
+  symbol:   class OrderStatus
+  location: package org.example.entity
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\controller\OrderController.java:6: error: cannot find symbol
+import org.example.features.payment.service.ExportService;
+                                           ^
+  symbol:   class ExportService
+  location: package org.example.features.payment.service
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\controller\OrderController.java:27: error: cannot find symbol
+    private OrderRepository orderRepository;
+            ^
+  symbol:   class OrderRepository
+  location: class OrderController
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\controller\OrderController.java:30: error: cannot find symbol
+    private ExportService exportService;
+            ^
+  symbol:   class ExportService
+  location: class OrderController
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\controller\OrderController.java:33: error: cannot find symbol
+    public ResponseEntity<Page<Order>> getOrders(
+                               ^
+  symbol:   class Order
+  location: class OrderController
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\controller\OrderController.java:80: error: cannot find symbol
+    public ResponseEntity<List<Order>> getOrdersDetails(@RequestBody List<Long> ids) {
+                               ^
+  symbol:   class Order
+  location: class OrderController
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\service\ExportService.java:6: error: cannot find symbol
+import org.example.entity.Order;
+                         ^
+  symbol:   class Order
+  location: package org.example.entity
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\service\ExportService.java:7: error: cannot find symbol
+import org.example.entity.OrderItem;
+                         ^
+  symbol:   class OrderItem
+  location: package org.example.entity
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\service\ExportService.java:8: error: cannot find symbol
+import org.example.DAO.OrderRepository;
+                      ^
+  symbol:   class OrderRepository
+  location: package org.example.DAO
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\service\ExportService.java:23: error: cannot find symbol
+    private OrderRepository orderRepository;
+            ^
+  symbol:   class OrderRepository
+  location: class ExportService
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\controller\CompanyController.java:8: error: package org.example.features.company.service does not exist
+import org.example.features.company.service.CompanyService;
+                                           ^
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\controller\CompanyController.java:26: error: cannot find symbol
+    private final CompanyService companyService;
+                  ^
+  symbol:   class CompanyService
+  location: class CompanyController
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\controller\CompanyController.java:23: error: cannot find symbol
+@RequiredArgsConstructor
+^
+  symbol:   class CompanyService
+  location: class CompanyController
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\controller\InvoiceController.java:3: error: cannot find symbol
+import org.example.DAO.InvoiceRepository;
+                      ^
+  symbol:   class InvoiceRepository
+  location: package org.example.DAO
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\controller\InvoiceController.java:4: error: cannot find symbol
+import org.example.DAO.OrderRepository;
+                      ^
+  symbol:   class OrderRepository
+  location: package org.example.DAO
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\controller\InvoiceController.java:5: error: cannot find symbol
+import org.example.entity.Invoice;
+                         ^
+  symbol:   class Invoice
+  location: package org.example.entity
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\controller\InvoiceController.java:6: error: cannot find symbol
+import org.example.entity.Order;
+                         ^
+  symbol:   class Order
+  location: package org.example.entity
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\controller\InvoiceController.java:21: error: cannot find symbol
+    private InvoiceRepository invoiceRepository;
+            ^
+  symbol:   class InvoiceRepository
+  location: class InvoiceController
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\controller\InvoiceController.java:24: error: cannot find symbol
+    private OrderRepository orderRepository;
+            ^
+  symbol:   class OrderRepository
+  location: class InvoiceController
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\service\InvoiceService.java:4: error: cannot find symbol
+import org.example.DAO.InvoiceRepository;
+                      ^
+  symbol:   class InvoiceRepository
+  location: package org.example.DAO
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\service\InvoiceService.java:5: error: cannot find symbol
+import org.example.DAO.OrderRepository;
+                      ^
+  symbol:   class OrderRepository
+  location: package org.example.DAO
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\service\InvoiceService.java:6: error: cannot find symbol
+import org.example.entity.Invoice;
+                         ^
+  symbol:   class Invoice
+  location: package org.example.entity
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\service\InvoiceService.java:7: error: cannot find symbol
+import org.example.entity.Order;
+                         ^
+  symbol:   class Order
+  location: package org.example.entity
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\controller\InvoiceController.java:33: error: cannot find symbol
+    public ResponseEntity<Invoice> createInvoice(@RequestBody List<Long> orderIds) {
+                          ^
+  symbol:   class Invoice
+  location: class InvoiceController
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\controller\InvoiceController.java:39: error: cannot find symbol
+    public ResponseEntity<List<Order>> getInvoiceDetails(@PathVariable Long id) {
+                               ^
+  symbol:   class Order
+  location: class InvoiceController
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\controller\InvoiceController.java:53: error: cannot find symbol
+    public ResponseEntity<Invoice> getInvoiceInfo(@PathVariable Long id) {
+                          ^
+  symbol:   class Invoice
+  location: class InvoiceController
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\service\InvoiceService.java:17: error: cannot find symbol
+    private InvoiceRepository invoiceRepository;
+            ^
+  symbol:   class InvoiceRepository
+  location: class InvoiceService
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\service\InvoiceService.java:20: error: cannot find symbol
+    private OrderRepository orderRepository;
+            ^
+  symbol:   class OrderRepository
+  location: class InvoiceService
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\service\InvoiceService.java:23: error: cannot find symbol
+    public Invoice createInvoice(List<Long> orderIds) {
+           ^
+  symbol:   class Invoice
+  location: class InvoiceService
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\service\PaymentService.java:4: error: cannot find symbol
+import org.example.DAO.OrderRepository;
+                      ^
+  symbol:   class OrderRepository
+  location: package org.example.DAO
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\service\PaymentService.java:6: error: cannot find symbol
+import org.example.DAO.UserRepository;
+                      ^
+  symbol:   class UserRepository
+  location: package org.example.DAO
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\dto\PaymentRecordDTO.java:9: error: cannot find symbol
+import org.example.features.payment.entity.PaymentMethod;
+                                          ^
+  symbol:   class PaymentMethod
+  location: package org.example.features.payment.entity
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\dto\PaymentRecordDTO.java:22: error: cannot find symbol
+    private PaymentMethod paymentMethod;
+            ^
+  symbol:   class PaymentMethod
+  location: class PaymentRecordDTO
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\dto\PaymentRecordDTO.java:22: error: cannot find symbol
+    private PaymentMethod paymentMethod;
+                          ^
+  symbol:   class PaymentMethod
+  location: class PaymentRecordDTO
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\dto\PaymentRecordDTO.java:15: error: cannot find symbol
+@Data
+^
+  symbol:   class PaymentMethod
+  location: class PaymentRecordDTO
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\dto\PaymentRecordDTO.java:17: error: cannot find symbol
+@AllArgsConstructor
+^
+  symbol:   class PaymentMethod
+  location: class PaymentRecordDTO
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\service\PaymentService.java:29: error: cannot find symbol
+    private final OrderRepository orderRepository;
+                  ^
+  symbol:   class OrderRepository
+  location: class PaymentService
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\repository\QuoteRepository.java:3: error: cannot find symbol
+import org.example.entity.Quote;
+                         ^
+  symbol:   class Quote
+  location: package org.example.entity
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\repository\QuoteRepository.java:4: error: cannot find symbol
+import org.example.entity.QuoteStatus;
+                         ^
+  symbol:   class QuoteStatus
+  location: package org.example.entity
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\repository\QuoteRepository.java:15: error: cannot find symbol
+public interface QuoteRepository extends JpaRepository<Quote, Long> {
+                                                       ^
+  symbol: class Quote
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\service\PaymentService.java:31: error: cannot find symbol
+    private final UserRepository userRepository;
+                  ^
+  symbol:   class UserRepository
+  location: class PaymentService
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\service\PaymentService.java:82: error: cannot find symbol
+    private void checkAndUpdateOrderStatus(Order order) {
+                                           ^
+  symbol:   class Order
+  location: class PaymentService
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\service\PaymentService.java:25: error: cannot find symbol
+@RequiredArgsConstructor
+^
+  symbol:   class OrderRepository
+  location: class PaymentService
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\repository\QuoteRepository.java:20: error: cannot find symbol
+    Optional<Quote> findByOrderId(Long orderId);
+             ^
+  symbol:   class Quote
+  location: interface QuoteRepository
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\repository\QuoteRepository.java:26: error: cannot find symbol
+    Page<Quote> findByStatus(@Param("status") QuoteStatus status, Pageable pageable);
+                                              ^
+  symbol:   class QuoteStatus
+  location: interface QuoteRepository
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\repository\QuoteRepository.java:26: error: cannot find symbol
+    Page<Quote> findByStatus(@Param("status") QuoteStatus status, Pageable pageable);
+         ^
+  symbol:   class Quote
+  location: interface QuoteRepository
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\repository\QuoteRepository.java:32: error: cannot find symbol
+    Page<Quote> findExpiredQuotes(Pageable pageable);
+         ^
+  symbol:   class Quote
+  location: interface QuoteRepository
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\controller\QuoteController.java:5: error: cannot find symbol
+import org.example.entity.Quote;
+                         ^
+  symbol:   class Quote
+  location: package org.example.entity
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\controller\QuoteController.java:6: error: cannot find symbol
+import org.example.features.payment.dto.CreateQuoteDTO;
+                                       ^
+  symbol:   class CreateQuoteDTO
+  location: package org.example.features.payment.dto
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\controller\QuoteController.java:7: error: cannot find symbol
+import org.example.features.payment.service.QuoteService;
+                                           ^
+  symbol:   class QuoteService
+  location: package org.example.features.payment.service
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\controller\QuoteController.java:23: error: cannot find symbol
+    private final QuoteService quoteService;
+                  ^
+  symbol:   class QuoteService
+  location: class QuoteController
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\controller\QuoteController.java:30: error: cannot find symbol
+    public ResponseEntity<?> createQuote(@RequestBody CreateQuoteDTO dto) {
+                                                      ^
+  symbol:   class CreateQuoteDTO
+  location: class QuoteController
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\controller\QuoteController.java:20: error: cannot find symbol
+@RequiredArgsConstructor
+^
+  symbol:   class QuoteService
+  location: class QuoteController
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\service\QuoteService.java:4: error: cannot find symbol
+import org.example.DAO.OrderRepository;
+                      ^
+  symbol:   class OrderRepository
+  location: package org.example.DAO
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\service\QuoteService.java:7: error: cannot find symbol
+import org.example.features.payment.dto.CreateQuoteDTO;
+                                       ^
+  symbol:   class CreateQuoteDTO
+  location: package org.example.features.payment.dto
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\service\QuoteService.java:24: error: cannot find symbol
+    private final OrderRepository orderRepository;
+                  ^
+  symbol:   class OrderRepository
+  location: class QuoteService
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\service\QuoteService.java:30: error: cannot find symbol
+    public Quote createQuote(CreateQuoteDTO dto) {
+                             ^
+  symbol:   class CreateQuoteDTO
+  location: class QuoteService
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\service\QuoteService.java:30: error: cannot find symbol
+    public Quote createQuote(CreateQuoteDTO dto) {
+           ^
+  symbol:   class Quote
+  location: class QuoteService
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\service\QuoteService.java:78: error: cannot find symbol
+    public Quote acceptQuote(Long orderId) {
+           ^
+  symbol:   class Quote
+  location: class QuoteService
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\service\QuoteService.java:106: error: cannot find symbol
+    public Quote rejectQuote(Long orderId, String reason) {
+           ^
+  symbol:   class Quote
+  location: class QuoteService
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\service\QuoteService.java:125: error: cannot find symbol
+    public Quote getQuoteByOrderId(Long orderId) {
+           ^
+  symbol:   class Quote
+  location: class QuoteService
+D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\service\QuoteService.java:20: error: cannot find symbol
+@RequiredArgsConstructor
+^
+  symbol:   class OrderRepository
+  location: class QuoteService
+85 errors
+
+[Incubating] Problems report is available at: file:///D:/DATT/BE/Template-Project/build/reports/problems/problems-report.html
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':compileJava'.
+> Compilation failed; see the compiler output below.
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\entity\Payment.java:35: error: cannot find symbol
+      private PaymentMethod paymentMethod;
+              ^
+    symbol:   class PaymentMethod
+    location: class Payment
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\entity\Payment.java:35: error: cannot find symbol
+      private PaymentMethod paymentMethod;
+                            ^
+    symbol:   class PaymentMethod
+    location: class Payment
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\entity\Payment.java:16: error: cannot find symbol
+  @Data
+  ^
+    symbol:   class PaymentMethod
+    location: class Payment
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\company\service\CompanyService.java:4: error: cannot find symbol
+  import org.example.DAO.CompanyRepository;
+                        ^
+    symbol:   class CompanyRepository
+    location: package org.example.DAO
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\company\service\CompanyService.java:6: error: cannot find symbol
+  import org.example.entity.VerificationStatus;
+                           ^
+    symbol:   class VerificationStatus
+    location: package org.example.entity
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\company\service\CompanyService.java:7: error: cannot find symbol
+  import org.example.features.payment.dto.CompanyRegistrationDTO;
+                                         ^
+    symbol:   class CompanyRegistrationDTO
+    location: package org.example.features.payment.dto
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\company\service\CompanyService.java:24: error: cannot find symbol
+      private final CompanyRepository companyRepository;
+                    ^
+    symbol:   class CompanyRepository
+    location: class CompanyService
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\company\service\CompanyService.java:34: error: cannot find symbol
+      public Company registerCompany(CompanyRegistrationDTO dto) {
+                                     ^
+    symbol:   class CompanyRegistrationDTO
+    location: class CompanyService
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\company\service\CompanyService.java:64: error: cannot find symbol
+      public Company verifyCompany(Long companyId, VerificationStatus status) {
+                                                   ^
+    symbol:   class VerificationStatus
+    location: class CompanyService
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\company\service\CompanyService.java:21: error: cannot find symbol
+  @RequiredArgsConstructor
+  ^
+    symbol:   class CompanyRepository
+    location: class CompanyService
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\service\Company.java:38: error: cannot find symbol
+      private VerificationStatus verificationStatus = VerificationStatus.PENDING;
+              ^
+    symbol:   class VerificationStatus
+    location: class Company
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\service\Company.java:51: error: cannot find symbol
+      private List<Order> orders;
+                   ^
+    symbol:   class Order
+    location: class Company
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\service\Company.java:38: error: cannot find symbol
+      private VerificationStatus verificationStatus = VerificationStatus.PENDING;
+                                 ^
+    symbol:   class VerificationStatus
+    location: class Company
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\service\Company.java:51: error: cannot find symbol
+      private List<Order> orders;
+                          ^
+    symbol:   class Order
+    location: class Company
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\service\Company.java:15: error: cannot find symbol
+  @Data
+  ^
+    symbol:   class VerificationStatus
+    location: class Company
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\controller\MaterialController.java:3: error: cannot find symbol
+  import org.example.features.payment.dto.MasterInventoryDTO;
+                                         ^
+    symbol:   class MasterInventoryDTO
+    location: package org.example.features.payment.dto
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\controller\MaterialController.java:4: error: cannot find symbol
+  import org.example.features.payment.dto.MaterialDetailDTO;
+                                         ^
+    symbol:   class MaterialDetailDTO
+    location: package org.example.features.payment.dto
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\controller\MaterialController.java:5: error: cannot find symbol
+  import org.example.features.payment.service.ExcelImportService;
+                                             ^
+    symbol:   class ExcelImportService
+    location: package org.example.features.payment.service
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\controller\MaterialController.java:18: error: cannot find symbol
+      private ExcelImportService excelImportService;
+              ^
+    symbol:   class ExcelImportService
+    location: class MaterialController
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\controller\MaterialController.java:35: error: cannot find symbol
+      public ResponseEntity<Page<MasterInventoryDTO>> getDashboard(
+                                 ^
+    symbol:   class MasterInventoryDTO
+    location: class MaterialController
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\controller\MaterialController.java:45: error: cannot find symbol
+      public ResponseEntity<Page<MaterialDetailDTO>> getMaterials(
+                                 ^
+    symbol:   class MaterialDetailDTO
+    location: class MaterialController
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\controller\OrderController.java:3: error: cannot find symbol
+  import org.example.DAO.OrderRepository;
+                        ^
+    symbol:   class OrderRepository
+    location: package org.example.DAO
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\controller\OrderController.java:4: error: cannot find symbol
+  import org.example.entity.Order;
+                           ^
+    symbol:   class Order
+    location: package org.example.entity
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\controller\OrderController.java:5: error: cannot find symbol
+  import org.example.entity.OrderStatus;
+                           ^
+    symbol:   class OrderStatus
+    location: package org.example.entity
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\controller\OrderController.java:6: error: cannot find symbol
+  import org.example.features.payment.service.ExportService;
+                                             ^
+    symbol:   class ExportService
+    location: package org.example.features.payment.service
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\controller\OrderController.java:27: error: cannot find symbol
+      private OrderRepository orderRepository;
+              ^
+    symbol:   class OrderRepository
+    location: class OrderController
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\controller\OrderController.java:30: error: cannot find symbol
+      private ExportService exportService;
+              ^
+    symbol:   class ExportService
+    location: class OrderController
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\controller\OrderController.java:33: error: cannot find symbol
+      public ResponseEntity<Page<Order>> getOrders(
+                                 ^
+    symbol:   class Order
+    location: class OrderController
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\controller\OrderController.java:80: error: cannot find symbol
+      public ResponseEntity<List<Order>> getOrdersDetails(@RequestBody List<Long> ids) {
+                                 ^
+    symbol:   class Order
+    location: class OrderController
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\service\ExportService.java:6: error: cannot find symbol
+  import org.example.entity.Order;
+                           ^
+    symbol:   class Order
+    location: package org.example.entity
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\service\ExportService.java:7: error: cannot find symbol
+  import org.example.entity.OrderItem;
+                           ^
+    symbol:   class OrderItem
+    location: package org.example.entity
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\service\ExportService.java:8: error: cannot find symbol
+  import org.example.DAO.OrderRepository;
+                        ^
+    symbol:   class OrderRepository
+    location: package org.example.DAO
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\order\service\ExportService.java:23: error: cannot find symbol
+      private OrderRepository orderRepository;
+              ^
+    symbol:   class OrderRepository
+    location: class ExportService
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\controller\CompanyController.java:26: error: cannot find symbol
+      private final CompanyService companyService;
+                    ^
+    symbol:   class CompanyService
+    location: class CompanyController
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\controller\CompanyController.java:23: error: cannot find symbol
+  @RequiredArgsConstructor
+  ^
+    symbol:   class CompanyService
+    location: class CompanyController
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\controller\InvoiceController.java:3: error: cannot find symbol
+  import org.example.DAO.InvoiceRepository;
+                        ^
+    symbol:   class InvoiceRepository
+    location: package org.example.DAO
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\controller\InvoiceController.java:4: error: cannot find symbol
+  import org.example.DAO.OrderRepository;
+                        ^
+    symbol:   class OrderRepository
+    location: package org.example.DAO
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\controller\InvoiceController.java:5: error: cannot find symbol
+  import org.example.entity.Invoice;
+                           ^
+    symbol:   class Invoice
+    location: package org.example.entity
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\controller\InvoiceController.java:6: error: cannot find symbol
+  import org.example.entity.Order;
+                           ^
+    symbol:   class Order
+    location: package org.example.entity
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\controller\InvoiceController.java:21: error: cannot find symbol
+      private InvoiceRepository invoiceRepository;
+              ^
+    symbol:   class InvoiceRepository
+    location: class InvoiceController
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\controller\InvoiceController.java:24: error: cannot find symbol
+      private OrderRepository orderRepository;
+              ^
+    symbol:   class OrderRepository
+    location: class InvoiceController
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\service\InvoiceService.java:4: error: cannot find symbol
+  import org.example.DAO.InvoiceRepository;
+                        ^
+    symbol:   class InvoiceRepository
+    location: package org.example.DAO
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\service\InvoiceService.java:5: error: cannot find symbol
+  import org.example.DAO.OrderRepository;
+                        ^
+    symbol:   class OrderRepository
+    location: package org.example.DAO
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\service\InvoiceService.java:6: error: cannot find symbol
+  import org.example.entity.Invoice;
+                           ^
+    symbol:   class Invoice
+    location: package org.example.entity
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\service\InvoiceService.java:7: error: cannot find symbol
+  import org.example.entity.Order;
+                           ^
+    symbol:   class Order
+    location: package org.example.entity
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\controller\InvoiceController.java:33: error: cannot find symbol
+      public ResponseEntity<Invoice> createInvoice(@RequestBody List<Long> orderIds) {
+                            ^
+    symbol:   class Invoice
+    location: class InvoiceController
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\controller\InvoiceController.java:39: error: cannot find symbol
+      public ResponseEntity<List<Order>> getInvoiceDetails(@PathVariable Long id) {
+                                 ^
+    symbol:   class Order
+    location: class InvoiceController
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\controller\InvoiceController.java:53: error: cannot find symbol
+      public ResponseEntity<Invoice> getInvoiceInfo(@PathVariable Long id) {
+                            ^
+    symbol:   class Invoice
+    location: class InvoiceController
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\service\InvoiceService.java:17: error: cannot find symbol
+      private InvoiceRepository invoiceRepository;
+              ^
+    symbol:   class InvoiceRepository
+    location: class InvoiceService
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\service\InvoiceService.java:20: error: cannot find symbol
+      private OrderRepository orderRepository;
+              ^
+    symbol:   class OrderRepository
+    location: class InvoiceService
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\service\InvoiceService.java:23: error: cannot find symbol
+      public Invoice createInvoice(List<Long> orderIds) {
+             ^
+    symbol:   class Invoice
+    location: class InvoiceService
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\service\PaymentService.java:4: error: cannot find symbol
+  import org.example.DAO.OrderRepository;
+                        ^
+    symbol:   class OrderRepository
+    location: package org.example.DAO
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\service\PaymentService.java:6: error: cannot find symbol
+  import org.example.DAO.UserRepository;
+                        ^
+    symbol:   class UserRepository
+    location: package org.example.DAO
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\dto\PaymentRecordDTO.java:9: error: cannot find symbol
+  import org.example.features.payment.entity.PaymentMethod;
+                                            ^
+    symbol:   class PaymentMethod
+    location: package org.example.features.payment.entity
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\dto\PaymentRecordDTO.java:22: error: cannot find symbol
+      private PaymentMethod paymentMethod;
+              ^
+    symbol:   class PaymentMethod
+    location: class PaymentRecordDTO
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\dto\PaymentRecordDTO.java:22: error: cannot find symbol
+      private PaymentMethod paymentMethod;
+                            ^
+    symbol:   class PaymentMethod
+    location: class PaymentRecordDTO
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\dto\PaymentRecordDTO.java:15: error: cannot find symbol
+  @Data
+  ^
+    symbol:   class PaymentMethod
+    location: class PaymentRecordDTO
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\dto\PaymentRecordDTO.java:17: error: cannot find symbol
+  @AllArgsConstructor
+  ^
+    symbol:   class PaymentMethod
+    location: class PaymentRecordDTO
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\service\PaymentService.java:29: error: cannot find symbol
+      private final OrderRepository orderRepository;
+                    ^
+    symbol:   class OrderRepository
+    location: class PaymentService
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\repository\QuoteRepository.java:3: error: cannot find symbol
+  import org.example.entity.Quote;
+                           ^
+    symbol:   class Quote
+    location: package org.example.entity
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\repository\QuoteRepository.java:4: error: cannot find symbol
+  import org.example.entity.QuoteStatus;
+                           ^
+    symbol:   class QuoteStatus
+    location: package org.example.entity
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\service\PaymentService.java:31: error: cannot find symbol
+      private final UserRepository userRepository;
+                    ^
+    symbol:   class UserRepository
+    location: class PaymentService
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\service\PaymentService.java:82: error: cannot find symbol
+      private void checkAndUpdateOrderStatus(Order order) {
+                                             ^
+    symbol:   class Order
+    location: class PaymentService
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\service\PaymentService.java:25: error: cannot find symbol
+  @RequiredArgsConstructor
+  ^
+    symbol:   class OrderRepository
+    location: class PaymentService
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\repository\QuoteRepository.java:20: error: cannot find symbol
+      Optional<Quote> findByOrderId(Long orderId);
+               ^
+    symbol:   class Quote
+    location: interface QuoteRepository
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\repository\QuoteRepository.java:26: error: cannot find symbol
+      Page<Quote> findByStatus(@Param("status") QuoteStatus status, Pageable pageable);
+                                                ^
+    symbol:   class QuoteStatus
+    location: interface QuoteRepository
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\repository\QuoteRepository.java:26: error: cannot find symbol
+      Page<Quote> findByStatus(@Param("status") QuoteStatus status, Pageable pageable);
+           ^
+    symbol:   class Quote
+    location: interface QuoteRepository
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\repository\QuoteRepository.java:32: error: cannot find symbol
+      Page<Quote> findExpiredQuotes(Pageable pageable);
+           ^
+    symbol:   class Quote
+    location: interface QuoteRepository
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\controller\QuoteController.java:5: error: cannot find symbol
+  import org.example.entity.Quote;
+                           ^
+    symbol:   class Quote
+    location: package org.example.entity
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\controller\QuoteController.java:6: error: cannot find symbol
+  import org.example.features.payment.dto.CreateQuoteDTO;
+                                         ^
+    symbol:   class CreateQuoteDTO
+    location: package org.example.features.payment.dto
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\controller\QuoteController.java:7: error: cannot find symbol
+  import org.example.features.payment.service.QuoteService;
+                                             ^
+    symbol:   class QuoteService
+    location: package org.example.features.payment.service
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\controller\QuoteController.java:23: error: cannot find symbol
+      private final QuoteService quoteService;
+                    ^
+    symbol:   class QuoteService
+    location: class QuoteController
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\controller\QuoteController.java:30: error: cannot find symbol
+      public ResponseEntity<?> createQuote(@RequestBody CreateQuoteDTO dto) {
+                                                        ^
+    symbol:   class CreateQuoteDTO
+    location: class QuoteController
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\controller\QuoteController.java:20: error: cannot find symbol
+  @RequiredArgsConstructor
+  ^
+    symbol:   class QuoteService
+    location: class QuoteController
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\service\QuoteService.java:4: error: cannot find symbol
+  import org.example.DAO.OrderRepository;
+                        ^
+    symbol:   class OrderRepository
+    location: package org.example.DAO
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\service\QuoteService.java:7: error: cannot find symbol
+  import org.example.features.payment.dto.CreateQuoteDTO;
+                                         ^
+    symbol:   class CreateQuoteDTO
+    location: package org.example.features.payment.dto
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\service\QuoteService.java:24: error: cannot find symbol
+      private final OrderRepository orderRepository;
+                    ^
+    symbol:   class OrderRepository
+    location: class QuoteService
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\service\QuoteService.java:30: error: cannot find symbol
+      public Quote createQuote(CreateQuoteDTO dto) {
+                               ^
+    symbol:   class CreateQuoteDTO
+    location: class QuoteService
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\service\QuoteService.java:30: error: cannot find symbol
+      public Quote createQuote(CreateQuoteDTO dto) {
+             ^
+    symbol:   class Quote
+    location: class QuoteService
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\service\QuoteService.java:78: error: cannot find symbol
+      public Quote acceptQuote(Long orderId) {
+             ^
+    symbol:   class Quote
+    location: class QuoteService
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\service\QuoteService.java:106: error: cannot find symbol
+      public Quote rejectQuote(Long orderId, String reason) {
+             ^
+    symbol:   class Quote
+    location: class QuoteService
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\service\QuoteService.java:125: error: cannot find symbol
+      public Quote getQuoteByOrderId(Long orderId) {
+             ^
+    symbol:   class Quote
+    location: class QuoteService
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\service\QuoteService.java:20: error: cannot find symbol
+  @RequiredArgsConstructor
+  ^
+    symbol:   class OrderRepository
+    location: class QuoteService
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\quote\repository\QuoteRepository.java:15: error: cannot find symbol
+  public interface QuoteRepository extends JpaRepository<Quote, Long> {
+                                                         ^
+    symbol: class Quote
+  D:\DATT\BE\Template-Project\src\main\java\org\example\features\payment\controller\CompanyController.java:8: error: package org.example.features.company.service does not exist
+  import org.example.features.company.service.CompanyService;
+                                             ^
+  85 errors
+
+* Try:
+> Check your code and dependencies to fix the compilation error(s)
+> Run with --scan to generate a Build Scan (powered by Develocity).
+
+BUILD FAILED in 4s
+2 actionable tasks: 2 executed

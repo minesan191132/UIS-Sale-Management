@@ -1,0 +1,58 @@
+package org.example.features.payment.controller; 
+
+import org.example.features.order.entity.Invoice;
+import org.example.features.order.entity.Order;
+import org.example.features.order.repository.InvoiceRepository;
+import org.example.features.order.repository.OrderRepository;
+import org.example.features.payment.service.InvoiceService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/invoices")
+@CrossOrigin("*")
+public class InvoiceController {
+
+    @Autowired
+    private InvoiceRepository invoiceRepository;
+
+    @Autowired
+    private OrderRepository orderRepository;
+
+    @Autowired
+    private InvoiceService invoiceService;
+
+    // API TẠO PHIẾU XUẤT MỚI
+    // Input: List<Long> orderIds (Danh sách ID đơn hàng được chọn)
+    // Output: Đối tượng Invoice vừa tạo (để lấy ID chuyển trang)
+    @PostMapping("/create")
+    public ResponseEntity<Invoice> createInvoice(@RequestBody List<Long> orderIds) {
+        Invoice newInvoice = invoiceService.createInvoice(orderIds);
+        return ResponseEntity.ok(newInvoice);
+    }
+
+    @GetMapping("/{id}/details")
+    public ResponseEntity<List<Order>> getInvoiceDetails(@PathVariable Long id) {
+        // 1. Kiểm tra phiếu có tồn tại không
+        if (!invoiceRepository.existsById(id)) {
+            return ResponseEntity.notFound().build();
+        }
+
+        // 2. Lấy danh sách đơn hàng thuộc phiếu đó
+        List<Order> orders = orderRepository.findByInvoiceId(id);
+
+        return ResponseEntity.ok(orders);
+    }
+
+    // API Lấy thông tin phiếu (Số phiếu, Ngày tạo) để hiển thị lên Header
+    @GetMapping("/{id}")
+    public ResponseEntity<Invoice> getInvoiceInfo(@PathVariable Long id) {
+        return invoiceRepository.findById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+}

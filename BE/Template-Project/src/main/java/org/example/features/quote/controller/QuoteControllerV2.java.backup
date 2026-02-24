@@ -1,0 +1,109 @@
+package org.example.features.quote.controller;
+
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.example.features.quote.dto.CreateQuoteDTO;
+import org.example.features.quote.dto.QuoteResponseDTO;
+import org.example.features.quote.dto.UpdateQuoteDTO;
+import org.example.features.quote.entity.Quote;
+import org.example.features.quote.exception.QuoteException;
+import org.example.features.quote.service.QuoteService;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
+
+/**
+ * Enhanced REST API for Quote Management
+ * Phiên bản cải tiến với error handling tốt hơn
+ */
+@RestController
+@RequestMapping("/api/v2/quotes")
+@CrossOrigin("*")
+@RequiredArgsConstructor
+public class QuoteControllerV2 {
+
+    private final QuoteService quoteService;
+
+    /**
+     * Create a quote (Admin only)
+     * POST /api/v2/quotes
+     */
+    @PostMapping
+    public ResponseEntity<QuoteResponseDTO> createQuote(@Valid @RequestBody CreateQuoteDTO dto) {
+        Quote quote = quoteService.createQuote(dto);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(QuoteResponseDTO.from(quote));
+    }
+
+    /**
+     * Get quote by order ID
+     * GET /api/v2/quotes/order/{orderId}
+     */
+    @GetMapping("/order/{orderId}")
+    public ResponseEntity<QuoteResponseDTO> getQuoteByOrderId(@PathVariable Long orderId) {
+        Quote quote = quoteService.getQuoteByOrderId(orderId);
+        return ResponseEntity.ok(QuoteResponseDTO.from(quote));
+    }
+
+    /**
+     * Update quote (Admin only)
+     * PUT /api/v2/quotes/order/{orderId}
+     */
+    @PutMapping("/order/{orderId}")
+    public ResponseEntity<QuoteResponseDTO> updateQuote(
+            @PathVariable Long orderId,
+            @Valid @RequestBody UpdateQuoteDTO dto) {
+        Quote quote = quoteService.updateQuote(orderId, dto);
+        return ResponseEntity.ok(QuoteResponseDTO.from(quote));
+    }
+
+    /**
+     * Accept quote (Customer)
+     * POST /api/v2/quotes/order/{orderId}/accept
+     */
+    @PostMapping("/order/{orderId}/accept")
+    public ResponseEntity<QuoteResponseDTO> acceptQuote(@PathVariable Long orderId) {
+        Quote quote = quoteService.acceptQuote(orderId);
+        return ResponseEntity.ok(QuoteResponseDTO.from(quote));
+    }
+
+    /**
+     * Reject quote (Customer)
+     * POST /api/v2/quotes/order/{orderId}/reject
+     */
+    @PostMapping("/order/{orderId}/reject")
+    public ResponseEntity<QuoteResponseDTO> rejectQuote(
+            @PathVariable Long orderId,
+            @RequestBody Map<String, String> request) {
+        String reason = request.getOrDefault("reason", "No reason provided");
+        Quote quote = quoteService.rejectQuote(orderId, reason);
+        return ResponseEntity.ok(QuoteResponseDTO.from(quote));
+    }
+
+    /**
+     * Exception handlers
+     */
+    @ExceptionHandler(QuoteException.QuoteNotFoundException.class)
+    public ResponseEntity<Map<String, String>> handleNotFound(QuoteException.QuoteNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("error", ex.getMessage()));
+    }
+
+    @ExceptionHandler({
+            QuoteException.QuoteAlreadyExistsException.class,
+            QuoteException.QuoteExpiredException.class,
+            QuoteException.InvalidQuoteStatusException.class
+    })
+    public ResponseEntity<Map<String, String>> handleBadRequest(QuoteException ex) {
+        return ResponseEntity.badRequest()
+                .body(Map.of("error", ex.getMessage()));
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, String>> handleIllegalArgument(IllegalArgumentException ex) {
+        return ResponseEntity.badRequest()
+                .body(Map.of("error", ex.getMessage()));
+    }
+}

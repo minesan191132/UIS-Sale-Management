@@ -1,0 +1,204 @@
+package org.example.features.quote.service;
+
+import lombok.RequiredArgsConstructor;
+import org.example.features.order.entity.Order;
+import org.example.features.order.entity.OrderStatus;
+import org.example.features.order.repository.OrderRepository;
+import org.example.features.quote.entity.Quote;
+import org.example.features.quote.entity.QuoteStatus;
+import org.example.features.quote.repository.QuoteRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.example.features.quote.dto.CreateQuoteDTO;
+import org.example.features.quote.dto.UpdateQuoteDTO;
+import org.example.features.quote.exception.QuoteException;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+/**
+ * Service for managing quotes
+ */
+@Service
+@RequiredArgsConstructor
+public class QuoteService {
+
+    private final QuoteRepository quoteRepository;
+    private final OrderRepository orderRepository;
+
+    /**
+     * Create a quote for an order (Admin action)
+     */
+    @Transactional
+    public Quote createQuote(CreateQuoteDTO dto) {
+        // 1. Find the order
+        Order order = orderRepository.findById(dto.getOrderId())
+                .orElseThrow(() -> new IllegalArgumentException("Order not found: " + dto.getOrderId()));
+
+        // 2. Check if quote already exists
+        if (quoteRepository.findByOrderId(dto.getOrderId()).isPresent()) {
+            throw new IllegalArgumentException("Quote already exists for order: " + dto.getOrderId());
+        }
+
+        // 3. Calculate pricing
+        BigDecimal basePrice = dto.getBasePrice();
+        BigDecimal setupCost = dto.getSetupCost() != null ? dto.getSetupCost() : BigDecimal.ZERO;
+        BigDecimal totalPrice = basePrice.add(setupCost);
+
+        int depositPercentage = dto.getDepositPercentage() != null ? dto.getDepositPercentage() : 30;
+        BigDecimal depositRequired = totalPrice
+                .multiply(BigDecimal.valueOf(depositPercentage))
+                .divide(BigDecimal.valueOf(100));
+
+        // 4. Create quote
+        Quote quote = new Quote();
+        quote.setOrder(order);
+        quote.setBasePrice(basePrice);
+        quote.setSetupCost(setupCost);
+        quote.setTotalPrice(totalPrice);
+        quote.setDepositRequired(depositRequired);
+        quote.setDepositPercentage(depositPercentage);
+        quote.setNotes(dto.getNotes());
+        quote.setStatus(QuoteStatus.PENDING);
+
+        // Set expiry date (default 7 days from now)
+        int expiryDays = dto.getExpiryDays() != null ? dto.getExpiryDays() : 7;
+        quote.setExpiresAt(LocalDateTime.now().plusDays(expiryDays));
+
+        Quote savedQuote = quoteRepository.save(quote);
+
+        // 5. Update order status
+        order.setStatus(OrderStatus.WAITING_CONFIRM);
+        orderRepository.save(order);
+
+        return savedQuote;
+    }
+
+    /**
+     * Update an existing quote (Admin only, before customer accepts)
+     */
+    @Transactional
+    public Quote updateQuote(Long orderId, UpdateQuoteDTO dto) {
+        Quote quote = quoteRepository.findByOrderId(orderId)
+                .orElseThrow(() -> new QuoteException.QuoteNotFoundException(orderId));
+
+        // Can only update PENDING quotes
+        if (quote.getStatus() != QuoteStatus.PENDING) {
+            throw new QuoteException.InvalidQuoteStatusException(
+                    "Cannot update quote with status: " + quote.getStatus());
+        }
+
+        // Update pricing if provided
+        if (dto.getBasePrice() != null) {
+            quote.setBasePrice(dto.getBasePrice());
+        }
+
+        if (dto.getSetupCost() != null) {
+            quote.setSetupCost(dto.getSetupCost());
+        }
+
+        // Recalculate totals
+        BigDecimal basePrice = quote.getBasePrice();
+        BigDecimal setupCost = quote.getSetupCost() != null ? quote.getSetupCost() : BigDecimal.ZERO;
+        BigDecimal totalPrice = basePrice.add(setupCost);
+        quote.setTotalPrice(totalPrice);
+
+        // Update deposit percentage if provided
+        if (dto.getDepositPercentage() != null) {
+            quote.setDepositPercentage(dto.getDepositPercentage());
+        }
+
+        // Recalculate deposit
+        BigDecimal depositRequired = totalPrice
+                .multiply(BigDecimal.valueOf(quote.getDepositPercentage()))
+                .divide(BigDecimal.valueOf(100));
+        quote.setDepositRequired(depositRequired);
+
+        // Update notes if provided
+        if (dto.getNotes() != null) {
+            quote.setNotes(dto.getNotes());
+        }
+
+        // Update expiry date if provided
+        if (dto.getExpiryDays() != null) {
+            quote.setExpiresAt(LocalDateTime.now().plusDays(dto.getExpiryDays()));
+        }
+
+        return quoteRepository.save(quote);
+    }
+
+    /**
+     * Customer accepts a quote
+     */
+    @Transactional
+    public Quote acceptQuote(Long orderId) {
+        Quote quote = quoteRepository.findByOrderId(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Quote not found for order: " + orderId));
+
+        if (quote.getStatus() != QuoteStatus.PENDING) {
+            throw new IllegalStateException("Quote is not in PENDING status");
+        }
+
+        if (quote.getExpiresAt() != null && quote.getExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new IllegalStateException("Quote has expired");
+        }
+
+        // Update quote status
+        quote.setStatus(QuoteStatus.ACCEPTED);
+        quoteRepository.save(quote);
+
+        // Update order status to wait for deposit
+        Order order = quote.getOrder();
+        order.setStatus(OrderStatus.DEPOSIT_PENDING);
+        orderRepository.save(order);
+
+        return quote;
+    }
+
+    /**
+     * Customer rejects a quote
+     */
+    @Transactional
+    public Quote rejectQuote(Long orderId, String reason) {
+        Quote quote = quoteRepository.findByOrderId(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Quote not found for order: " + orderId));
+
+        quote.setStatus(QuoteStatus.REJECTED);
+        quote.setNotes(quote.getNotes() + "\nRejection reason: " + reason);
+        quoteRepository.save(quote);
+
+        // Update order status
+        Order order = quote.getOrder();
+        order.setStatus(OrderStatus.CANCELLED);
+        orderRepository.save(order);
+
+        return quote;
+    }
+
+    /**
+     * Get quote by order ID
+     */
+    public Quote getQuoteByOrderId(Long orderId) {
+        return quoteRepository.findByOrderId(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Quote not found for order: " + orderId));
+    }
+
+    /**
+     * Mark expired quotes
+     */
+    @Transactional
+    public void markExpiredQuotes() {
+        Page<Quote> expiredQuotes = quoteRepository.findExpiredQuotes(Pageable.unpaged());
+        expiredQuotes.forEach(quote -> {
+            quote.setStatus(QuoteStatus.EXPIRED);
+            Order order = quote.getOrder();
+            if (order.getStatus() == OrderStatus.WAITING_CONFIRM) {
+                order.setStatus(OrderStatus.CANCELLED);
+                orderRepository.save(order);
+            }
+        });
+        quoteRepository.saveAll(expiredQuotes.getContent());
+    }
+}

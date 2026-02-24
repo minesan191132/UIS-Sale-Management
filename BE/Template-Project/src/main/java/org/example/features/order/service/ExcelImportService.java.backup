@@ -1,0 +1,250 @@
+package org.example.features.order.service;
+
+import lombok.RequiredArgsConstructor;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.example.features.company.entity.Company;
+import org.example.features.company.repository.CompanyRepository;
+import org.example.features.order.dto.ExcelImportRowDTO;
+import org.example.features.order.dto.MaterialDetailDTO;
+import org.example.features.order.entity.MasterInventoryDTO;
+import org.example.features.order.entity.Order;
+import org.example.features.order.entity.OrderItem;
+import org.example.features.order.entity.OrderStatus;
+import org.example.features.order.repository.OrderItemRepository;
+import org.example.features.order.repository.OrderRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+public class ExcelImportService {
+
+    private final OrderRepository orderRepository;
+    private final OrderItemRepository orderItemRepository;
+    private final CompanyRepository companyRepository;
+
+    // --- 1. LOGIC LƯU DỮ LIỆU (Transactional) ---
+    @Transactional // Bắt buộc để Hibernate thực hiện xóa/thêm cùng lúc
+    public void saveExcelData(MultipartFile file, Long companyId) {
+        try {
+            // 1. Đọc file Excel
+            List<ExcelImportRowDTO> rawRows = parseExcelFile(file.getInputStream());
+
+            // 2. Fetch company
+            Company company = companyRepository.findById(companyId)
+                    .orElseThrow(() -> new IllegalArgumentException("Company not found: " + companyId));
+
+            // 3. Gom nhóm theo VNN No
+            Map<String, List<ExcelImportRowDTO>> groupedByVnn = rawRows.stream()
+                    .collect(Collectors.groupingBy(ExcelImportRowDTO::getVnnNo));
+
+            // 4. Xử lý từng nhóm
+            processGroups(groupedByVnn, company);
+
+        } catch (IOException e) {
+            throw new RuntimeException("Lỗi import: " + e.getMessage());
+        }
+    }
+
+    private void processGroups(Map<String, List<ExcelImportRowDTO>> groupedByVnn, Company company) {
+        for (Map.Entry<String, List<ExcelImportRowDTO>> entry : groupedByVnn.entrySet()) {
+            String vnnNo = entry.getKey();
+            List<ExcelImportRowDTO> rows = entry.getValue();
+
+            // A. TÌM ĐƠN CŨ HOẶC TẠO MỚI (Upsert Logic)
+            Order order = orderRepository.findByOrderCode(vnnNo)
+                    .orElse(new Order());
+
+            // B. CẬP NHẬT THÔNG TIN CHUNG
+            if (order.getId() == null) {
+                order.setOrderCode(vnnNo);
+                order.setCompany(company); // ✅ FIX: Set company for new orders
+                order.setStatus(OrderStatus.PENDING_QUOTE); // Đơn mới
+            }
+            // Luôn cập nhật ngày giao mới nhất từ file Excel
+            if (!rows.isEmpty()) {
+                order.setDeliveryDate(rows.get(0).getDeliveryDate());
+            }
+
+            // C. XÓA ITEMS CŨ - THÊM ITEMS MỚI (Logic chống trùng lặp)
+            if (order.getItems() != null) {
+                order.getItems().clear(); // Hibernate sẽ tự DELETE các dòng cũ trong DB
+            } else {
+                order.setItems(new ArrayList<>());
+            }
+
+            // Map dữ liệu từ Excel sang Entity
+            List<OrderItem> newItems = rows.stream()
+                    .map(row -> mapToOrderItem(row, order))
+                    .collect(Collectors.toList());
+
+            // Thêm items mới vào
+            order.getItems().addAll(newItems);
+
+            // D. LƯU LẠI
+            orderRepository.save(order);
+        }
+    }
+
+    private OrderItem mapToOrderItem(ExcelImportRowDTO dto, Order order) {
+        OrderItem item = new OrderItem();
+        // Mapping dữ liệu chuẩn theo yêu cầu
+        item.setItemCode(dto.getItemCode()); // Item Code
+        item.setDrawingNumber(dto.getDrawingNumber()); // Drawing No
+        item.setPartName(dto.getPartName()); // Part Name
+        item.setSpecification(dto.getSpecification()); // Spec
+        item.setMaterialType(dto.getMaterial()); // Material
+        item.setQuantity(dto.getQuantity()); // Tổng Số Lượng
+
+        item.setOrder(order); // Gắn vào cha
+        return item;
+    }
+
+    // --- 2. LOGIC ĐỌC FILE EXCEL (Theo yêu cầu cột B -> I) ---
+    private List<ExcelImportRowDTO> parseExcelFile(InputStream inputStream) throws IOException {
+        List<ExcelImportRowDTO> list = new ArrayList<>();
+
+        // Dùng try-with-resources để tự đóng file
+        try (Workbook workbook = new XSSFWorkbook(inputStream)) {
+            // Lấy sheet đầu tiên (Index 0) - An toàn nhất
+            int activeSheetIndex = workbook.getActiveSheetIndex();
+            Sheet sheet = workbook.getSheetAt(activeSheetIndex);
+            DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("d/M/yyyy");
+
+            // Logic xử lý Merge Cell (Fill Down)
+            String lastVnnNo = "";
+
+            // Bắt đầu từ dòng 1 (Bỏ Header dòng 0)
+            for (int i = 1; i <= sheet.getLastRowNum(); i++) {
+                Row row = sheet.getRow(i);
+                if (row == null)
+                    continue;
+
+                // --- MAPPING CỘT (Index 0 là STT -> Bỏ qua) ---
+
+                // Cột B (Index 1): VNN NO
+                String currentVnn = getCellValueAsString(row.getCell(1));
+
+                // Cột C (Index 2): Item Code
+                String currentItemCode = getCellValueAsString(row.getCell(2));
+
+                // Xử lý Merge: Nếu VNN rỗng mà ItemCode có dữ liệu -> Lấy VNN dòng trên
+                if (currentVnn.isEmpty() && !currentItemCode.isEmpty()) {
+                    currentVnn = lastVnnNo;
+                } else if (!currentVnn.isEmpty()) {
+                    lastVnnNo = currentVnn;
+                }
+
+                // Nếu vẫn rỗng -> Dòng rác -> Bỏ qua
+                if (currentVnn.isEmpty())
+                    continue;
+
+                ExcelImportRowDTO dto = new ExcelImportRowDTO();
+                dto.setVnnNo(currentVnn);
+                dto.setItemCode(currentItemCode);
+
+                // Cột D (Index 3): Drawing Number
+                dto.setDrawingNumber(getCellValueAsString(row.getCell(3)));
+
+                // Cột E (Index 4): Part Name
+                dto.setPartName(getCellValueAsString(row.getCell(4)));
+
+                // Cột F (Index 5): Spec
+                dto.setSpecification(getCellValueAsString(row.getCell(5)));
+
+                // Cột G (Index 6): Material
+                dto.setMaterial(getCellValueAsString(row.getCell(6)));
+
+                // Cột H (Index 7): QTY (Số lượng)
+                dto.setQuantity(getCellValueAsInt(row.getCell(7)));
+
+                // Cột I (Index 8): Delivery Date
+                dto.setDeliveryDate(getCellValueAsDate(row.getCell(8), dateFormatter));
+
+                list.add(dto);
+            }
+        }
+        return list;
+    }
+
+    // --- 3. CÁC API KHÁC ---
+    public Page<MasterInventoryDTO> getMasterInventory(String keyword, int page, int size) {
+        return orderItemRepository.getDashboardData(keyword, PageRequest.of(page, size));
+    }
+
+    public Page<MaterialDetailDTO> searchMaterials(String search, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        return orderItemRepository.searchMaterials(search, pageable);
+    }
+
+    public Page<Order> getOrders(String startDateStr, String endDateStr, int page, int size) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        LocalDate start = (startDateStr != null && !startDateStr.isEmpty()) ? LocalDate.parse(startDateStr, formatter)
+                : null;
+        LocalDate end = (endDateStr != null && !endDateStr.isEmpty()) ? LocalDate.parse(endDateStr, formatter) : null;
+        return orderRepository.findOrdersByDateRange(start, end, PageRequest.of(page, size));
+    }
+
+    // --- HELPER METHODS ---
+    private String getCellValueAsString(Cell cell) {
+        if (cell == null)
+            return "";
+        CellType type = (cell.getCellType() == CellType.FORMULA) ? cell.getCachedFormulaResultType()
+                : cell.getCellType();
+        if (type == CellType.STRING)
+            return cell.getStringCellValue().trim();
+        if (type == CellType.NUMERIC) {
+            if (DateUtil.isCellDateFormatted(cell))
+                return cell.getDateCellValue().toString();
+            return String.valueOf((long) cell.getNumericCellValue());
+        }
+        return "";
+    }
+
+    private Integer getCellValueAsInt(Cell cell) {
+        if (cell == null)
+            return 0;
+        CellType type = (cell.getCellType() == CellType.FORMULA) ? cell.getCachedFormulaResultType()
+                : cell.getCellType();
+        if (type == CellType.NUMERIC)
+            return (int) cell.getNumericCellValue();
+        if (type == CellType.STRING) {
+            try {
+                return Integer.parseInt(cell.getStringCellValue().trim());
+            } catch (Exception e) {
+                return 0;
+            }
+        }
+        return 0;
+    }
+
+    private LocalDate getCellValueAsDate(Cell cell, DateTimeFormatter formatter) {
+        if (cell == null)
+            return null;
+        try {
+            if (cell.getCellType() == CellType.NUMERIC && DateUtil.isCellDateFormatted(cell)) {
+                return cell.getDateCellValue().toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+            } else if (cell.getCellType() == CellType.STRING && !cell.getStringCellValue().isEmpty()) {
+                return LocalDate.parse(cell.getStringCellValue().trim(), formatter);
+            }
+        } catch (Exception e) {
+            return null;
+        }
+        return null;
+    }
+}

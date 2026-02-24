@@ -1,0 +1,195 @@
+package org.example.features.order.service;
+
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.example.features.order.entity.Order;
+import org.example.features.order.entity.OrderItem;
+import org.example.features.order.repository.OrderRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
+import java.util.stream.Collectors;
+
+@Service
+public class ExportService {
+
+    @Autowired
+    private OrderRepository orderRepository;
+
+    public ByteArrayInputStream exportInvoiceMatrix(List<Long> orderIds) throws IOException {
+        // 1. LẤY DỮ LIỆU
+        List<Order> orders = orderRepository.findAllById(orderIds);
+        orders.sort(Comparator.comparing(Order::getOrderCode));
+
+        List<OrderItem> allItems = orders.stream()
+                .flatMap(o -> o.getItems().stream())
+                .collect(Collectors.toList());
+
+        Map<String, List<OrderItem>> groupedItems = allItems.stream()
+                .collect(Collectors.groupingBy(OrderItem::getDrawingNumber));
+
+        DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
+        // --- MAP DÙNG ĐỂ TÍNH TỔNG CỘT (Mới thêm) ---
+        // Key: OrderCode, Value: Tổng số lượng
+        Map<String, Integer> orderTotalMap = new HashMap<>();
+        for (Order o : orders) {
+            orderTotalMap.put(o.getOrderCode(), 0); // Khởi tạo bằng 0
+        }
+        int grandTotalQuantity = 0; // Tổng của cột "Tổng SL"
+
+        // 2. KHỞI TẠO EXCEL
+        try (Workbook workbook = new XSSFWorkbook();
+             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+
+            Sheet sheet = workbook.createSheet("Packing List");
+
+            // --- STYLE ---
+            // 1. Header Style (Giữ nguyên màu nền tiêu đề)
+            CellStyle headerStyle = workbook.createCellStyle();
+            headerStyle.setFillForegroundColor(IndexedColors.LEMON_CHIFFON.getIndex());
+            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            setCommonBorder(headerStyle);
+            headerStyle.setAlignment(HorizontalAlignment.CENTER);
+            headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+            headerStyle.setWrapText(true);
+            Font headerFont = workbook.createFont();
+            headerFont.setBold(true);
+            headerStyle.setFont(headerFont);
+
+            // 2. Body Style (CHỈ DÙNG MÀU TRẮNG - Bỏ màu xám)
+            CellStyle bodyStyle = workbook.createCellStyle();
+            setCommonBorder(bodyStyle);
+            bodyStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+            // Mặc định là nền trắng, không cần setFillForegroundColor
+
+            // 3. Total Row Style (Style cho dòng Tổng cộng cuối cùng)
+            CellStyle totalStyle = workbook.createCellStyle();
+            setCommonBorder(totalStyle);
+            totalStyle.setFillForegroundColor(IndexedColors.LIGHT_YELLOW.getIndex()); // Màu vàng nhẹ cho dòng tổng nổi bật
+            totalStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            totalStyle.setAlignment(HorizontalAlignment.CENTER);
+            Font totalFont = workbook.createFont();
+            totalFont.setBold(true);
+            totalStyle.setFont(totalFont);
+
+            // --- HEADER ROW ---
+            Row headerRow = sheet.createRow(0);
+            headerRow.setHeightInPoints(40);
+
+            String[] staticHeaders = {"STT", "Drawing No", "Part Name", "Spec", "Material", "Tổng SL"};
+            int colIdx = 0;
+            for (String h : staticHeaders) {
+                createCell(headerRow, colIdx++, h, headerStyle);
+            }
+
+            Map<String, Integer> orderColumnMap = new HashMap<>();
+            for (Order order : orders) {
+                String dateStr = (order.getDeliveryDate() != null) ? order.getDeliveryDate().format(dateFormatter) : "N/A";
+                String headerText = order.getOrderCode() + "\n(" + dateStr + ")";
+
+                createCell(headerRow, colIdx, headerText, headerStyle);
+                sheet.setColumnWidth(colIdx, 3500);
+                orderColumnMap.put(order.getOrderCode(), colIdx);
+                colIdx++;
+            }
+
+            // --- BODY ROWS ---
+            int rowIdx = 1;
+            List<String> sortedKeys = new ArrayList<>(groupedItems.keySet());
+            Collections.sort(sortedKeys);
+
+            for (String drawingNo : sortedKeys) {
+                List<OrderItem> itemsInGroup = groupedItems.get(drawingNo);
+                OrderItem firstItem = itemsInGroup.get(0);
+
+                Row row = sheet.createRow(rowIdx++);
+                row.setHeightInPoints(30);
+
+                // Dùng bodyStyle (Trắng) cho tất cả các dòng
+                createCell(row, 0, String.valueOf(rowIdx - 1), bodyStyle);
+                createCell(row, 1, drawingNo, bodyStyle);
+                createCell(row, 2, firstItem.getPartName(), bodyStyle);
+                createCell(row, 3, firstItem.getSpecification(), bodyStyle);
+                createCell(row, 4, firstItem.getMaterialType(), bodyStyle);
+
+                int totalRowQty = itemsInGroup.stream().mapToInt(OrderItem::getQuantity).sum();
+                grandTotalQuantity += totalRowQty; // Cộng dồn tổng đại
+                createCell(row, 5, String.valueOf(totalRowQty), bodyStyle);
+
+                // Tạo ô trống cho các cột Order trước
+                for (Order o : orders) {
+                    int colIndex = orderColumnMap.get(o.getOrderCode());
+                    createCell(row, colIndex, "", bodyStyle);
+                }
+
+                // Điền số lượng và CỘNG DỒN VÀO MAP TỔNG
+                for (OrderItem item : itemsInGroup) {
+                    String orderCode = item.getOrder().getOrderCode();
+                    if (orderColumnMap.containsKey(orderCode)) {
+                        int colIndex = orderColumnMap.get(orderCode);
+                        int qty = item.getQuantity();
+
+                        // Ghi vào ô
+                        row.getCell(colIndex).setCellValue(qty);
+
+                        // Cộng dồn vào biến tổng của cột đó
+                        orderTotalMap.put(orderCode, orderTotalMap.get(orderCode) + qty);
+                    }
+                }
+            }
+
+            // --- DÒNG TỔNG CỘNG (FOOTER ROW) ---
+            Row totalRow = sheet.createRow(rowIdx);
+            totalRow.setHeightInPoints(35);
+
+            // 1. Ô Nhãn "TỔNG CỘNG" (Gộp cột A -> E)
+            createCell(totalRow, 0, "TỔNG CỘNG", totalStyle);
+            for(int i=1; i<=4; i++) {
+                createCell(totalRow, i, "", totalStyle); // Tạo ô trống có viền để merge không bị lỗi border
+            }
+            sheet.addMergedRegion(new CellRangeAddress(rowIdx, rowIdx, 0, 4)); // Merge A->E
+
+            // 2. Tổng của cột "Tổng SL" (Cột F - index 5)
+            createCell(totalRow, 5, String.valueOf(grandTotalQuantity), totalStyle);
+
+            // 3. Tổng của từng cột Đơn hàng (Các cột sau)
+            for (Order o : orders) {
+                int colIndex = orderColumnMap.get(o.getOrderCode());
+                int totalOfOrder = orderTotalMap.get(o.getOrderCode());
+                createCell(totalRow, colIndex, String.valueOf(totalOfOrder), totalStyle);
+            }
+
+            // --- AUTO SIZE CỘT ---
+            sheet.setColumnWidth(0, 1500); // STT
+            sheet.setColumnWidth(1, 4000); // Drawing No
+            sheet.setColumnWidth(2, 9150); // Part Name
+            sheet.setColumnWidth(3, 7300); // Spec
+            sheet.setColumnWidth(4, 5500); // Material
+            sheet.setColumnWidth(5, 3000); // Tổng SL
+
+            workbook.write(out);
+            return new ByteArrayInputStream(out.toByteArray());
+        }
+    }
+
+    // Hàm phụ set border nhanh
+    private void setCommonBorder(CellStyle style) {
+        style.setBorderBottom(BorderStyle.THIN);
+        style.setBorderTop(BorderStyle.THIN);
+        style.setBorderRight(BorderStyle.THIN);
+        style.setBorderLeft(BorderStyle.THIN);
+    }
+
+    private void createCell(Row row, int col, String value, CellStyle style) {
+        Cell cell = row.createCell(col);
+        cell.setCellValue(value);
+        cell.setCellStyle(style);
+    }
+}

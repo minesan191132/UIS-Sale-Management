@@ -1,0 +1,90 @@
+package org.example.features.payment.controller;
+
+import lombok.RequiredArgsConstructor;
+
+import org.example.features.payment.dto.PaymentRecordDTO;
+import org.example.features.payment.dto.PaymentSummaryDTO;
+import org.example.features.payment.entity.Payment;
+import org.example.features.payment.service.PaymentService;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
+
+/**
+ * REST API for payment management
+ */
+@RestController
+@RequestMapping("/api/payments")
+@CrossOrigin("*")
+@RequiredArgsConstructor
+public class PaymentController {
+
+    private final PaymentService paymentService;
+
+    /**
+     * Record a new payment
+     * POST /api/payments
+     */
+    @PostMapping
+    public ResponseEntity<?> recordPayment(@RequestBody PaymentRecordDTO dto) {
+        try {
+            Payment payment = paymentService.recordPayment(dto);
+            return ResponseEntity.status(HttpStatus.CREATED).body(payment);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Verify a payment (Admin only)
+     * PUT /api/payments/admin/{paymentId}/verify
+     */
+    @PutMapping("/admin/{paymentId}/verify")
+    public ResponseEntity<?> verifyPayment(
+            @PathVariable Long paymentId,
+            @RequestParam Long adminUserId) {
+        try {
+            Payment payment = paymentService.verifyPayment(paymentId, adminUserId);
+            return ResponseEntity.ok(payment);
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Get payment summary for an order
+     * GET /api/payments/orders/{orderId}/summary
+     */
+    @GetMapping("/orders/{orderId}/summary")
+    public ResponseEntity<?> getPaymentSummary(@PathVariable Long orderId) {
+        try {
+            PaymentSummaryDTO summary = paymentService.getPaymentSummary(orderId);
+            return ResponseEntity.ok(summary);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Get payment history for an order
+     * GET /api/payments/orders/{orderId}/history
+     */
+    @GetMapping("/orders/{orderId}/history")
+    public ResponseEntity<List<Payment>> getPaymentHistory(@PathVariable Long orderId) {
+        List<Payment> payments = paymentService.getPaymentHistory(orderId);
+        return ResponseEntity.ok(payments);
+    }
+
+    /**
+     * Get all unverified payments (Admin only)
+     * GET /api/payments/admin/unverified
+     */
+    @GetMapping("/admin/unverified")
+    public ResponseEntity<List<Payment>> getUnverifiedPayments() {
+        List<Payment> payments = paymentService.getUnverifiedPayments();
+        return ResponseEntity.ok(payments);
+    }
+}

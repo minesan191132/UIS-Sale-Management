@@ -1,0 +1,177 @@
+package org.example.features.payment.service;
+
+import lombok.RequiredArgsConstructor;
+import org.example.features.order.repository.OrderRepository;
+import org.example.features.quote.repository.QuoteRepository;
+import org.example.features.company.repository.UserRepository;
+import org.example.features.order.entity.Order;
+import org.example.features.order.entity.OrderStatus;
+import org.example.features.quote.entity.Quote;
+import org.example.features.company.entity.User;
+import org.example.features.payment.dto.PaymentRecordDTO;
+import org.example.features.payment.dto.PaymentSummaryDTO;
+import org.example.features.payment.entity.Payment;
+import org.example.features.payment.repository.PaymentRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.stream.Collectors;
+
+/**
+ * Service for managing payments
+ */
+@Service
+@RequiredArgsConstructor
+public class PaymentService {
+
+    private final PaymentRepository paymentRepository;
+    private final OrderRepository orderRepository;
+    private final QuoteRepository quoteRepository;
+    private final UserRepository userRepository;
+
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+    /**
+     * Record a new payment (customer or admin)
+     */
+    @Transactional
+    public Payment recordPayment(PaymentRecordDTO dto) {
+        Order order = orderRepository.findById(dto.getOrderId())
+                .orElseThrow(() -> new IllegalArgumentException("Order not found: " + dto.getOrderId()));
+
+        Payment payment = new Payment();
+        payment.setOrder(order);
+        payment.setAmount(dto.getAmount());
+        payment.setPaymentType(dto.getPaymentType());
+        payment.setPaymentMethod(dto.getPaymentMethod());
+        payment.setTransactionRef(dto.getTransactionRef());
+        payment.setNotes(dto.getNotes());
+
+        return paymentRepository.save(payment);
+    }
+
+    /**
+     * Verify a payment (Admin action)
+     */
+    @Transactional
+    public Payment verifyPayment(Long paymentId, Long adminUserId) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new IllegalArgumentException("Payment not found: " + paymentId));
+
+        if (payment.isVerified()) {
+            throw new IllegalStateException("Payment already verified");
+        }
+
+        User admin = userRepository.findById(adminUserId)
+                .orElseThrow(() -> new IllegalArgumentException("Admin user not found: " + adminUserId));
+
+        payment.setVerifiedAt(LocalDateTime.now());
+        payment.setVerifiedBy(admin);
+        Payment savedPayment = paymentRepository.save(payment);
+
+        // Check if deposit requirement is met
+        checkAndUpdateOrderStatus(payment.getOrder());
+
+        return savedPayment;
+    }
+
+    /**
+     * Check deposit and update order status
+     */
+    private void checkAndUpdateOrderStatus(Order order) {
+        Quote quote = quoteRepository.findByOrderId(order.getId()).orElse(null);
+        if (quote == null) {
+            return; // No quote, no deposit requirement
+        }
+
+        BigDecimal totalPaid = getTotalVerifiedPayments(order.getId());
+        BigDecimal depositRequired = quote.getDepositRequired();
+
+        // If deposit is met, move to IN_PRODUCTION
+        if (totalPaid.compareTo(depositRequired) >= 0 && order.getStatus() == OrderStatus.DEPOSIT_PENDING) {
+            order.setStatus(OrderStatus.IN_PRODUCTION);
+            orderRepository.save(order);
+        }
+    }
+
+    /**
+     * Calculate total verified payments for an order
+     */
+    public BigDecimal getTotalVerifiedPayments(Long orderId) {
+        return paymentRepository.getTotalVerifiedPaymentsByOrder(orderId);
+    }
+
+    /**
+     * Calculate remaining balance
+     */
+    public BigDecimal getRemainingBalance(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderId));
+
+        Quote quote = quoteRepository.findByOrderId(orderId).orElse(null);
+        if (quote == null) {
+            return BigDecimal.ZERO;
+        }
+
+        BigDecimal totalPrice = quote.getTotalPrice();
+        BigDecimal totalPaid = getTotalVerifiedPayments(orderId);
+
+        return totalPrice.subtract(totalPaid);
+    }
+
+    /**
+     * Get payment summary for an order
+     */
+    public PaymentSummaryDTO getPaymentSummary(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderId));
+
+        Quote quote = quoteRepository.findByOrderId(orderId).orElse(null);
+
+        BigDecimal totalPrice = quote != null ? quote.getTotalPrice() : BigDecimal.ZERO;
+        BigDecimal depositRequired = quote != null ? quote.getDepositRequired() : BigDecimal.ZERO;
+        BigDecimal totalPaid = getTotalVerifiedPayments(orderId);
+        BigDecimal remainingBalance = totalPrice.subtract(totalPaid);
+
+        List<Payment> payments = paymentRepository.findByOrderId(orderId);
+        List<PaymentSummaryDTO.PaymentHistoryDTO> history = payments.stream()
+                .map(p -> new PaymentSummaryDTO.PaymentHistoryDTO(
+                        p.getId(),
+                        p.getAmount(),
+                        p.getPaymentType().toString(),
+                        p.getPaymentMethod().toString(),
+                        p.getTransactionRef(),
+                        p.getCreatedAt().format(DATE_FORMATTER),
+                        p.getVerifiedAt() != null ? p.getVerifiedAt().format(DATE_FORMATTER) : null,
+                        p.isVerified()))
+                .collect(Collectors.toList());
+
+        return new PaymentSummaryDTO(
+                orderId,
+                order.getOrderCode(),
+                totalPrice,
+                depositRequired,
+                totalPaid,
+                remainingBalance,
+                order.getStatus().toString(),
+                history);
+    }
+
+    /**
+     * Get all unverified payments
+     */
+    public List<Payment> getUnverifiedPayments() {
+        return paymentRepository.findUnverifiedPayments();
+    }
+
+    /**
+     * Get payment history for an order
+     */
+    public List<Payment> getPaymentHistory(Long orderId) {
+        return paymentRepository.findByOrderId(orderId);
+    }
+}

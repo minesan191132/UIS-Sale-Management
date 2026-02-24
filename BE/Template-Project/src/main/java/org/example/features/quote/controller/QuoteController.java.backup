@@ -1,0 +1,82 @@
+package org.example.features.quote.controller;
+
+import lombok.RequiredArgsConstructor;
+import org.example.features.quote.dto.CreateQuoteDTO;
+import org.example.features.quote.entity.Quote;
+import org.example.features.quote.service.QuoteService;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
+
+/**
+ * REST API for quote management
+ */
+@RestController
+@RequestMapping("/api/quotes")
+@CrossOrigin("*")
+@RequiredArgsConstructor
+public class QuoteController {
+
+    private final QuoteService quoteService;
+
+    /**
+     * Create a quote (Admin only)
+     * POST /api/quotes/admin
+     */
+    @PostMapping("/admin")
+    public ResponseEntity<?> createQuote(@RequestBody CreateQuoteDTO dto) {
+        try {
+            Quote quote = quoteService.createQuote(dto);
+            return ResponseEntity.status(HttpStatus.CREATED).body(quote);
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Get quote by order ID
+     * GET /api/quotes/by-order/{orderId}
+     */
+    @GetMapping("/by-order/{orderId}")
+    public ResponseEntity<?> getQuoteByOrderId(@PathVariable Long orderId) {
+        try {
+            Quote quote = quoteService.getQuoteByOrderId(orderId);
+            return ResponseEntity.ok(quote);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    /**
+     * Accept a quote (Customer)
+     * POST /api/quotes/by-order/{orderId}/accept
+     */
+    @PostMapping("/by-order/{orderId}/accept")
+    public ResponseEntity<?> acceptQuote(@PathVariable Long orderId) {
+        try {
+            Quote quote = quoteService.acceptQuote(orderId);
+            return ResponseEntity.ok(quote);
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Reject a quote (Customer)
+     * POST /api/quotes/by-order/{orderId}/reject
+     */
+    @PostMapping("/by-order/{orderId}/reject")
+    public ResponseEntity<?> rejectQuote(
+            @PathVariable Long orderId,
+            @RequestBody Map<String, String> request) {
+        try {
+            String reason = request.getOrDefault("reason", "No reason provided");
+            Quote quote = quoteService.rejectQuote(orderId, reason);
+            return ResponseEntity.ok(quote);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+}
