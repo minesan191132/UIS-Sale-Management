@@ -1,0 +1,93 @@
+
+=== CategoryRepository.java ===
+Package: org.example.features.catalog.repository
+Interface: CategoryRepository
+Extends: JpaRepository<Category, Long>
+  + Optional<Category> findBySlug(String slug);
+  + List<Category> findByIsActiveTrueOrderByDisplayOrderAsc();
+  + List<Category> findRootCategories();
+  + List<Category> findByParentIdAndIsActiveTrueOrderByDisplayOrderAsc(Long parentId);
+
+=== ProductRepository.java ===
+Package: org.example.features.catalog.repository
+Interface: ProductRepository
+Extends: JpaRepository<Product, Long>
+  + Optional<Product> findBySku(String sku);
+  + Optional<Product> findBySlug(String slug);
+  + Page<Product> findByIsActiveTrue(Pageable pageable);
+  + Page<Product> findByCategoryIdAndIsActiveTrue(Long categoryId, Pageable pageable);
+  + Page<Product> searchProducts(@Param("keyword") String keyword, Pageable pageable);
+
+=== CompanyRepository.java ===
+Package: org.example.features.company.repository
+Interface: CompanyRepository
+Extends: JpaRepository<Company, Long>
+  + Optional<Company> findByTaxCode(String taxCode);
+  + Pageable pageable);
+  + Page<Company> searchCompanies(@Param("keyword") String keyword, Pageable pageable);
+  + boolean existsByTaxCode(String taxCode);
+
+=== UserRepository.java ===
+Package: org.example.features.company.repository
+Interface: UserRepository
+Extends: JpaRepository<User, Long>
+  + Optional<User> findByUsername(String username);
+  + Optional<User> findByEmail(String email);
+  + boolean existsByEmail(String email);
+  + List<User> findByCompanyId(Long companyId);
+
+=== InvoiceRepository.java ===
+Package: org.example.features.order.repository
+Interface: InvoiceRepository
+Extends: JpaRepository<Invoice, Long>
+  + Optional<Invoice> findByInvoiceNo(String invoiceNO);
+
+=== OrderItemRepository.java ===
+Package: org.example.features.order.repository
+Interface: OrderItemRepository
+Extends: JpaRepository<OrderItem, Long>
+
+=== OrderRepository.java ===
+Package: org.example.features.order.repository
+Interface: OrderRepository
+Extends: JpaRepository<Order, Long>
+  + Optional<Order> findByOrderNumber(String orderNumber);
+  + Page<Order> findByUserId(@Param("userId") Long userId, Pageable pageable);
+  + Page<Order> findByStatus(OrderStatus status, Pageable pageable);
+  + Page<Order> findByCompanyId(@Param("companyId") Long companyId, Pageable pageable);
+  + long countTodayOrders();
+
+=== PaymentRepository.java ===
+Package: org.example.features.payment.repository
+Interface: PaymentRepository
+Extends: JpaRepository<Payment, Long>
+  + List<Payment> findByOrderId(Long orderId);
+  + List<Payment> findVerifiedPaymentsByOrderId(@Param("orderId") Long orderId);
+  + BigDecimal getTotalVerifiedPaymentsByOrder(@Param("orderId") Long orderId);
+  + List<Payment> findByPaymentType(PaymentType paymentType);
+  + List<Payment> findUnverifiedPayments();
+
+=== BatchItemRepository.java ===
+Package: org.example.features.production.repository
+Interface: BatchItemRepository
+Extends: JpaRepository<BatchItem, Long>
+  + List<BatchItem> findByBatchId(@Param("batchId") Long batchId);
+  + List<BatchItem> findByDrawingNumber(String drawingNumber);
+  + Integer getTotalQuantityByDrawingNumber(@Param("drawingNumber") String drawingNumber);
+
+=== ProductionBatchRepository.java ===
+Package: org.example.features.production.repository
+Interface: ProductionBatchRepository
+Extends: JpaRepository<ProductionBatch, Long>
+  + Optional<ProductionBatch> findByBatchCode(String batchCode);
+  + Pageable pageable);
+  + List<ProductionBatch> findTop10ByOrderByCreatedAtDesc();
+  + List<ProductionBatch> findUnprintedBatches();
+
+=== QuoteRepository.java ===
+Package: org.example.features.quote.repository
+Interface: QuoteRepository
+Extends: JpaRepository<Quote, Long>
+  + Optional<Quote> findByOrderId(Long orderId);
+  + Page<Quote> findByStatus(@Param("status") QuoteStatus status, Pageable pageable);
+  + Page<Quote> findExpiredQuotes(Pageable pageable);

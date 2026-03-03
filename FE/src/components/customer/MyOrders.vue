@@ -1,13 +1,39 @@
 <template>
-  <div class="container py-5 mt-5">
-    <h2 class="mb-4">
-      <i class="bi bi-list-check me-2"></i>Đơn Hàng Của Tôi
-    </h2>
+  <div class="container py-5 mt-5 page-container">
+    <div class="d-flex justify-content-between align-items-center mb-4 fade-in">
+      <h2 class="mb-0">
+        <i class="bi bi-list-check me-2 text-primary"></i>Đơn Hàng Của Tôi
+      </h2>
+      <div class="d-flex gap-2">
+        <router-link to="/create-order" class="btn btn-outline-primary shadow-sm hover-elevate">
+          <i class="bi bi-plus-circle me-1"></i>Tạo đơn mới
+        </router-link>
+        <router-link to="/" class="btn btn-primary btn-glow shadow hover-elevate">
+          <i class="bi bi-house-door me-1"></i>Trang chủ
+        </router-link>
+      </div>
+    </div>
 
-    <!-- Loading -->
-    <div v-if="isLoading" class="text-center py-5">
-      <div class="spinner-border text-primary" role="status">
-        <span class="visually-hidden">Đang tải...</span>
+    <!-- Skeleton Loading -->
+    <div v-if="isLoading" class="row g-3">
+      <div v-for="i in 3" :key="i" class="col-12">
+        <div class="card shadow-sm border-0 skeleton-card">
+          <div class="card-body">
+            <div class="row align-items-center">
+              <div class="col-md-6">
+                <div class="skeleton-text skeleton-title mb-2"></div>
+                <div class="skeleton-text skeleton-line w-50 mb-1"></div>
+                <div class="skeleton-text skeleton-line w-25 mb-2"></div>
+                <div class="skeleton-text skeleton-badge"></div>
+              </div>
+              <div class="col-md-6 text-md-end mt-3 mt-md-0">
+                <div class="skeleton-text skeleton-line w-25 ms-auto mb-1"></div>
+                <div class="skeleton-text skeleton-line w-50 ms-auto mb-3"></div>
+                <div class="skeleton-button ms-auto"></div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -23,9 +49,9 @@
     </div>
 
     <!-- Orders List -->
-    <div v-else>
+    <div v-else class="stagger-list">
       <div class="row g-3">
-        <div v-for="order in orders" :key="order.id" class="col-12">
+        <div v-for="(order, index) in orders" :key="order.id" class="col-12 slide-up" :style="{ animationDelay: `${index * 0.1}s` }">
           <div class="card shadow-sm border-0 hover-card">
             <div class="card-body">
               <div class="row align-items-center">
@@ -64,7 +90,7 @@
 
                   <!-- Actions -->
                   <div class="d-flex gap-2 justify-content-md-end flex-wrap">
-                    <button @click="viewOrderDetail(order)" class="btn btn-outline-primary btn-sm">
+                    <button @click="openDetailModal(order)" class="btn btn-outline-primary btn-sm">
                       <i class="bi bi-eye me-1"></i>Xem chi tiết
                     </button>
                     <button 
@@ -100,18 +126,140 @@
         </ul>
       </nav>
     </div>
+
+    <!-- Detail Modal - Teleported to body to fix backdrop z-index -->
+    <Teleport to="body">
+    <div class="modal fade" id="detailModal" tabindex="-1" ref="detailModalRef">
+      <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content" v-if="selectedOrder">
+          <div class="modal-header">
+            <h5 class="modal-title">
+              <i class="bi bi-file-earmark-text me-2"></i>
+              Chi tiết đơn hàng — {{ selectedOrder.orderNumber }}
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <!-- Order Info -->
+            <div class="row mb-3 pb-3 border-bottom">
+              <div class="col-md-4">
+                <p class="mb-1"><strong>Trạng thái:</strong> 
+                  <span :class="getStatusBadgeClass(selectedOrder.status)">{{ getStatusText(selectedOrder.status) }}</span>
+                </p>
+                <p class="mb-1"><strong>Ngày tạo:</strong> {{ formatDate(selectedOrder.createdAt) }}</p>
+              </div>
+              <div class="col-md-4">
+                <p class="mb-1" v-if="selectedOrder.totalPrice">
+                  <strong>Tổng giá trị:</strong> 
+                  <span class="text-primary fw-bold">{{ formatCurrency(selectedOrder.totalPrice) }}</span>
+                </p>
+                <p class="mb-1" v-if="selectedOrder.depositAmount">
+                  <strong>Cọc trước:</strong>
+                  <span class="text-success fw-bold">{{ formatCurrency(selectedOrder.depositAmount) }}</span>
+                </p>
+              </div>
+              <div class="col-md-4">
+                <p class="mb-1"><strong>Số sản phẩm:</strong> {{ selectedOrder.items?.length || 0 }}</p>
+              </div>
+            </div>
+
+            <!-- Items Table - scrollable, same format as admin -->
+            <h6 class="mb-3 mt-2">Danh sách vật tư ({{ selectedOrder.items?.length || 0 }} items)</h6>
+            <div class="table-responsive" style="max-height: 450px; overflow-y: auto;">
+              <table class="table table-bordered table-sm table-hover align-middle mb-0 animated-table uniform-table" style="font-size: 0.85rem; table-layout: fixed; width: 100%;">
+                <thead class="table-light" style="position: sticky; top: 0; z-index: 1;">
+                  <tr>
+                    <th class="text-center cell-uniform" style="width: 4%">STT</th>
+                    <th class="cell-uniform" style="width: 14%">VNN_NO</th>
+                    <th class="cell-uniform" style="width: 10%">Item Code<br><small class="text-muted fw-normal">品目コード</small></th>
+                    <th class="cell-uniform" style="width: 10%">Drawing No.<br><small class="text-muted fw-normal">図番</small></th>
+                    <th class="cell-uniform" style="width: 18%">Parts Name<br><small class="text-muted fw-normal">品名</small></th>
+                    <th class="cell-uniform" style="width: 14%">Spec<br><small class="text-muted fw-normal">型式</small></th>
+                    <th class="cell-uniform" style="width: 8%">Material<br><small class="text-muted fw-normal">材質</small></th>
+                    <th class="text-center cell-uniform" style="width: 5%">QTY</th>
+                    <th class="text-end cell-uniform" style="width: 9%">Đơn giá<br><small class="text-muted fw-normal">VNĐ</small></th>
+                    <th class="text-end cell-uniform" style="width: 9%">Thành tiền<br><small class="text-muted fw-normal">VNĐ</small></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(item, index) in selectedOrder.items" :key="item.id">
+                    <td class="text-center cell-uniform">{{ index + 1 }}</td>
+                    <td class="cell-uniform cell-truncate">{{ item.unit || '—' }}</td>
+                    <td class="cell-uniform cell-truncate">{{ item.itemCode || '—' }}</td>
+                    <td class="cell-uniform cell-truncate">{{ item.drawingNumber || '—' }}</td>
+                    <td class="cell-uniform cell-truncate">{{ item.itemName || '—' }}</td>
+                    <td class="cell-uniform cell-truncate">{{ item.specification || '—' }}</td>
+                    <td class="cell-uniform cell-truncate">{{ item.material || '—' }}</td>
+                    <td class="text-center fw-bold cell-uniform">{{ item.quantity }}</td>
+                    <td class="text-end cell-uniform">
+                      <span v-if="item.unitPrice">{{ formatNumber(item.unitPrice) }}</span>
+                      <span v-else class="text-muted">—</span>
+                    </td>
+                    <td class="text-end cell-uniform">
+                      <span v-if="item.totalItemPrice" class="fw-bold">{{ formatNumber(item.totalItemPrice) }}</span>
+                      <span v-else class="text-muted">—</span>
+                    </td>
+                  </tr>
+                </tbody>
+                <tfoot v-if="selectedOrder.totalPrice">
+                  <tr class="table-light">
+                    <td colspan="9" class="text-end fw-bold py-2">Tổng giá trị đơn hàng:</td>
+                    <td class="text-end fw-bold py-2 text-primary fs-6">{{ formatNumber(selectedOrder.totalPrice) }}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            <!-- Review Status Summary (if items have been reviewed) -->
+            <div v-if="hasReviewedItems" class="mt-3">
+              <h6 class="mb-2">Trạng thái review</h6>
+              <div class="d-flex gap-2 flex-wrap">
+                <span class="badge bg-success">Đã duyệt: {{ reviewCounts.approved }}</span>
+                <span v-if="reviewCounts.rejected > 0" class="badge bg-danger">Từ chối: {{ reviewCounts.rejected }}</span>
+                <span v-if="reviewCounts.discussion > 0" class="badge bg-warning text-dark">Cần trao đổi: {{ reviewCounts.discussion }}</span>
+                <span v-if="reviewCounts.pending > 0" class="badge bg-secondary">Chờ review: {{ reviewCounts.pending }}</span>
+              </div>
+              <!-- Rejected/Discussion notes visible to customer -->
+              <div v-for="item in selectedOrder.items" :key="'note-' + item.id" class="mt-1">
+                <div v-if="item.adminNote && (item.reviewStatus === 'REJECTED' || item.reviewStatus === 'NEED_DISCUSSION')" 
+                  class="alert py-1 px-2 mb-1"
+                  :class="item.reviewStatus === 'REJECTED' ? 'alert-danger' : 'alert-warning'"
+                  style="font-size: 0.8rem">
+                  <strong>{{ item.itemName }}:</strong> {{ item.adminNote }}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+            <button 
+              v-if="selectedOrder.status === 'AWAITING_PAYMENT'" 
+              @click="showPaymentQR(selectedOrder)" 
+              class="btn btn-success">
+              <i class="bi bi-qr-code me-1"></i>Thanh toán
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import Swal from 'sweetalert2'
 import apiClient from '../../services/api'
+import { Modal } from 'bootstrap'
 
 const orders = ref([])
 const isLoading = ref(false)
 const currentPage = ref(0)
 const totalPages = ref(0)
+const selectedOrder = ref(null)
+const detailModalRef = ref(null)
+let bsModal = null
 
 onMounted(() => {
   loadOrders()
@@ -134,131 +282,37 @@ const loadOrders = async (page = 0) => {
   }
 }
 
-const viewOrderDetail = (order) => {
-  let currentPage = 0
-  const itemsPerPage = 5
-  const totalPages = Math.ceil((order.items?.length || 0) / itemsPerPage)
+const openDetailModal = async (order) => {
+  try {
+    const response = await apiClient.get(`/orders/${order.id}`)
+    selectedOrder.value = response.data
+    await nextTick()
 
-  const showPage = (page) => {
-    currentPage = page
-    const startIdx = page * itemsPerPage
-    const endIdx = startIdx + itemsPerPage
-    const pageItems = order.items.slice(startIdx, endIdx)
-
-    // Build paginated items HTML with all 8 columns
-    const itemsHtml = pageItems.map((item, idx) => `
-      <tr>
-        <td class="text-center" style="width: 50px;">${startIdx + idx + 1}</td>
-        <td style="width: 100px;"><small>${item.itemCode || '-'}</small></td>
-        <td style="width: 120px;"><small>${item.drawingNumber || '-'}</small></td>
-        <td>${item.itemName}</td>
-        <td style="width: 150px;"><small>${item.specification || '-'}</small></td>
-        <td style="width: 100px;"><small>${item.materialType || item.material || '-'}</small></td>
-        <td class="text-center" style="width: 80px;">${item.quantity}</td>
-        <td style="width: 100px;"><small>${extractDeliveryDate(item.notes)}</small></td>
-      </tr>
-    `).join('')
-
-    // Pagination controls
-    const paginationHtml = totalPages > 1 ? `
-      <nav class="mt-3">
-        <ul class="pagination pagination-sm justify-content-center mb-0">
-          <li class="page-item ${page === 0 ? 'disabled' : ''}">
-            <a class="page-link" href="#" data-page="${page - 1}">
-              <i class="bi bi-chevron-left"></i>
-            </a>
-          </li>
-          ${Array.from({ length: totalPages }, (_, i) => `
-            <li class="page-item ${i === page ? 'active' : ''}">
-              <a class="page-link" href="#" data-page="${i}">${i + 1}</a>
-            </li>
-          `).join('')}
-          <li class="page-item ${page >= totalPages - 1 ? 'disabled' : ''}">
-            <a class="page-link" href="#" data-page="${page + 1}">
-              <i class="bi bi-chevron-right"></i>
-            </a>
-          </li>
-        </ul>
-      </nav>
-    ` : ''
-
-    Swal.fire({
-      title: `Chi tiết đơn hàng ${order.orderNumber}`,
-      html: `
-        <div class="text-start" style="max-height: 70vh; overflow-y: auto;">
-          <!-- Header Info -->
-          <div class="mb-3 pb-3 border-bottom">
-            <div class="row g-2" style="font-size: 0.9rem;">
-              <div class="col-md-6">
-                <p class="mb-1"><strong>Trạng thái:</strong> ${getStatusText(order.status)}</p>
-                <p class="mb-1"><strong>Ngày tạo:</strong> ${formatDate(order.createdAt)}</p>
-              </div>
-              <div class="col-md-6">
-                ${order.totalPrice ? `<p class="mb-1"><strong>Tổng giá trị:</strong> ${formatCurrency(order.totalPrice)}</p>` : ''}
-                ${order.depositAmount ? `<p class="mb-1"><strong>Cọc trước:</strong> ${formatCurrency(order.depositAmount)}</p>` : ''}
-              </div>
-            </div>
-            <!-- VNN, NO - không lặp lại mỗi row -->
-            <div class="row g-2 mt-2" style="font-size: 0.85rem;">
-              <div class="col-md-6">
-                <p class="mb-0"><strong>VNN:</strong> ${order.customer?.companyName || order.companyName || '-'}</p>
-              </div>
-              <div class="col-md-6">
-                <p class="mb-0"><strong>NO:</strong> ${order.orderNumber}</p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Items Table -->
-          <h6 class="mb-2">Danh sách sản phẩm (${order.items?.length || 0} items, trang ${page + 1}/${totalPages})</h6>
-          <div class="table-responsive">
-            <table class="table table-sm table-bordered" style="font-size: 0.85rem;">
-              <thead class="table-light">
-                <tr>
-                  <th>STT</th>
-                  <th>Item Code</th>
-                  <th>Drawing Number<br/><small class="text-muted">図面</small></th>
-                  <th>Parts Name (JAPAN)<br/><small>品名 (日本)</small></th>
-                  <th>Spec.型式</th>
-                  <th>Material材質</th>
-                  <th>QTY</th>
-                  <th>納期時間<br/><small>Delivery</small></th>
-                </tr>
-              </thead>
-              <tbody>
-                ${itemsHtml}
-              </tbody>
-            </table>
-          </div>
-
-          ${paginationHtml}
-        </div>
-      `,
-      width: '900px',
-      confirmButtonText: 'Đóng',
-      didOpen: () => {
-        // Add pagination click handlers
-        document.querySelectorAll('.page-link').forEach(link => {
-          link.addEventListener('click', (e) => {
-            e.preventDefault()
-            const targetPage = parseInt(e.currentTarget.dataset.page)
-            if (targetPage >= 0 && targetPage < totalPages) {
-              showPage(targetPage)
-            }
-          })
-        })
-      }
-    })
+    if (!bsModal && detailModalRef.value) {
+      bsModal = new Modal(detailModalRef.value)
+    }
+    bsModal?.show()
+  } catch (error) {
+    console.error('Failed to load order detail:', error)
+    Swal.fire('Lỗi', 'Không thể tải chi tiết đơn hàng', 'error')
   }
-
-  showPage(0) // Start with first page
 }
 
-const extractDeliveryDate = (notes) => {
-  if (!notes) return '-'
-  const match = notes.match(/Ngày giao:\s*(.+)/)
-  return match ? match[1] : notes
-}
+const hasReviewedItems = computed(() => {
+  if (!selectedOrder.value?.items) return false
+  return selectedOrder.value.items.some(i => i.reviewStatus && i.reviewStatus !== 'PENDING_REVIEW')
+})
+
+const reviewCounts = computed(() => {
+  if (!selectedOrder.value?.items) return { approved: 0, rejected: 0, discussion: 0, pending: 0 }
+  const items = selectedOrder.value.items
+  return {
+    approved: items.filter(i => i.reviewStatus === 'APPROVED').length,
+    rejected: items.filter(i => i.reviewStatus === 'REJECTED').length,
+    discussion: items.filter(i => i.reviewStatus === 'NEED_DISCUSSION').length,
+    pending: items.filter(i => !i.reviewStatus || i.reviewStatus === 'PENDING_REVIEW').length
+  }
+})
 
 const showPaymentQR = (order) => {
   Swal.fire({
@@ -276,9 +330,8 @@ const showPaymentQR = (order) => {
     cancelButtonText: 'Đóng'
   }).then(async (result) => {
     if (result.isConfirmed) {
-      // User claims they paid, we can show a message or notify admin
       Swal.fire('Cảm ơn!', 'Chúng tôi sẽ xác nhận thanh toán của bạn trong thời gian sớm nhất.', 'success')
-      loadOrders() // Reload to check if status changed
+      loadOrders()
     }
   })
 }
@@ -317,6 +370,11 @@ const formatDate = (dateStr) => {
   })
 }
 
+const formatNumber = (amount) => {
+  if (!amount) return '—'
+  return new Intl.NumberFormat('vi-VN').format(amount)
+}
+
 const formatCurrency = (amount) => {
   if (!amount) return '-'
   return new Intl.NumberFormat('vi-VN', {
@@ -327,12 +385,143 @@ const formatCurrency = (amount) => {
 </script>
 
 <style scoped>
+/* Page & List Animations */
+.page-container {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+.fade-in {
+  animation: fadeIn 0.6s ease-out forwards;
+}
+
+.slide-up {
+  opacity: 0;
+  transform: translateY(20px);
+  animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Card Hover Effects */
 .hover-card {
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid rgba(0,0,0,0.05) !important;
 }
 
 .hover-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08) !important;
+  border-color: rgba(13, 110, 253, 0.2) !important;
+}
+
+/* Button Hover Effects */
+.hover-elevate {
+  transition: all 0.2s ease;
+}
+
+.hover-elevate:hover {
   transform: translateY(-2px);
-  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+}
+
+.btn-glow {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-glow::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 120%;
+  height: 120%;
+  background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, transparent 60%);
+  transform: translate(-50%, -50%) scale(0);
+  opacity: 0;
+  transition: transform 0.4s ease, opacity 0.4s ease;
+}
+
+.btn-glow:hover::after {
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+}
+
+/* Table Hover Effect */
+.animated-table tbody tr {
+  transition: background-color 0.2s ease;
+}
+
+.animated-table tbody tr:hover {
+  background-color: rgba(13, 110, 253, 0.03);
+}
+
+.modal-xl {
+  max-width: 1100px;
+}
+
+/* Skeleton Loading Animation */
+.skeleton-card {
+  background: #fff;
+  overflow: hidden;
+  position: relative;
+}
+
+.skeleton-text, .skeleton-button {
+  background: #e2e5e7;
+  border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton-text::after, .skeleton-button::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.6) 50%, rgba(255,255,255,0) 100%);
+  animation: shimmer 1.5s infinite;
+}
+
+.skeleton-title { height: 24px; width: 40%; }
+.skeleton-line { height: 16px; }
+.skeleton-badge { height: 24px; width: 100px; border-radius: 50px; }
+.skeleton-button { height: 32px; width: 120px; border-radius: 4px; }
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* Uniform Table Cells */
+.uniform-table th,
+.uniform-table td {
+  vertical-align: middle;
+}
+
+.cell-uniform {
+  padding: 10px 8px !important;
+  min-height: 48px;
+  line-height: 1.4;
+}
+
+.cell-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cell-truncate:hover {
+  white-space: normal;
+  word-break: break-word;
 }
 </style>
