@@ -2,17 +2,26 @@ package org.example.features.order.dto;
 
 import lombok.Data;
 
+import java.math.BigDecimal;
+
 /**
- * DTO for Order Item (from Excel)
+ * DTO for Order Item (from Excel + review data)
  */
 @Data
 public class OrderItemDTO {
-    private String itemCode; // Column 1: Item Code
-    private String drawingNumber; // Column 2: Mã bản vẽ
-    private String itemName; // Column 3: Tên vật tư (part_name)
-    private String specification; // Column 4: Spec
-    private String material; // Column 5: Material
-    private Integer quantity; // Column 6: Số lượng
-    private String unit; // Unit (optional)
-    private String notes; // Column 7: Delivery Date stored here
+    private Long id;
+    private String itemCode;
+    private String drawingNumber;
+    private String itemName;
+    private String specification;
+    private String material;
+    private Integer quantity;
+    private String unit;
+    private String notes;
+
+    // Review workflow fields
+    private String reviewStatus;
+    private BigDecimal unitPrice;
+    private String adminNote;
+    private BigDecimal totalItemPrice;
 }

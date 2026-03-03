@@ -46,11 +46,11 @@
 
             <!-- User Dropdown (Logged In) -->
             <div v-else class="dropdown">
-              <button class="btn btn-outline-light border-0 dropdown-toggle d-flex align-items-center gap-2" type="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+              <button class="btn btn-outline-light border-0 dropdown-toggle d-flex align-items-center gap-2" type="button" id="userDropdown" @click="toggleDropdown" aria-expanded="false">
                 <img src="https://github.com/mdo.png" alt="Avatar" width="32" height="32" class="rounded-circle border border-2 border-white">
-                <div class="d-none d-md-flex flex-column text-start lh-1">
+                <div class="d-none d-md-flex flex-column text-start" style="line-height: 1.2;">
                   <span class="fw-bold small">{{ user.fullName }}</span>
-                  <span class="opacity-75" style="font-size: 0.7rem;">{{ user.role }}</span>
+                  <span class="opacity-75 mt-1" style="font-size: 0.65rem;">{{ user.role === 'ADMIN' ? 'Quản trị viên' : 'Khách hàng' }}</span>
                 </div>
               </button>
               <ul class="dropdown-menu dropdown-menu-end shadow border-0" aria-labelledby="userDropdown">
@@ -91,9 +91,19 @@
   <script setup>
   import { ref, onMounted } from 'vue';
   import { getStoredUser, logout, isAuthenticated } from '../../services/api';
+  import { Dropdown } from 'bootstrap';
   
   const cartCount = ref(3);
   const user = ref(null);
+  let dropdownInstance = null;
+
+  const toggleDropdown = () => {
+    const el = document.getElementById('userDropdown');
+    if (!dropdownInstance && el) {
+      dropdownInstance = new Dropdown(el);
+    }
+    dropdownInstance?.toggle();
+  };
 
   const handleLogout = () => {
     logout();

@@ -34,6 +34,9 @@ dependencies {
     // Thymeleaf
     implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
 
+    // MongoDB
+    implementation("org.springframework.boot:spring-boot-starter-data-mongodb")
+
     // MSSQL JDBC driver
     implementation("org.postgresql:postgresql:42.7.3")
     

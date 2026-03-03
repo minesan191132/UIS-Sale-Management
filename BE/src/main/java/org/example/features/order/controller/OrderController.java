@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.config.security.CustomUserDetails;
+import org.example.features.order.dto.ItemReviewRequestDTO;
 import org.example.features.order.dto.OrderResponseDTO;
 import org.example.features.order.dto.QuoteRequestDTO;
 import org.example.features.order.entity.OrderStatus;
@@ -196,6 +197,29 @@ public class OrderController {
             log.error("Error updating order status", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Failed to update status"));
+        }
+    }
+
+    /**
+     * Admin: Review an individual order item
+     * PUT /api/orders/{orderId}/items/{itemId}/review
+     */
+    @PutMapping("/{orderId}/items/{itemId}/review")
+    public ResponseEntity<?> reviewOrderItem(
+            @PathVariable Long orderId,
+            @PathVariable Long itemId,
+            @RequestBody ItemReviewRequestDTO request) {
+        try {
+            OrderResponseDTO order = orderService.reviewOrderItem(orderId, itemId, request);
+            return ResponseEntity.ok(order);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error reviewing order item", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to review item"));
         }
     }
 }
