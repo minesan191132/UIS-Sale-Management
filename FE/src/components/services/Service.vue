@@ -1,10 +1,18 @@
 <script setup>
 import { ref } from 'vue';
+import { useRouter } from 'vue-router';
 
-// Import Navbar và Footer (Kiểm tra lại đường dẫn đúng với thư mục của bạn)
-// Ví dụ: Nếu file này nằm trong views/, còn Navbar ở components/base/
+// Import Navbar và Footer
 import Navbar from '../base/Navbar.vue';
 import Footer from '../base/Footer.vue';
+
+// Import ảnh dịch vụ
+import cokhiImg from '../../assets/picture/serviceimg/Cokhixaydung.jpg';
+import xulynuocImg from '../../assets/picture/serviceimg/Xulynuocthai.png';
+import giacongImg from '../../assets/picture/serviceimg/Giacongchankimloai.jpg';
+import nuocuongImg from '../../assets/picture/serviceimg/Sanxuatnuocuong.png';
+
+const router = useRouter();
 
 // Hàm cuộn lên đầu trang
 const scrollToTop = () => {
@@ -14,27 +22,35 @@ const scrollToTop = () => {
 // Dữ liệu dịch vụ
 const services = ref([
   {
+    slug: "co-khi-xay-dung",
     title: "Cơ khí xây dựng",
     description: "Tư vấn, thiết kế, thi công lắp đặt các sản phẩm cơ khí xây dựng, hệ thống đường ống công nghiệp, kết cấu thép nhà xưởng đảm bảo tiêu chuẩn an toàn.",
-    // Bữa sau bạn có ảnh thì thay đường dẫn vào đây (ví dụ: import img1 from...)
-    image: "https://placehold.co/600x400/e2e8f0/1e293b?text=Anh+1", 
+    image: cokhiImg, 
   },
   {
+    slug: "xu-ly-nuoc-thai",
     title: "Xử lý nước thải",
     description: "Cung cấp giải pháp toàn diện về xử lý nước thải công nghiệp và sinh hoạt. Thiết kế hệ thống lọc, vận hành và bảo trì trạm xử lý nước.",
-    image: "https://placehold.co/600x400/e2e8f0/1e293b?text=Anh+2",
+    image: xulynuocImg,
   },
   {
+    slug: "gia-cong-cat-chan-kim-loai",
     title: "Gia công cắt chấn kim loại",
     description: "Gia công kim loại tấm chính xác cao bằng công nghệ Laser Fiber, chấn CNC, đột dập. Đáp ứng các chi tiết máy phức tạp.",
-    image: "https://placehold.co/600x400/e2e8f0/1e293b?text=Anh+3",
+    image: giacongImg,
   },
   {
+    slug: "san-xuat-nuoc-uong",
     title: "Sản xuất nước uống",
     description: "Phát triển dây chuyền sản xuất nước uống đóng chai tinh khiết theo tiêu chuẩn Nhật Bản. Cung cấp nước uống chất lượng cao cho doanh nghiệp.",
-    image: "https://placehold.co/600x400/e2e8f0/1e293b?text=Anh+4",
+    image: nuocuongImg,
   },
 ]);
+
+// Hàm chuyển đến trang chi tiết
+const goToDetail = (slug) => {
+  router.push({ name: 'service-detail', params: { slug } });
+};
 </script>
 
 <template>
@@ -71,13 +87,13 @@ const services = ref([
                       {{ service.title }}
                     </h4>
                     <div class="title-underline mb-3"></div>
-                    <p class="card-text text-muted">
+                    <p class="card-text text-muted service-description">
                       {{ service.description }}
                     </p>
                   </div>
                   
                   <div class="mt-3">
-                    <button class="btn btn-outline-primary btn-sm fw-bold rounded-pill px-3">
+                    <button @click="goToDetail(service.slug)" class="btn btn-outline-primary btn-sm fw-bold rounded-pill px-3">
                       Xem chi tiết <i class="fas fa-arrow-right ms-1"></i>
                     </button>
                   </div>
@@ -149,11 +165,20 @@ const services = ref([
 
 .service-title {
   color: #1e293b; /* Màu xanh đen */
-  font-size: 1.3rem
+  font-size: 1.365rem;
+  font-weight: 600;
+  font-family: inherit;
 }
 
 .service-card:hover .service-title {
   color: #0d6efd; /* Đổi màu tiêu đề khi hover */
+}
+
+.service-description {
+  font-size: 1.05rem;
+  font-weight: 600;
+  font-family: inherit;
+  line-height: 1.6;
 }
 
 /* --- FLOATING BUTTONS (Nút nổi) --- */
