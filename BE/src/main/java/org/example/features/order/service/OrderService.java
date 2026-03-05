@@ -7,12 +7,15 @@ import org.example.features.company.entity.Company;
 import org.example.features.company.entity.User;
 import org.example.features.company.repository.CompanyRepository;
 import org.example.features.company.repository.UserRepository;
+import org.example.features.order.dto.ItemReviewRequestDTO;
 import org.example.features.order.dto.OrderItemDTO;
 import org.example.features.order.dto.OrderResponseDTO;
 import org.example.features.order.dto.QuoteRequestDTO;
+import org.example.features.order.entity.ItemReviewStatus;
 import org.example.features.order.entity.Order;
 import org.example.features.order.entity.OrderItem;
 import org.example.features.order.entity.OrderStatus;
+import org.example.features.order.repository.OrderItemRepository;
 import org.example.features.order.repository.OrderRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -39,6 +42,7 @@ import java.util.stream.Collectors;
 public class OrderService {
 
     private final OrderRepository orderRepository;
+    private final OrderItemRepository orderItemRepository;
     private final UserRepository userRepository;
     private final CompanyRepository companyRepository;
 
@@ -125,24 +129,27 @@ public class OrderService {
 
                 // Column 0: STT (skip - just for numbering)
 
-                // Column 1: Item Code
-                item.setItemCode(getCellValueAsString(row.getCell(1)));
+                // Column 1: VNN_NO - store in 'unit' field for display
+                item.setUnit(getCellValueAsString(row.getCell(1)));
 
-                // Column 2: Drawing Number (Mã bản vẽ)
-                item.setDrawingNumber(getCellValueAsString(row.getCell(2)));
+                // Column 2: Item Code (品目コード)
+                item.setItemCode(getCellValueAsString(row.getCell(2)));
 
-                // Column 3: Part Name (Tên vật tư) - required
-                String partName = getCellValueAsString(row.getCell(3));
+                // Column 3: Drawing Number (図番)
+                item.setDrawingNumber(getCellValueAsString(row.getCell(3)));
+
+                // Column 4: Part Name (品名) - required
+                String partName = getCellValueAsString(row.getCell(4));
                 item.setItemName(partName);
 
-                // Column 4: Specification
-                item.setSpecification(getCellValueAsString(row.getCell(4)));
+                // Column 5: Specification (型式)
+                item.setSpecification(getCellValueAsString(row.getCell(5)));
 
-                // Column 5: Material
-                item.setMaterial(getCellValueAsString(row.getCell(5)));
+                // Column 6: Material (材質)
+                item.setMaterial(getCellValueAsString(row.getCell(6)));
 
-                // Column 6: Quantity (Số lượng) - required
-                String quantityStr = getCellValueAsString(row.getCell(6));
+                // Column 7: Quantity (数量) - required
+                String quantityStr = getCellValueAsString(row.getCell(7));
                 try {
                     item.setQuantity(Integer.parseInt(quantityStr.replaceAll("[^0-9]", "")));
                 } catch (NumberFormatException e) {
@@ -150,8 +157,8 @@ public class OrderService {
                     continue;
                 }
 
-                // Column 7: Delivery Date (Ngày giao) - store in notes for now
-                String deliveryDate = getCellValueAsString(row.getCell(7));
+                // Column 8: Delivery Date (希望納期) - store in notes for now
+                String deliveryDate = getCellValueAsString(row.getCell(8));
                 if (!deliveryDate.isEmpty()) {
                     item.setNotes("Ngày giao: " + deliveryDate);
                 }
@@ -252,7 +259,48 @@ public class OrderService {
     }
 
     /**
+     * Admin reviews an individual order item
+     */
+    @Transactional
+    public OrderResponseDTO reviewOrderItem(Long orderId, Long itemId, ItemReviewRequestDTO request) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found"));
+
+        if (order.getStatus() != OrderStatus.PENDING_QUOTE) {
+            throw new IllegalStateException("Chỉ có thể review khi đơn hàng ở trạng thái CHỜ BÁO GIÁ");
+        }
+
+        OrderItem item = order.getItems().stream()
+                .filter(i -> i.getId().equals(itemId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Item not found in this order"));
+
+        // Validate based on review status
+        if (request.getReviewStatus() == ItemReviewStatus.APPROVED) {
+            if (request.getUnitPrice() == null || request.getUnitPrice().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("Đơn giá phải lớn hơn 0 khi duyệt sản phẩm");
+            }
+            item.setUnitPrice(request.getUnitPrice());
+        } else if (request.getReviewStatus() == ItemReviewStatus.REJECTED
+                || request.getReviewStatus() == ItemReviewStatus.NEED_DISCUSSION) {
+            if (request.getAdminNote() == null || request.getAdminNote().trim().isEmpty()) {
+                throw new IllegalArgumentException("Vui lòng nhập lý do khi từ chối hoặc cần trao đổi");
+            }
+            item.setUnitPrice(null);
+        }
+
+        item.setReviewStatus(request.getReviewStatus());
+        item.setAdminNote(request.getAdminNote());
+
+        orderItemRepository.save(item);
+        log.info("Item {} in order {} reviewed as {}", itemId, order.getOrderNumber(), request.getReviewStatus());
+
+        return mapToDTO(order);
+    }
+
+    /**
      * Admin sets quote price and generates QR
+     * Total is auto-calculated from approved items
      */
     @Transactional
     public OrderResponseDTO setQuote(Long orderId, QuoteRequestDTO quoteRequest) {
@@ -263,10 +311,27 @@ public class OrderService {
             throw new IllegalStateException("Order is not in PENDING_QUOTE status");
         }
 
+        // Validate: all items must be reviewed (no PENDING_REVIEW)
+        boolean hasUnreviewed = order.getItems().stream()
+                .anyMatch(item -> item.getReviewStatus() == ItemReviewStatus.PENDING_REVIEW);
+        if (hasUnreviewed) {
+            throw new IllegalStateException("Vui lòng review tất cả sản phẩm trước khi báo giá");
+        }
+
+        // Auto-calculate total from approved items: sum(unitPrice * quantity)
+        BigDecimal totalPrice = order.getItems().stream()
+                .filter(item -> item.getReviewStatus() == ItemReviewStatus.APPROVED)
+                .map(item -> item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        if (totalPrice.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalStateException("Không có sản phẩm nào được duyệt để báo giá");
+        }
+
         // Set pricing
-        order.setTotalPrice(quoteRequest.getTotalPrice());
+        order.setTotalPrice(totalPrice);
         order.setDepositAmount(
-                quoteRequest.getTotalPrice()
+                totalPrice
                         .multiply(BigDecimal.valueOf(0.7))
                         .setScale(0, RoundingMode.HALF_UP));
 
@@ -282,7 +347,7 @@ public class OrderService {
         }
 
         Order savedOrder = orderRepository.save(order);
-        log.info("Quote set for order: {}", savedOrder.getOrderNumber());
+        log.info("Quote set for order: {} — Total: {}", savedOrder.getOrderNumber(), totalPrice);
 
         return mapToDTO(savedOrder);
     }
@@ -291,8 +356,6 @@ public class OrderService {
      * Generate demo QR code (placeholder)
      */
     private String generateDemoQR(String orderNumber, BigDecimal amount) {
-        // For demo: Just return a static QR placeholder URL
-        // In production, this would call Seepay API
         return "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=seepay://pay?order=" + orderNumber
                 + "&amount=" + amount;
     }
@@ -356,11 +419,22 @@ public class OrderService {
         // Map items
         List<OrderItemDTO> itemDTOs = order.getItems().stream().map(item -> {
             OrderItemDTO itemDTO = new OrderItemDTO();
+            itemDTO.setId(item.getId());
+            itemDTO.setItemCode(item.getItemCode());
+            itemDTO.setDrawingNumber(item.getDrawingNumber());
             itemDTO.setItemName(item.getItemName());
             itemDTO.setSpecification(item.getSpecification());
+            itemDTO.setMaterial(item.getMaterialType());
             itemDTO.setQuantity(item.getQuantity());
             itemDTO.setUnit(item.getUnit());
             itemDTO.setNotes(item.getNotes());
+            // Review fields
+            itemDTO.setReviewStatus(item.getReviewStatus() != null ? item.getReviewStatus().name() : "PENDING_REVIEW");
+            itemDTO.setUnitPrice(item.getUnitPrice());
+            itemDTO.setAdminNote(item.getAdminNote());
+            if (item.getUnitPrice() != null && item.getQuantity() != null) {
+                itemDTO.setTotalItemPrice(item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
+            }
             return itemDTO;
         }).collect(Collectors.toList());
         dto.setItems(itemDTOs);
