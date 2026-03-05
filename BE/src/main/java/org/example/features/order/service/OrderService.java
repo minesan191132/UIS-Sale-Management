@@ -17,6 +17,7 @@ import org.example.features.order.entity.OrderItem;
 import org.example.features.order.entity.OrderStatus;
 import org.example.features.order.repository.OrderItemRepository;
 import org.example.features.order.repository.OrderRepository;
+import org.example.features.payment.service.PaymentService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -45,6 +46,7 @@ public class OrderService {
     private final OrderItemRepository orderItemRepository;
     private final UserRepository userRepository;
     private final CompanyRepository companyRepository;
+    private final PaymentService paymentService;
 
     /**
      * Import order from Excel file
@@ -330,13 +332,14 @@ public class OrderService {
 
         // Set pricing
         order.setTotalPrice(totalPrice);
-        order.setDepositAmount(
-                totalPrice
-                        .multiply(BigDecimal.valueOf(0.7))
-                        .setScale(0, RoundingMode.HALF_UP));
+        // Đặt cọc 60% tổng giá trị đơn hàng
+        BigDecimal depositAmount = totalPrice
+                .multiply(BigDecimal.valueOf(0.6))
+                .setScale(0, RoundingMode.HALF_UP);
+        order.setDepositAmount(depositAmount);
 
-        // Generate demo QR URL (placeholder)
-        String qrUrl = generateDemoQR(order.getOrderNumber(), order.getDepositAmount());
+        // Generate SePay QR URL thật
+        String qrUrl = paymentService.generateSepayQrUrl(order.getOrderNumber(), depositAmount);
         order.setPaymentQrUrl(qrUrl);
 
         // Update status
@@ -353,14 +356,6 @@ public class OrderService {
     }
 
     /**
-     * Generate demo QR code (placeholder)
-     */
-    private String generateDemoQR(String orderNumber, BigDecimal amount) {
-        return "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=seepay://pay?order=" + orderNumber
-                + "&amount=" + amount;
-    }
-
-    /**
      * Confirm payment (manual or webhook)
      */
     @Transactional
@@ -368,15 +363,21 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found"));
 
-        if (order.getStatus() != OrderStatus.AWAITING_PAYMENT) {
-            throw new IllegalStateException("Order is not awaiting payment");
+        // Cho phép chuyển sang PROCESSING từ cả 2 trạng thái:
+        // - DEPOSITED: đã cọc qua SePay webhook (tự động)
+        // - AWAITING_PAYMENT: xác nhận thanh toán thủ công
+        if (order.getStatus() != OrderStatus.AWAITING_PAYMENT
+                && order.getStatus() != OrderStatus.DEPOSITED) {
+            throw new IllegalStateException(
+                    "Chỉ có thể bắt đầu gia công khi đơn hàng đã cọc hoặc đang chờ thanh toán. Trạng thái hiện tại: "
+                            + order.getStatus());
         }
 
         order.setStatus(OrderStatus.PROCESSING);
         order.setPaidAt(java.time.LocalDateTime.now());
 
         Order savedOrder = orderRepository.save(order);
-        log.info("Payment confirmed for order: {}", savedOrder.getOrderNumber());
+        log.info("Payment confirmed / Processing started for order: {}", savedOrder.getOrderNumber());
 
         return mapToDTO(savedOrder);
     }

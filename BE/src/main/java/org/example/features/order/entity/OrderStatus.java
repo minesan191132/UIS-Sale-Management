@@ -16,6 +16,12 @@ public enum OrderStatus {
     AWAITING_PAYMENT,
 
     /**
+     * Deposit (60%) received, order is confirmed, pending full processing
+     * Đã cọc 60%, đang chờ xử lý
+     */
+    DEPOSITED,
+
+    /**
      * Payment received, order is being processed
      */
     PROCESSING,

@@ -83,7 +83,7 @@
                       <strong class="fs-5 text-primary">{{ formatCurrency(order.totalPrice) }}</strong>
                     </p>
                     <p class="mb-0">
-                      <small class="text-muted">Cọc trước 70%:</small><br>
+                      <small class="text-muted">Cọc trước 60%:</small><br>
                       <strong class="text-success">{{ formatCurrency(order.depositAmount) }}</strong>
                     </p>
                   </div>
@@ -94,10 +94,13 @@
                       <i class="bi bi-eye me-1"></i>Xem chi tiết
                     </button>
                     <button 
-                      v-if="order.status === 'AWAITING_PAYMENT'" 
-                      @click="showPaymentQR(order)" 
-                      class="btn btn-success btn-sm">
-                      <i class="bi bi-qr-code me-1"></i>Thanh toán
+                      v-if="order.status === 'AWAITING_PAYMENT' || order.status === 'DEPOSITED'" 
+                      @click="openPaymentModal(order)" 
+                      class="btn btn-sm"
+                      :class="order.status === 'DEPOSITED' ? 'btn-outline-success' : 'btn-success'"
+                    >
+                      <i class="bi bi-qr-code me-1"></i>
+                      {{ order.status === 'DEPOSITED' ? 'Đã cọc ✔' : 'Thanh toán cọc' }}
                     </button>
                   </div>
                 </div>
@@ -232,18 +235,44 @@
           </div>
 
           <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Dóng</button>
             <button 
-              v-if="selectedOrder.status === 'AWAITING_PAYMENT'" 
-              @click="showPaymentQR(selectedOrder)" 
-              class="btn btn-success">
-              <i class="bi bi-qr-code me-1"></i>Thanh toán
+              v-if="selectedOrder.status === 'AWAITING_PAYMENT' || selectedOrder.status === 'DEPOSITED'" 
+              @click="openPaymentModal(selectedOrder); bsModal?.hide()" 
+              class="btn"
+              :class="selectedOrder.status === 'DEPOSITED' ? 'btn-outline-success' : 'btn-success'"
+            >
+              <i class="bi bi-qr-code me-1"></i>
+              {{ selectedOrder.status === 'DEPOSITED' ? 'Xem trạng thái thanh toán' : 'Thanh toán cọc 60%' }}
             </button>
           </div>
         </div>
       </div>
     </div>
     </Teleport>
+
+    <!-- ===== Payment QR Modal ===== -->
+    <Teleport to="body">
+      <div class="modal fade" id="paymentQrModal" tabindex="-1" ref="paymentModalRef">
+        <div class="modal-dialog modal-dialog-centered" style="max-width: 520px;">
+          <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white">
+              <h5 class="modal-title">
+                <i class="bi bi-wallet2 me-2"></i>Thanh toán đặt cọc
+              </h5>
+              <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0" v-if="selectedPaymentOrderId">
+              <PaymentQR
+                :order-id="selectedPaymentOrderId"
+                @payment-confirmed="onPaymentConfirmed"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
   </div>
 </template>
 
@@ -252,6 +281,7 @@ import { ref, computed, onMounted, nextTick } from 'vue'
 import Swal from 'sweetalert2'
 import apiClient from '../../services/api'
 import { Modal } from 'bootstrap'
+import PaymentQR from './PaymentQR.vue'
 
 const orders = ref([])
 const isLoading = ref(false)
@@ -259,7 +289,10 @@ const currentPage = ref(0)
 const totalPages = ref(0)
 const selectedOrder = ref(null)
 const detailModalRef = ref(null)
+const paymentModalRef = ref(null)
+const selectedPaymentOrderId = ref(null)
 let bsModal = null
+let bsPaymentModal = null
 
 onMounted(() => {
   loadOrders()
@@ -314,32 +347,37 @@ const reviewCounts = computed(() => {
   }
 })
 
-const showPaymentQR = (order) => {
+const openPaymentModal = async (order) => {
+  selectedPaymentOrderId.value = order.id
+  await nextTick()
+  if (!bsPaymentModal && paymentModalRef.value) {
+    bsPaymentModal = new Modal(paymentModalRef.value)
+  }
+  bsPaymentModal?.show()
+}
+
+const onPaymentConfirmed = (paymentInfo) => {
+  // Reload danh sách để cập nhật trạng thái
+  loadOrders()
   Swal.fire({
-    title: 'Thanh toán đơn hàng',
-    html: `
-      <div class="text-center">
-        <p class="mb-3">Quét mã QR để thanh toán cọc <strong class="text-success">${formatCurrency(order.depositAmount)}</strong></p>
-        <img src="${order.paymentQrUrl}" alt="QR Code" class="img-fluid" style="max-width: 300px;">
-        <p class="mt-3 text-muted small">Sau khi thanh toán, vui lòng chờ Admin xác nhận.</p>
-      </div>
-    `,
-    width: '500px',
-    showCancelButton: true,
-    confirmButtonText: 'Đã thanh toán',
-    cancelButtonText: 'Đóng'
-  }).then(async (result) => {
-    if (result.isConfirmed) {
-      Swal.fire('Cảm ơn!', 'Chúng tôi sẽ xác nhận thanh toán của bạn trong thời gian sớm nhất.', 'success')
-      loadOrders()
-    }
+    icon: 'success',
+    title: 'Đã nhận tiền cọc!',
+    text: `Đơn hàng ${paymentInfo.orderNumber} đã được xác nhận đặt cọc thành công.`,
+    timer: 3000,
+    showConfirmButton: false
   })
+}
+
+// Giữ lại để tương thích nhưng redirect sang openPaymentModal
+const showPaymentQR = (order) => {
+  openPaymentModal(order)
 }
 
 const getStatusText = (status) => {
   const statusMap = {
     PENDING_QUOTE: 'Chờ báo giá',
     AWAITING_PAYMENT: 'Chờ thanh toán',
+    DEPOSITED: 'Đã cọc ✔',
     PROCESSING: 'Đang gia công',
     COMPLETED: 'Hoàn thành',
     CANCELLED: 'Đã hủy'
@@ -349,8 +387,9 @@ const getStatusText = (status) => {
 
 const getStatusBadgeClass = (status) => {
   const classMap = {
-    PENDING_QUOTE: 'badge bg-warning',
-    AWAITING_PAYMENT: 'badge bg-info',
+    PENDING_QUOTE: 'badge bg-warning text-dark',
+    AWAITING_PAYMENT: 'badge bg-info text-dark',
+    DEPOSITED: 'badge bg-success',
     PROCESSING: 'badge bg-primary',
     COMPLETED: 'badge bg-success',
     CANCELLED: 'badge bg-danger'
