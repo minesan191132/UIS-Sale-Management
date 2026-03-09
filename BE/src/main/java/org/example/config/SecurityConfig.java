@@ -73,9 +73,12 @@ public class SecurityConfig {
                                 "/actuator/health",
                                 "/error")
                         .permitAll() // Public endpoints
+
+                        .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
+                        .requestMatchers("/api/products/**").hasRole("ADMIN") // Product management
+
                         .requestMatchers("/api/admin/**").hasRole("ADMIN") // Admin endpoints
                         .requestMatchers("/api/users/**").hasRole("ADMIN") // User management
-                        .requestMatchers("/api/products/**").hasRole("ADMIN") // Product management
                         .requestMatchers(HttpMethod.POST, "/api/companies/**").hasRole("ADMIN") // Company creation
                         .requestMatchers(HttpMethod.GET, "/api/orders", "/api/orders/*/quote", "/api/orders/*/status")
                         .hasRole("ADMIN") // Admin order views

@@ -3,6 +3,7 @@ import { isAuthenticated } from '../services/api'
 
 import HomeView from '../components/homepage/Homepage.vue'
 import ServiceView from '../components/services/Service.vue'
+import ServiceDetailView from '../components/services/ServiceDetail.vue'
 import Product from '../components/product/Product.vue'
 import Contact from '../components/contact/Contact.vue'
 import Cart from '../components/cart/Cart.vue'
@@ -36,6 +37,11 @@ const routes = [
     path: '/services',
     name: 'service',
     component: ServiceView
+  },
+  {
+    path: '/services/:slug',
+    name: 'service-detail',
+    component: ServiceDetailView
   },
   {
     path: '/products',
@@ -111,7 +117,22 @@ const routes = [
 
 const router = createRouter({
   history: createWebHistory(),
-  routes
+  routes,
+  scrollBehavior(to, from, savedPosition) {
+    // Nếu có savedPosition (khi dùng nút back/forward), quay lại vị trí đó
+    if (savedPosition) {
+      return savedPosition;
+    }
+    // Nếu có hash trong URL (ví dụ: #section), scroll đến phần tử đó
+    if (to.hash) {
+      return {
+        el: to.hash,
+        behavior: 'smooth',
+      };
+    }
+    // Mặc định scroll lên đầu trang với smooth behavior
+    return { top: 0, behavior: 'smooth' };
+  }
 })
 
 // Authentication & Role Guard

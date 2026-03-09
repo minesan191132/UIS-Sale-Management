@@ -1,5 +1,6 @@
 <script setup>
 import { ref } from 'vue';
+import avatarImg from '../../assets/picture/HomePageimg/AVT.jpg';
 
 // 1. Dữ liệu Địa điểm & Liên hệ (Lấy từ code của bạn)
 const locations = ref([
@@ -20,14 +21,31 @@ const locations = ref([
 
 // 2. Dữ liệu Dịch vụ (Lấy từ mảng services của bạn để làm link)
 const serviceLinks = ref([
-  "Cơ khí xây dựng",
-  "Xử lý nước thải",
-  "Gia công cắt chấn kim loại",
-  "Sản xuất nước uống",
+  { name: "Cơ khí xây dựng", slug: "co-khi-xay-dung" },
+  { name: "Xử lý nước thải", slug: "xu-ly-nuoc-thai" },
+  { name: "Gia công cắt chấn kim loại", slug: "gia-cong-cat-chan-kim-loai" },
+  { name: "Sản xuất nước uống", slug: "san-xuat-nuoc-uong" },
 ]);
 
-// 3. Hàm cuộn lên đầu trang
+// 3. Dữ liệu Mạng xã hội - CẤU HÌNH TẠI ĐÂY
+const   socialMedia = ref({
+  facebook: {
+    pageUrl: 'https://www.facebook.com/profile.php?id=100090971405988&mibextid=wwXIfr&rdid=39ymx7i3fxYiRDw6&share_url=https%3A%2F%2Fwww.facebook.com%2Fshare%2F1CHocg7Z5U%2F%3Fmibextid%3DwwXIfr#', // Thay link fanpage của bạn ở đây
+    pageName: 'Công Ty TNHH Utsunomiya Industry Việt Nam ',
+    avatarUrl: avatarImg, // Avatar từ thư mục HomePageimg
+    description: 'Theo dõi tin tức mới nhất'
+  },
+  zalo: 'https://zalo.me/your-zalo-number', // Thay số Zalo hoặc link Zalo của bạn
+  email: 'upecvn@gmail.com' // Email liên hệ
+});
+
+// 4. Hàm cuộn lên đầu trang
 const scrollToTop = () => {
+  window.scrollTo({ top: 0, behavior: "smooth" });
+};
+
+// 5. Hàm xử lý khi click vào service link
+const handleServiceClick = () => {
   window.scrollTo({ top: 0, behavior: "smooth" });
 };
 </script>
@@ -35,9 +53,7 @@ const scrollToTop = () => {
 <template>
   <footer class="industrial-footer text-white pt-5 position-relative">
     
-    <button @click="scrollToTop" class="btn-scroll-top" title="Lên đầu trang">
-      <i class="fas fa-arrow-up"></i>
-    </button>
+
 
     <div class="container">
       <div class="row gy-4">
@@ -70,10 +86,14 @@ const scrollToTop = () => {
           </h6>
           <ul class="list-unstyled footer-links">
             <li v-for="(link, index) in serviceLinks" :key="index" class="mb-3">
-              <a href="#" class="footer-link d-flex align-items-center">
+              <router-link 
+                :to="{ name: 'service-detail', params: { slug: link.slug } }" 
+                class="footer-link d-flex align-items-center"
+                @click="handleServiceClick"
+              >
                 <i class="fas fa-caret-right me-2 text-warning"></i>
-                {{ link }}
-              </a>
+                {{ link.name }}
+              </router-link>
             </li>
           </ul>
         </div>
@@ -85,23 +105,59 @@ const scrollToTop = () => {
           
           <div class="social-card p-3 rounded-3 mb-4">
             <div class="d-flex align-items-center mb-3">
-              <div class="fb-avatar me-3 bg-white d-flex align-items-center justify-content-center rounded-circle" style="width: 50px; height: 50px;">
-                <i class="fas fa-thumbs-up text-primary fs-4"></i>
+              <div class="fb-avatar me-3 rounded-circle overflow-hidden" style="width: 60px; height: 50px;">
+                <!-- Nếu có avatarUrl thì dùng img, không thì dùng icon mặc định -->
+                <img 
+                  v-if="socialMedia.facebook.avatarUrl" 
+                  :src="socialMedia.facebook.avatarUrl" 
+                  :alt="socialMedia.facebook.pageName"
+                  class="w-100 h-100 object-fit-cover"
+                />
+                <div v-else class="bg-white d-flex align-items-center justify-content-center w-100 h-100">
+                  <i class="fas fa-thumbs-up text-primary fs-4"></i>
+                </div>
               </div>
               <div>
-                <h6 class="mb-0 fw-bold text-white">Utsunomiya Industry VN</h6>
-                <small class="text-white-50">Theo dõi tin tức mới nhất</small>
+                <h6 class="mb-0 fw-bold text-white">{{ socialMedia.facebook.pageName }}</h6>
+                <small class="text-white-50">{{ socialMedia.facebook.description }}</small>
               </div>
             </div>
-            <button class="btn btn-primary btn-sm w-100 fw-bold">
+            <a 
+              :href="socialMedia.facebook.pageUrl" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              class="btn btn-primary btn-sm w-100 fw-bold text-decoration-none"
+            >
               <i class="fab fa-facebook-square me-2"></i>Ghé thăm Fanpage
-            </button>
+            </a>
           </div>
 
           <div class="social-circles d-flex gap-2">
-            <a href="#" class="social-btn btn-facebook"><i class="fab fa-facebook-f"></i></a>
-            <a href="#" class="social-btn btn-zalo fw-bold">Zalo</a>
-            <a href="#" class="social-btn btn-email"><i class="fas fa-envelope"></i></a>
+            <a 
+              :href="socialMedia.facebook.pageUrl" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              class="social-btn btn-facebook"
+              title="Facebook"
+            >
+              <i class="fab fa-facebook-f"></i>
+            </a>
+            <a 
+              :href="socialMedia.zalo" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              class="social-btn btn-zalo fw-bold"
+              title="Zalo"
+            >
+              Zalo
+            </a>
+            <a 
+              :href="`mailto:${socialMedia.email}`" 
+              class="social-btn btn-email"
+              title="Email"
+            >
+              <i class="fas fa-envelope"></i>
+            </a>
           </div>
         </div>
       </div>
@@ -149,17 +205,69 @@ const scrollToTop = () => {
   text-decoration: none;
   transition: all 0.3s ease;
   font-weight: 500;
+  padding: 8px 12px;
+  border-radius: 6px;
+  position: relative;
+  overflow: hidden;
+}
+
+.footer-link::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 100%;
+  background: rgba(245, 158, 11, 0.1);
+  transition: width 0.3s ease;
+  z-index: -1;
+}
+
+.footer-link:hover::before {
+  width: 100%;
 }
 
 .footer-link:hover {
   color: #f59e0b; /* Hover chuyển màu cam */
   transform: translateX(5px);
+  background: rgba(245, 158, 11, 0.05);
+}
+
+.footer-link:active {
+  transform: translateX(5px) scale(0.98);
+}
+
+.footer-link i {
+  transition: transform 0.3s ease;
+}
+
+.footer-link:hover i {
+  transform: translateX(3px);
 }
 
 /* --- SOCIAL CARD --- */
 .social-card {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+}
+
+.social-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(245, 158, 11, 0.3);
+  transform: translateY(-2px);
+}
+
+.fb-avatar {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.fb-avatar img {
+  object-fit: cover;
+}
+
+.object-fit-cover {
+  object-fit: cover;
 }
 
 .social-btn {
