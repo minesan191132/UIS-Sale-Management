@@ -17,21 +17,21 @@ const featuredProducts = ref([
     id: 2, 
     name: 'Thép Hình Chữ I/H', 
     desc: 'Chịu lực cao, đa dạng kích thước',
-    price: '18.500₫ / kg', 
+    price: 'Liên hệ báo giá', 
     image: 'https://placehold.co/300x300/e2e8f0/1e293b?text=Thep+Hinh+I' 
   },
   { 
     id: 3, 
     name: 'Thép Ống Mạ Kẽm', 
     desc: 'Chống ăn mòn, độ bền vượt trội',
-    price: '21.000₫ / kg', 
+    price: 'Liên hệ báo giá', 
     image: 'https://placehold.co/300x300/e2e8f0/1e293b?text=Thep+Ong' 
   },
   { 
     id: 4, 
     name: 'Tôn Lợp Công Nghiệp', 
     desc: 'Cán sóng vuông, nhiều màu sắc',
-    price: 'Liên hệ', 
+    price: 'Liên hệ báo giá', 
     image: 'https://placehold.co/300x300/e2e8f0/1e293b?text=Ton+Lop' 
   },
 ]);
@@ -54,18 +54,7 @@ const featuredProducts = ref([
             <p class="lead mb-4 text-white-50 animate-up delay-1">
               Đối tác tin cậy cung cấp sắt thép xây dựng, thép hình, thép tấm cho mọi công trình trọng điểm quốc gia và dân dụng.
             </p>
-            <div class="d-flex gap-3 animate-up delay-2">
-              <button class="btn btn-warning btn-lg px-4 fw-bold text-dark btn-action">
-                <i class="fas fa-file-invoice-dollar me-2"></i>Nhận Báo Giá
-              </button>
-              <button class="btn btn-outline-light btn-lg px-4 fw-bold btn-action">
-                <i class="fas fa-warehouse me-2"></i>Xem Danh Mục
-              </button>
-            </div>
-          </div>
-          
-          <div class="col-lg-5 d-none d-lg-block text-end">
-            <img src="https://placehold.co/600x500/transparent/white?text=Steel+Structure" alt="Industrial Steel" class="img-fluid hero-img">
+            
           </div>
         </div>
       </div>

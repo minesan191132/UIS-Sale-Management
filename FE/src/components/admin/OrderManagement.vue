@@ -76,12 +76,12 @@
                       <i class="bi bi-currency-dollar"></i>
                     </button>
                     <button
-                      v-if="order.status === 'AWAITING_PAYMENT'"
-                      @click="confirmPayment(order)"
-                      class="btn btn-outline-warning"
-                      title="Xác nhận thanh toán"
+                      v-if="order.status === 'DEPOSITED'"
+                      @click="startProcessing(order)"
+                      class="btn btn-success btn-sm"
+                      title="Bắt đầu gia công"
                     >
-                      <i class="bi bi-check2"></i>
+                      <i class="bi bi-play-fill me-1"></i>Gia công
                     </button>
                   </div>
                 </td>
@@ -499,6 +499,32 @@ const confirmPayment = async (order) => {
   }
 };
 
+const startProcessing = async (order) => {
+  const result = await Swal.fire({
+    title: "Bắt đầu gia công?",
+    html: `
+      <p>Đơn hàng <strong>${order.orderNumber}</strong> đã cọc thành công.</p>
+      <p class="text-muted">Xác nhận để chuyển sang trạng thái <strong>Đang gia công</strong>.</p>
+    `,
+    icon: "question",
+    showCancelButton: true,
+    confirmButtonText: "✅ Bắt đầu gia công",
+    confirmButtonColor: "#198754",
+    cancelButtonText: "Hủy",
+  });
+
+  if (result.isConfirmed) {
+    try {
+      await apiClient.post(`/orders/${order.id}/payment-confirm`);
+      Swal.fire("Thành công! 🎉", 'Đơn hàng đã chuyển sang "Đang gia công"', "success");
+      loadOrders();
+    } catch (error) {
+      console.error("Failed to start processing:", error);
+      Swal.fire("Lỗi", error.response?.data?.error || "Không thể cập nhật trạng thái", "error");
+    }
+  }
+};
+
 // --- Helpers ---
 
 const calculateOrderTotal = (order) => {
@@ -556,6 +582,7 @@ const getStatusText = (status) => {
   const statusMap = {
     PENDING_QUOTE: "Chờ báo giá",
     AWAITING_PAYMENT: "Chờ thanh toán",
+    DEPOSITED: "Đã cọc 💳",
     PROCESSING: "Đang gia công",
     COMPLETED: "Hoàn thành",
     CANCELLED: "Đã hủy",
@@ -566,7 +593,8 @@ const getStatusText = (status) => {
 const getStatusBadgeClass = (status) => {
   const classMap = {
     PENDING_QUOTE: "badge bg-warning text-dark",
-    AWAITING_PAYMENT: "badge bg-info",
+    AWAITING_PAYMENT: "badge bg-info text-dark",
+    DEPOSITED: "badge bg-success",
     PROCESSING: "badge bg-primary",
     COMPLETED: "badge bg-success",
     CANCELLED: "badge bg-danger",
