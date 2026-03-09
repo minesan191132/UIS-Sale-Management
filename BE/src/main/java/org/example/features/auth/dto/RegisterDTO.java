@@ -15,27 +15,30 @@ public class RegisterDTO {
 
     // ==================== USER CREDENTIALS ====================
 
-    @NotBlank(message = "Email is required")
-    @Email(message = "Email must be valid")
+    @NotBlank(message = "Email không được để trống")
+    @Email(message = "Email phải đúng định dạng")
     private String email; // Can be personal or company email
 
-    @NotBlank(message = "Password is required")
-    @Size(min = 6, message = "Password must be at least 6 characters")
+    @NotBlank(message = "Mật khẩu không được để trống")
+    @Pattern(
+            regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^a-zA-Z0-9]).{8,32}$",
+            message = "Mật khẩu phải chứa ít nhất một chữ cái viết hoa, một chữ cái viết thường, một số và một ký tự đặc biệt."
+    )
     private String password;
 
-    @NotBlank(message = "Full name is required")
+    @NotBlank(message = "Họ và tên không được để trống")
     private String fullName;
 
     // ==================== COMPANY INFORMATION ====================
 
-    @NotBlank(message = "Tax code is required")
-    @Pattern(regexp = "^[0-9]{10,13}$", message = "Tax code must be 10-13 digits")
+    @NotBlank(message = "Mã số thuế không được để trống")
+    @Pattern(regexp = "^[0-9]{10,13}$", message = "Mã số thuế phải có từ 10 đến 13 chữ số.")
     private String taxCode;
 
-    @NotBlank(message = "Company phone is required")
-    @Pattern(regexp = "^0[0-9]{9,10}$", message = "Phone must start with 0 and be 10-11 digits")
+    @NotBlank(message = "Số điện thoại công ty không được để trống")
+    @Pattern(regexp = "^0[0-9]{9,10}$", message = "Số điện thoại phải bắt đầu bằng số 0 và có từ 10 đến 11 chữ số.")
     private String companyPhone; // REQUIRED - company contact number
 
-    @Email(message = "Company email must be valid if provided")
+    @Email(message = "Email công ty (nếu có) phải đúng định dạng hợp lệ")
     private String companyEmail; // OPTIONAL - company contact email
 }

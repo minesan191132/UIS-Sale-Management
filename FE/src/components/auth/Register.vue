@@ -10,50 +10,128 @@
         <h2 class="text-center mb-4 register-title">Register</h2>
         <hr class="mb-4">
 
-        <form @submit.prevent="handleRegister">
+        <form @submit.prevent="handleRegister" novalidate>
+          
           <div class="mb-3 text-start">
             <label class="form-label text-muted">Họ và Tên*</label>
-            <input type="text" class="form-control" v-model="form.fullName" required>
+            <input 
+              type="text" 
+              class="form-control" 
+              :class="{ 'is-invalid': errors.fullName }"
+              v-model="form.fullName"
+            >
+            <span v-if="errors.fullName" class="text-danger small mt-1 d-block">
+              {{ errors.fullName }}
+            </span>
           </div>
 
           <div class="mb-3 text-start">
             <label class="form-label text-muted">Email*</label>
-            <input type="email" class="form-control" v-model="form.email" required>
+            <input 
+              type="email" 
+              class="form-control" 
+              :class="{ 'is-invalid': errors.email }"
+              v-model="form.email"
+            >
+            <span v-if="errors.email" class="text-danger small mt-1 d-block">
+              {{ errors.email }}
+            </span>
           </div>
 
           <div class="row mb-3">
             <div class="col-md-6 text-start">
               <label class="form-label text-muted">Mã số thuế công ty*</label>
-              <input type="text" class="form-control" v-model="form.taxCode" required 
-                     pattern="[0-9]{10,13}" title="Mã số thuế phải có 10-13 chữ số">
+              <input 
+                type="text" 
+                class="form-control" 
+                :class="{ 'is-invalid': errors.taxCode }"
+                v-model="form.taxCode"
+              >
+              <span v-if="errors.taxCode" class="text-danger small mt-1 d-block">
+                {{ errors.taxCode }}
+              </span>
             </div>
             <div class="col-md-6 text-start">
               <label class="form-label text-muted">Số điện thoại công ty*</label>
-              <input type="tel" class="form-control" v-model="form.companyPhone" required
-                     pattern="0[0-9]{9,10}" title="SĐT phải bắt đầu bằng 0 và có 10-11 số">
+              <input 
+                type="tel" 
+                class="form-control" 
+                :class="{ 'is-invalid': errors.companyPhone }"
+                v-model="form.companyPhone"
+              >
+              <span v-if="errors.companyPhone" class="text-danger small mt-1 d-block">
+                {{ errors.companyPhone }}
+              </span>
             </div>
           </div>
 
           <div class="mb-3 text-start">
             <label class="form-label text-muted">Email công ty (tùy chọn)</label>
-            <input type="email" class="form-control" v-model="form.companyEmail">
+            <input 
+              type="email" 
+              class="form-control" 
+              :class="{ 'is-invalid': errors.companyEmail }"
+              v-model="form.companyEmail"
+            >
+            <span v-if="errors.companyEmail" class="text-danger small mt-1 d-block">
+              {{ errors.companyEmail }}
+            </span>
           </div>
 
           <div class="row mb-3">
             <div class="col-6 text-start">
               <label class="form-label text-muted">Mật khẩu*</label>
-              <input type="password" class="form-control" v-model="form.password" required
-                     minlength="6">
+              <div class="input-group">
+                <input 
+                  :type="showPassword ? 'text' : 'password'" 
+                  class="form-control" 
+                  :class="{ 'is-invalid': errors.password }"
+                  v-model="form.password"
+                  autocomplete="new-password"
+                >
+                <button 
+                  class="btn bg-white border border-start-0 text-secondary" 
+                  type="button" 
+                  @click="showPassword = !showPassword"
+                  :style="{ borderColor: errors.password ? '#dc3545' : '#ced4da' }"
+                >
+                  <i :class="showPassword ? 'bi bi-eye-slash' : 'bi bi-eye'"></i>
+                </button>
+              </div>
+              <span v-if="errors.password" class="text-danger small mt-1 d-block">
+                {{ errors.password }}
+              </span>
             </div>
+
             <div class="col-6 text-start">
               <label class="form-label text-muted">Nhập lại mật khẩu*</label>
-              <input type="password" class="form-control" v-model="form.confirmPassword" required>
+              <div class="input-group">
+                <input 
+                  :type="showConfirmPassword ? 'text' : 'password'" 
+                  class="form-control" 
+                  :class="{ 'is-invalid': errors.confirmPassword }"
+                  v-model="form.confirmPassword"
+                  autocomplete="new-password"
+                >
+                <button 
+                  class="btn bg-white border border-start-0 text-secondary" 
+                  type="button" 
+                  @click="showConfirmPassword = !showConfirmPassword"
+                  :style="{ borderColor: errors.confirmPassword ? '#dc3545' : '#ced4da' }"
+                >
+                  <i :class="showConfirmPassword ? 'bi bi-eye-slash' : 'bi bi-eye'"></i>
+                </button>
+              </div>
+              <span v-if="errors.confirmPassword" class="text-danger small mt-1 d-block">
+                {{ errors.confirmPassword }}
+              </span>
             </div>
           </div>
 
-<hr>
+          <hr>
+          
           <div class="d-grid gap-2 mb-3">
-            <button type="submit" class="btn btn-brown text-white py-2">
+            <button type="submit" class="btn btn-brown text-white py-2" :disabled="isLoading">
               {{ isLoading ? 'Đang đăng ký...' : 'Register' }}
             </button>
           </div>
@@ -76,12 +154,14 @@
 </template>
 
 <script setup>
-import { reactive, ref, computed } from 'vue';
+import { reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import Swal from 'sweetalert2';
 import { authAPI } from '../../services/api';
 
 const router = useRouter();
+const showPassword = ref(false);
+const showConfirmPassword = ref(false);
 
 const form = reactive({
   fullName: '',
@@ -94,32 +174,53 @@ const form = reactive({
 });
 
 const isLoading = ref(false);
-
-const isFormValid = computed(() => {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  const phoneRegex = /^0[0-9]{9,10}$/;
-  const taxCodeRegex = /^[0-9]{10,13}$/;
-
-  return (
-    form.fullName.length > 0 &&
-    emailRegex.test(form.email) &&
-    taxCodeRegex.test(form.taxCode) &&
-    phoneRegex.test(form.companyPhone) &&
-    form.password.length >= 6 &&
-    form.password === form.confirmPassword
-  );
-});
+const errors = ref({}); 
 
 const handleRegister = async () => {
-  if (!isFormValid.value) {
-    Swal.fire('Lỗi', 'Vui lòng kiểm tra lại thông tin!', 'warning');
-    return;
+  errors.value = {}; 
+  let hasError = false;
+
+  if (!form.fullName) {
+    errors.value.fullName = 'Vui lòng nhập họ và tên';
+    hasError = true;
+  }
+  if (!form.email) {
+    errors.value.email = 'Vui lòng nhập email';
+    hasError = true;
+  }
+  if (!form.taxCode) {
+    errors.value.taxCode = 'Vui lòng nhập mã số thuế';
+    hasError = true;
+  }
+  if (!form.companyPhone) {
+    errors.value.companyPhone = 'Vui lòng nhập số điện thoại';
+    hasError = true;
+  }
+  if (!form.password) {
+    errors.value.password = 'Vui lòng nhập mật khẩu';
+    hasError = true;
+  }
+  
+  if (!form.confirmPassword) {
+    errors.value.confirmPassword = 'Vui lòng nhập lại mật khẩu';
+    hasError = true;
+  } else if (form.password !== form.confirmPassword) {
+    errors.value.confirmPassword = 'Mật khẩu nhập lại không khớp';
+    hasError = true;
+  }
+
+  if (hasError) {
+    Swal.fire({
+      icon: 'error',
+      title: 'Dữ liệu không hợp lệ',
+      text: 'Vui lòng điền đầy đủ thông tin'
+    });
+    return; 
   }
 
   isLoading.value = true;
 
   try {
-    // Prepare DTO matching backend RegisterDTO
     const registerData = {
       email: form.email,
       password: form.password,
@@ -129,35 +230,31 @@ const handleRegister = async () => {
       companyEmail: form.companyEmail || null
     };
 
-    await authAPI.register(registerData);
+    const response = await authAPI.register(registerData);
+
+    const successMessage = response.data?.message || 'Đăng ký thành công! Vui lòng kiểm tra email để kích hoạt.';
 
     Swal.fire({
       icon: 'success',
       title: 'Đăng ký thành công!',
-      text: 'Bạn có thể đăng nhập ngay bây giờ',
-      timer: 2000,
-      showConfirmButton: false,
+      text: successMessage,
+      showConfirmButton: true,
+      confirmButtonText: 'Đã hiểu'
+    }).then(() => {
+      router.push('/login');
     });
 
-    // Redirect to login after 2 seconds
-    setTimeout(() => {
-      router.push('/login');
-    }, 2000);
-
   } catch (error) {
-    console.error('Register error:', error);
-    
-    let errorMessage = 'Đăng ký thất bại';
-    if (error.response?.data?.error) {
-      errorMessage = error.response.data.error;
-    } else if (error.response?.data) {
-      errorMessage = error.response.data;
+    errors.value = {};
+
+    if (error.response?.status === 400 && error.response?.data?.details) {
+      errors.value = error.response.data.details;
     }
 
     Swal.fire({
       icon: 'error',
-      title: 'Lỗi đăng ký',
-      text: errorMessage,
+      title: 'Đăng ký thất bại',
+      text: error.response?.data?.message || 'Không thể kết nối đến máy chủ',
     });
   } finally {
     isLoading.value = false;
