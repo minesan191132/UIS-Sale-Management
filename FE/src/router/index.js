@@ -24,6 +24,7 @@ import ProductView from '../components/admin/product.vue'
 import UserEditView from '../components/admin/user_edit.vue'
 import UserListView from '../components/admin/user_list.vue'
 import OrderManagementView from '../components/admin/OrderManagement.vue'
+import ResendVerification from '../components/auth/ResendVerification.vue'
 
 
 const routes = [
@@ -66,6 +67,11 @@ const routes = [
     path: '/register',
     name: 'register',
     component: Register
+  },
+  {
+    path: '/resend-verification',
+    name: 'ResendVerification',
+    component: ResendVerification
   },
   {
     path: '/create-order',
@@ -131,16 +137,26 @@ const router = createRouter({
 
 // Authentication & Role Guard
 router.beforeEach((to, from, next) => {
-  // Update page title
   document.title = to.meta.title || 'DATT System'
-
-  const user = JSON.parse(localStorage.getItem('user'));
+  const userStr = sessionStorage.getItem('user') || localStorage.getItem('user');
+  const user = userStr ? JSON.parse(userStr) : null;
   const isAuthenticatedUser = isAuthenticated();
-
-  // 1. Check if route requires authentication
   if (to.meta.requiresAuth && !isAuthenticatedUser) {
     next({ path: '/login', query: { redirect: to.fullPath } })
     return;
+  }
+
+  // 2. Check if route requires specific role
+  if (to.meta.roles && isAuthenticatedUser) {
+    if (!to.meta.roles.includes(user?.role)) {
+      // Unauthorized access -> Redirect to safe page based on role
+      if (user?.role === 'CUSTOMER') {
+        next('/'); // Redirect Customer to Home
+      } else {
+        next('/admin/dashboard');
+      }
+      return;
+    }
   }
 
   // 2. Check if route requires specific role

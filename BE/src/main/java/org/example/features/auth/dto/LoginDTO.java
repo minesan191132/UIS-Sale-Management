@@ -14,10 +14,10 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class LoginDTO {
 
-    @NotBlank(message = "Email is required")
-    @Email(message = "Invalid email format")
+    @NotBlank(message = "Email không được để trống")
+    @Email(message = "Email phải đúng định dạng")
     private String email;
 
-    @NotBlank(message = "Password is required")
+    @NotBlank(message = "Password không được để trống")
     private String password;
 }

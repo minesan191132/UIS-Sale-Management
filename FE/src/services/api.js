@@ -14,7 +14,7 @@ const apiClient = axios.create({
 // Request interceptor - Add JWT token to all requests
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('authToken');
+    const token = sessionStorage.getItem('authToken') || localStorage.getItem('authToken');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -29,10 +29,12 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401 || error.response?.status === 403) {
-      // Token expired or invalid - clear storage and redirect to login
+    const isLoginRequest = error.config && error.config.url && error.config.url.includes('/auth/login');
+    if ((error.response?.status === 401 || error.response?.status === 403) && !isLoginRequest) {
       localStorage.removeItem('authToken');
       localStorage.removeItem('user');
+      sessionStorage.removeItem('authToken');
+      sessionStorage.removeItem('user');
       window.location.href = '/login';
     }
     return Promise.reject(error);
@@ -46,15 +48,14 @@ export const authAPI = {
    * Register new user with company
    */
   register: async (data) => {
-    const response = await axios.post(`${API_BASE_URL}/auth/register`, data);
-    return response.data;
+    return await apiClient.post('/auth/register', data);
   },
 
   /**
    * Login user
    */
   login: async (email, password) => {
-    const response = await axios.post(`${API_BASE_URL}/auth/login`, {
+    const response = await apiClient.post(`${API_BASE_URL}/auth/login`, {
       email,
       password,
     });
@@ -68,6 +69,20 @@ export const authAPI = {
     const response = await apiClient.get('/auth/me');
     return response.data;
   },
+
+/**
+   * Verify email via token
+   */
+verifyEmail: async (token) => {
+  return await apiClient.get(`/auth/verify/${token}`);
+},
+
+/**
+ * Resend verification email
+ */
+resendVerification: async (data) => {
+  return await apiClient.post('/auth/resend-verification', data);
+},
 };
 
 // ==================== MATERIALS APIs ====================
@@ -127,11 +142,14 @@ export const companiesAPI = {
 // ==================== HELPERS ====================
 
 /**
- * Save auth token and user info to localStorage
+ * Save auth token and user info
+ * @param {Object} authResponse
+ * @param {boolean} rememberMe 
  */
-export const saveAuthData = (authResponse) => {
-  localStorage.setItem('authToken', authResponse.token);
-  localStorage.setItem('user', JSON.stringify({
+export const saveAuthData = (authResponse, rememberMe = false) => {
+  const storage = rememberMe ? localStorage : sessionStorage;
+  storage.setItem('authToken', authResponse.token);
+  storage.setItem('user', JSON.stringify({
     userId: authResponse.userId,
     email: authResponse.email,
     fullName: authResponse.fullName,
@@ -145,7 +163,7 @@ export const saveAuthData = (authResponse) => {
  * Get stored user info
  */
 export const getStoredUser = () => {
-  const userStr = localStorage.getItem('user');
+  const userStr = sessionStorage.getItem('user') || localStorage.getItem('user');
   return userStr ? JSON.parse(userStr) : null;
 };
 
@@ -153,7 +171,7 @@ export const getStoredUser = () => {
  * Check if user is authenticated
  */
 export const isAuthenticated = () => {
-  return !!localStorage.getItem('authToken');
+  return !!(sessionStorage.getItem('authToken') || localStorage.getItem('authToken'));
 };
 
 /**
@@ -162,6 +180,8 @@ export const isAuthenticated = () => {
 export const logout = () => {
   localStorage.removeItem('authToken');
   localStorage.removeItem('user');
+  sessionStorage.removeItem('authToken');
+  sessionStorage.removeItem('user');
   window.location.href = '/login';
 };
 

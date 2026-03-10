@@ -70,7 +70,8 @@ public class SecurityConfig {
                                 "/api/auth/**",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
-                                "/actuator/health")
+                                "/actuator/health",
+                                "/error")
                         .permitAll() // Public endpoints
 
                         .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
