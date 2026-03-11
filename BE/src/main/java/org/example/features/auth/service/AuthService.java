@@ -157,8 +157,6 @@ public class AuthService {
         String verificationUrl = "http://localhost:8080/api/auth/verify/" + token;
         emailService.sendVerificationEmail(user, verificationUrl);
 
-        emailService.sendVerificationEmail(user, token);
-
         return "Email kích hoạt đã được gửi lại thành công. Vui lòng kiểm tra hộp thư (và thư rác) của bạn.";
     }
 
