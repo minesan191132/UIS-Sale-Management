@@ -81,6 +81,10 @@ public class VietQRService {
                 log.warn("Tax code not found in VietQR: {}", taxCode);
                 throw new IllegalArgumentException("Tax code not found: " + taxCode);
             }
+            if (e.getStatusCode() == HttpStatus.TOO_MANY_REQUESTS) {
+                log.warn("VietQR API rate limit hit for tax code: {}", taxCode);
+                throw new IllegalStateException("Hệ thống tra cứu mã số thuế đang bận. Vui lòng thử lại sau ít phút.");
+            }
             log.error("VietQR API error for tax code {}: {}", taxCode, e.getMessage());
             throw new RuntimeException("VietQR API error: " + e.getMessage(), e);
 

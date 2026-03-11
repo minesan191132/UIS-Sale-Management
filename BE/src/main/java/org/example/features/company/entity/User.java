@@ -36,6 +36,9 @@ public class User {
     @Column(name = "full_name", length = 200)
     private String fullName;
 
+    @Column(name = "phone", length = 20)
+    private String phone;
+
     @Column(name = "password_hash", nullable = false)
     @JsonIgnore
     private String password; // Renamed from passwordHash for Spring Security compatibility

@@ -70,19 +70,19 @@ export const authAPI = {
     return response.data;
   },
 
-/**
-   * Verify email via token
-   */
-verifyEmail: async (token) => {
-  return await apiClient.get(`/auth/verify/${token}`);
-},
+  /**
+     * Verify email via token
+     */
+  verifyEmail: async (token) => {
+    return await apiClient.get(`/auth/verify/${token}`);
+  },
 
-/**
- * Resend verification email
- */
-resendVerification: async (data) => {
-  return await apiClient.post('/auth/resend-verification', data);
-},
+  /**
+   * Resend verification email
+   */
+  resendVerification: async (data) => {
+    return await apiClient.post('/auth/resend-verification', data);
+  },
 };
 
 // ==================== MATERIALS APIs ====================
@@ -96,7 +96,7 @@ export const materialsAPI = {
     if (companyId !== null) {
       params.companyId = companyId;
     }
-    
+
     const response = await apiClient.get('/materials/dashboard', { params });
     return response.data;
   },
@@ -135,6 +135,46 @@ export const companiesAPI = {
     const response = await apiClient.get('/companies', {
       params: { keyword, page, size }
     });
+    return response.data;
+  },
+};
+
+// ==================== ADMIN USER APIs ====================
+
+export const usersAPI = {
+  /**
+   * Get all users with optional search/role/company filter and pagination
+   */
+  getAll: async (search = '', role = '', page = 0, size = 20, companySearch = '') => {
+    const params = { page, size };
+    if (search) params.search = search;
+    if (role && role !== 'all') params.role = role;
+    if (companySearch) params.companySearch = companySearch;
+    const response = await apiClient.get('/admin/users', { params });
+    return response.data;
+  },
+
+  /**
+   * Update user role
+   */
+  updateRole: async (userId, role) => {
+    const response = await apiClient.put(`/admin/users/${userId}/role`, { role });
+    return response.data;
+  },
+
+  /**
+   * Update user info (phone, fullName, role, password)
+   */
+  updateUser: async (userId, data) => {
+    const response = await apiClient.patch(`/admin/users/${userId}`, data);
+    return response.data;
+  },
+
+  /**
+   * Toggle user active/inactive status
+   */
+  toggleActive: async (userId) => {
+    const response = await apiClient.put(`/admin/users/${userId}/toggle-active`);
     return response.data;
   },
 };
