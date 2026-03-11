@@ -97,8 +97,7 @@ public class AuthService {
                 redisKey,
                 savedUser.getEmail(),
                 VERIFY_TOKEN_EXPIRATION_MINUTES,
-                TimeUnit.MINUTES
-        );
+                TimeUnit.MINUTES);
 
         String verificationUrl = "http://localhost:8080/api/auth/verify/" + token;
 
@@ -141,7 +140,8 @@ public class AuthService {
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy tài khoản nào đăng ký với email này."));
 
         if (Boolean.TRUE.equals(user.getIsActive())) {
-            throw new IllegalArgumentException("Tài khoản này đã được kích hoạt. Vui lòng chuyển sang trang Đăng nhập.");
+            throw new IllegalArgumentException(
+                    "Tài khoản này đã được kích hoạt. Vui lòng chuyển sang trang Đăng nhập.");
         }
 
         String token = UUID.randomUUID().toString();
@@ -151,8 +151,7 @@ public class AuthService {
                 redisKey,
                 user.getEmail(),
                 VERIFY_TOKEN_EXPIRATION_MINUTES,
-                TimeUnit.MINUTES
-        );
+                TimeUnit.MINUTES);
 
         String verificationUrl = "http://localhost:8080/api/auth/verify/" + token;
         emailService.sendVerificationEmail(user, verificationUrl);
@@ -171,9 +170,16 @@ public class AuthService {
         User user = userRepository.findByEmail(dto.getEmail())
                 .orElseThrow(() -> new BadCredentialsException("Email hoặc mật khẩu không chính xác"));
 
-        // 2. Kiểm tra xem tài khoản đã được kích hoạt qua email chưa
+        // 2. Kiểm tra trạng thái tài khoản
         if (Boolean.FALSE.equals(user.getIsActive())) {
-            throw new DisabledException("Tài khoản chưa được kích hoạt. Vui lòng kiểm tra email để xác thực hoặc yêu cầu gửi lại email.");
+            // Nếu đã từng đăng nhập → bị admin khoá; ngược lại chưa kích hoạt email
+            if (user.getLastLogin() != null) {
+                throw new DisabledException(
+                        "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên để được hỗ trợ.");
+            } else {
+                throw new DisabledException(
+                        "Tài khoản chưa được kích hoạt. Vui lòng kiểm tra email để xác thực hoặc yêu cầu gửi lại email.");
+            }
         }
 
         // 3. Xác thực người dùng (Kiểm tra mật khẩu)
