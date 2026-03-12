@@ -29,6 +29,12 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
         Page<Order> findByUserId(@Param("userId") Long userId, Pageable pageable);
 
         /**
+         * Find orders by user ID and status (for tab filtering)
+         */
+        @Query("SELECT o FROM Order o WHERE o.user.id = :userId AND o.status = :status ORDER BY o.createdAt DESC")
+        Page<Order> findByUserIdAndStatus(@Param("userId") Long userId, @Param("status") OrderStatus status, Pageable pageable);
+
+        /**
          * Find orders by status
          */
         Page<Order> findByStatus(OrderStatus status, Pageable pageable);
