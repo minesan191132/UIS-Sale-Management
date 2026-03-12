@@ -83,6 +83,27 @@ export const authAPI = {
   resendVerification: async (data) => {
     return await apiClient.post('/auth/resend-verification', data);
   },
+
+  /**
+   * Step 1 - Forgot password: send OTP to email
+   */
+  forgotPassword: async (email) => {
+    return await apiClient.post('/auth/forgot-password', { email });
+  },
+
+  /**
+   * Step 2 - Verify OTP: returns reset token
+   */
+  verifyOtp: async (email, otp) => {
+    return await apiClient.post('/auth/forgot-password/verify', { email, otp });
+  },
+
+  /**
+   * Step 3 - Reset password using reset token
+   */
+  resetPassword: async (resetToken, newPassword) => {
+    return await apiClient.post('/auth/reset-password', { resetToken, newPassword });
+  },
 };
 
 // ==================== MATERIALS APIs ====================

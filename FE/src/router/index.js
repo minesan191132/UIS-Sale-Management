@@ -25,6 +25,9 @@ import UserEditView from '../components/admin/user_edit.vue'
 import UserListView from '../components/admin/user_list.vue'
 import OrderManagementView from '../components/admin/OrderManagement.vue'
 import ResendVerification from '../components/auth/ResendVerification.vue'
+import ForgotPassword from '../components/auth/ForgotPassword.vue'
+import VerifyOtp from '../components/auth/VerifyOtp.vue'
+import ResetPassword from '../components/auth/ResetPassword.vue'
 
 
 const routes = [
@@ -72,6 +75,21 @@ const routes = [
     path: '/resend-verification',
     name: 'ResendVerification',
     component: ResendVerification
+  },
+  {
+    path: '/forgot-password',
+    name: 'ForgotPassword',
+    component: ForgotPassword
+  },
+  {
+    path: '/forgot-password/verify',
+    name: 'VerifyOtp',
+    component: VerifyOtp
+  },
+  {
+    path: '/reset-password',
+    name: 'ResetPassword',
+    component: ResetPassword
   },
   {
     path: '/create-order',
