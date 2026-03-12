@@ -10,28 +10,28 @@ const featuredProducts = ref([
     id: 1, 
     name: 'Thép Cuộn Cán Nóng', 
     desc: 'Mác thép SS400, tiêu chuẩn JIS',
-    price: 'Liên hệ báo giá', 
+    price: 'Liên hệ gia công', 
     image: 'https://placehold.co/300x300/e2e8f0/1e293b?text=Thep+Cuon' // Ảnh minh họa màu xám công nghiệp
   },
   { 
     id: 2, 
     name: 'Thép Hình Chữ I/H', 
     desc: 'Chịu lực cao, đa dạng kích thước',
-    price: 'Liên hệ báo giá', 
+    price: 'Liên hệ gia công', 
     image: 'https://placehold.co/300x300/e2e8f0/1e293b?text=Thep+Hinh+I' 
   },
   { 
     id: 3, 
     name: 'Thép Ống Mạ Kẽm', 
     desc: 'Chống ăn mòn, độ bền vượt trội',
-    price: 'Liên hệ báo giá', 
+    price: 'Liên hệ gia công', 
     image: 'https://placehold.co/300x300/e2e8f0/1e293b?text=Thep+Ong' 
   },
   { 
     id: 4, 
     name: 'Tôn Lợp Công Nghiệp', 
     desc: 'Cán sóng vuông, nhiều màu sắc',
-    price: 'Liên hệ báo giá', 
+    price: 'Liên hệ gia công', 
     image: 'https://placehold.co/300x300/e2e8f0/1e293b?text=Ton+Lop' 
   },
 ]);
@@ -65,10 +65,10 @@ const featuredProducts = ref([
         <div class="d-flex justify-content-between align-items-end mb-5">
           <div>
             <h6 class="text-primary fw-bold text-uppercase mb-2">Sản phẩm chủ lực</h6>
-            <h2 class="fw-bold text-dark">Vật Liệu Xây Dựng & Công Nghiệp</h2>
+            <h2 class="fw-bold text-dark">Sản phẩm gia công</h2>
             <div class="title-underline"></div>
           </div>
-          <a href="#" class="btn btn-link text-decoration-none fw-bold">Xem tất cả <i class="fas fa-arrow-right"></i></a>
+          
         </div>
 
         <div class="row g-4">
@@ -76,7 +76,7 @@ const featuredProducts = ref([
             <div class="card product-card h-100 border-0">
               <div class="card-img-wrapper">
                 <img :src="product.image" class="card-img-top" :alt="product.name">
-                <span class="badge-stock">Còn hàng</span>
+                
               </div>
               
               <div class="card-body">

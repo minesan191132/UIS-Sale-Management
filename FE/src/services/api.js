@@ -179,6 +179,18 @@ export const usersAPI = {
   },
 };
 
+// ==================== CONTACT API ====================
+
+export const contactAPI = {
+  /**
+   * Gửi yêu cầu liên hệ qua email
+   */
+  send: async (data) => {
+    const response = await apiClient.post('/contact/send', data);
+    return response.data;
+  },
+};
+
 // ==================== HELPERS ====================
 
 /**
