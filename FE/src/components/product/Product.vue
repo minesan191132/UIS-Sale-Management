@@ -21,9 +21,6 @@ const minPrice = ref('');
 const maxPrice = ref('');
 const inStockOnly = ref(false);
 
-// --- BIẾN LƯU SẢN PHẨM ĐANG XEM CHI TIẾT ---
-const selectedProduct = ref(null);
-
 // --- HÀM GỌI API TÍCH HỢP LỌC ---
 const fetchProducts = async () => {
   try {
@@ -47,7 +44,7 @@ const fetchProducts = async () => {
       image: item.imageUrl || `https://placehold.co/400x300/e2e8f0/1e293b?text=${encodeURIComponent(item.sku)}`,
       origin: item.defaultMaterial || "Đang cập nhật",
       price: item.price,
-      stockQuantity: item.stockQuantity // Thêm vào để hiển thị trong Modal
+      stockQuantity: item.stockQuantity 
     }));
 
     const pageMeta = response.data.page || response.data;
@@ -77,11 +74,6 @@ const changePage = (page) => {
     fetchProducts();
     scrollToTop();
   }
-};
-
-// Mở Modal chi tiết
-const openDetail = (product) => {
-  selectedProduct.value = product;
 };
 
 // Lắng nghe sự kiện
@@ -185,11 +177,10 @@ watch(sortBy, () => applyFilter());
                     <span class="price text-danger fw-bold">
                       {{ product.price ? product.price.toLocaleString('vi-VN') + ' ₫' : 'Liên hệ' }}
                     </span>
-                    <button class="btn btn-outline-primary btn-sm rounded-pill px-3 fw-bold" 
-                            data-bs-toggle="modal" data-bs-target="#productDetailModal" 
-                            @click="openDetail(product)">
+                    
+                    <router-link :to="`/product/${product.id}`" class="btn btn-outline-primary btn-sm rounded-pill px-3 fw-bold">
                       Chi tiết
-                    </button>
+                    </router-link>
                   </div>
                 </div>
               </div>
@@ -219,48 +210,7 @@ watch(sortBy, () => applyFilter());
     </div>
 
     <Footer />
-
-    <div class="modal fade" id="productDetailModal" tabindex="-1" aria-hidden="true">
-      <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content border-0 shadow" v-if="selectedProduct">
-          <div class="modal-header border-0 pb-0">
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-          </div>
-          <div class="modal-body pt-0 pb-4 px-4">
-            <div class="row align-items-center">
-              <div class="col-md-6 text-center mb-3 mb-md-0">
-                <img :src="selectedProduct.image" class="img-fluid rounded" style="max-height: 300px; object-fit: contain;">
-              </div>
-              <div class="col-md-6">
-                <h3 class="fw-bold mb-3" style="color: #0b2e59;">{{ selectedProduct.name }}</h3>
-                
-                <h4 class="text-danger fw-bold mb-4">
-                  {{ selectedProduct.price ? selectedProduct.price.toLocaleString('vi-VN') + ' ₫' : 'Liên hệ nhận báo giá' }}
-                </h4>
-
-                <ul class="list-unstyled mb-4">
-                  <li class="mb-2"><i class="fas fa-barcode text-warning me-2" style="width:20px"></i> <strong>Mã SKU:</strong> {{ selectedProduct.code }}</li>
-                  <li class="mb-2"><i class="fas fa-cube text-warning me-2" style="width:20px"></i> <strong>Vật liệu:</strong> {{ selectedProduct.origin }}</li>
-                  <li class="mb-2"><i class="fas fa-boxes text-warning me-2" style="width:20px"></i> <strong>Tồn kho:</strong> {{ selectedProduct.stockQuantity }} chiếc</li>
-                  <li class="mb-2">
-                    <i class="fas fa-info-circle text-warning me-2" style="width:20px"></i> <strong>Trạng thái:</strong>
-                    <span :class="selectedProduct.status === 'Còn hàng' ? 'text-success fw-bold' : 'text-danger fw-bold'">
-                      {{ selectedProduct.status }}
-                    </span>
-                  </li>
-                </ul>
-
-                <button class="btn w-100 fw-bold text-white py-2" style="background-color: #f59e0b;">
-                  <i class="fas fa-shopping-cart me-2"></i>Thêm vào báo giá
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
-
-  </div>
 </template>
 
 <style scoped>

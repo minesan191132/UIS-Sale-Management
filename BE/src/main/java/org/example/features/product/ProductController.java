@@ -6,6 +6,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -37,5 +38,11 @@ public class ProductController {
         Page<ProductResponse> result = productService.getProducts(filter, pageable);
 
         return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ProductResponse> getProductById(@PathVariable Long id) {
+        ProductResponse product = productService.getProductById(id);
+        return ResponseEntity.ok(product);
     }
 }
