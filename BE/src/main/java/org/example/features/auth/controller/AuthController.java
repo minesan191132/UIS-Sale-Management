@@ -5,9 +5,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.config.security.CustomUserDetails;
 import org.example.features.auth.dto.AuthResponseDTO;
+import org.example.features.auth.dto.ForgotPasswordRequestDTO;
 import org.example.features.auth.dto.LoginDTO;
 import org.example.features.auth.dto.RegisterDTO;
 import org.example.features.auth.dto.ResendEmailDTO;
+import org.example.features.auth.dto.ResetPasswordDTO;
+import org.example.features.auth.dto.VerifyOtpDTO;
 import org.example.features.auth.service.AuthService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -102,5 +105,35 @@ public class AuthController {
                 "fullName", userDetails.getFullName(),
                 "companyId", userDetails.getCompanyId(),
                 "role", userDetails.getRole()));
+    }
+
+    /**
+     * Step 1 - Forgot password: send OTP to email
+     * POST /api/auth/forgot-password
+     */
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(@Valid @RequestBody ForgotPasswordRequestDTO dto) {
+        String message = authService.forgotPassword(dto.getEmail());
+        return ResponseEntity.ok(Map.of("message", message));
+    }
+
+    /**
+     * Step 2 - Verify OTP: returns a one-time reset token
+     * POST /api/auth/forgot-password/verify
+     */
+    @PostMapping("/forgot-password/verify")
+    public ResponseEntity<?> verifyOtp(@Valid @RequestBody VerifyOtpDTO dto) {
+        String resetToken = authService.verifyOtp(dto.getEmail(), dto.getOtp());
+        return ResponseEntity.ok(Map.of("resetToken", resetToken));
+    }
+
+    /**
+     * Step 3 - Reset password using the one-time reset token
+     * POST /api/auth/reset-password
+     */
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@Valid @RequestBody ResetPasswordDTO dto) {
+        String message = authService.resetPassword(dto.getResetToken(), dto.getNewPassword());
+        return ResponseEntity.ok(Map.of("message", message));
     }
 }

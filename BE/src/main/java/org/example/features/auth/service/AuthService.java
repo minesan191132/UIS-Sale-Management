@@ -25,6 +25,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -48,6 +49,11 @@ public class AuthService {
 
     private static final String REDIS_VERIFY_PREFIX = "verify_token:";
     private static final long VERIFY_TOKEN_EXPIRATION_MINUTES = 3;
+
+    private static final String REDIS_OTP_PREFIX = "otp:";
+    private static final String REDIS_RESET_PREFIX = "reset_token:";
+    private static final long OTP_EXPIRATION_MINUTES = 5;
+    private static final long RESET_TOKEN_EXPIRATION_MINUTES = 10;
 
     @Value("${jwt.expiration:86400000}")
     private long jwtExpiration;
@@ -97,8 +103,7 @@ public class AuthService {
                 redisKey,
                 savedUser.getEmail(),
                 VERIFY_TOKEN_EXPIRATION_MINUTES,
-                TimeUnit.MINUTES
-        );
+                TimeUnit.MINUTES);
 
         String verificationUrl = "http://localhost:8080/api/auth/verify/" + token;
 
@@ -141,7 +146,8 @@ public class AuthService {
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy tài khoản nào đăng ký với email này."));
 
         if (Boolean.TRUE.equals(user.getIsActive())) {
-            throw new IllegalArgumentException("Tài khoản này đã được kích hoạt. Vui lòng chuyển sang trang Đăng nhập.");
+            throw new IllegalArgumentException(
+                    "Tài khoản này đã được kích hoạt. Vui lòng chuyển sang trang Đăng nhập.");
         }
 
         String token = UUID.randomUUID().toString();
@@ -151,13 +157,10 @@ public class AuthService {
                 redisKey,
                 user.getEmail(),
                 VERIFY_TOKEN_EXPIRATION_MINUTES,
-                TimeUnit.MINUTES
-        );
+                TimeUnit.MINUTES);
 
         String verificationUrl = "http://localhost:8080/api/auth/verify/" + token;
         emailService.sendVerificationEmail(user, verificationUrl);
-
-        emailService.sendVerificationEmail(user, token);
 
         return "Email kích hoạt đã được gửi lại thành công. Vui lòng kiểm tra hộp thư (và thư rác) của bạn.";
     }
@@ -171,9 +174,16 @@ public class AuthService {
         User user = userRepository.findByEmail(dto.getEmail())
                 .orElseThrow(() -> new BadCredentialsException("Email hoặc mật khẩu không chính xác"));
 
-        // 2. Kiểm tra xem tài khoản đã được kích hoạt qua email chưa
+        // 2. Kiểm tra trạng thái tài khoản
         if (Boolean.FALSE.equals(user.getIsActive())) {
-            throw new DisabledException("Tài khoản chưa được kích hoạt. Vui lòng kiểm tra email để xác thực hoặc yêu cầu gửi lại email.");
+            // Nếu đã từng đăng nhập → bị admin khoá; ngược lại chưa kích hoạt email
+            if (user.getLastLogin() != null) {
+                throw new DisabledException(
+                        "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên để được hỗ trợ.");
+            } else {
+                throw new DisabledException(
+                        "Tài khoản chưa được kích hoạt. Vui lòng kiểm tra email để xác thực hoặc yêu cầu gửi lại email.");
+            }
         }
 
         // 3. Xác thực người dùng (Kiểm tra mật khẩu)
@@ -203,5 +213,69 @@ public class AuthService {
                 .role(user.getRole().name())
                 .expiresIn(jwtExpiration)
                 .build();
+    }
+
+    /**
+     * Step 1: Send OTP to email for password reset
+     */
+    public String forgotPassword(String email) {
+        userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("Email không hợp lệ hoặc chưa được đăng ký."));
+
+        String otp = String.format("%06d", new SecureRandom().nextInt(1_000_000));
+        String redisKey = REDIS_OTP_PREFIX + email;
+
+        redisTemplate.opsForValue().set(redisKey, otp, OTP_EXPIRATION_MINUTES, TimeUnit.MINUTES);
+        emailService.sendOtpEmail(email, otp);
+
+        log.info("OTP sent to: {}", email);
+        return "Mã OTP đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư trong vòng 5 phút.";
+    }
+
+    /**
+     * Step 2: Verify OTP → return one-time reset token
+     */
+    public String verifyOtp(String email, String otp) {
+        String redisKey = REDIS_OTP_PREFIX + email;
+        String storedOtp = redisTemplate.opsForValue().get(redisKey);
+
+        if (storedOtp == null || !storedOtp.equals(otp)) {
+            throw new IllegalArgumentException("OTP không hợp lệ hoặc đã hết hạn.");
+        }
+
+        // Xóa OTP ngay sau khi xác thực thành công (one-time use)
+        redisTemplate.delete(redisKey);
+
+        String resetToken = UUID.randomUUID().toString();
+        String resetKey = REDIS_RESET_PREFIX + resetToken;
+        redisTemplate.opsForValue().set(resetKey, email, RESET_TOKEN_EXPIRATION_MINUTES, TimeUnit.MINUTES);
+
+        log.info("OTP verified, reset token issued for: {}", email);
+        return resetToken;
+    }
+
+    /**
+     * Step 3: Reset password using one-time reset token
+     */
+    @Transactional
+    public String resetPassword(String resetToken, String newPassword) {
+        String resetKey = REDIS_RESET_PREFIX + resetToken;
+        String email = redisTemplate.opsForValue().get(resetKey);
+
+        if (email == null) {
+            throw new IllegalArgumentException("Token không hợp lệ hoặc đã hết hạn. Vui lòng thực hiện lại từ đầu.");
+        }
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("Tài khoản không tồn tại."));
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+        // Xóa reset token để không thể dùng lại
+        redisTemplate.delete(resetKey);
+
+        log.info("Password reset successfully for: {}", email);
+        return "Mật khẩu đã được đặt lại thành công. Vui lòng đăng nhập lại.";
     }
 }

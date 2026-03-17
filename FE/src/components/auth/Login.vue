@@ -73,7 +73,7 @@
           </div>
 
           <div class="text-center text-secondary mt-4 footer-links d-flex flex-wrap justify-content-center">
-            <a href="#" class="text-decoration-none text-secondary">Forgot password?</a>
+            <router-link class="text-decoration-none text-secondary custom-link" to="/forgot-password">Forgot password?</router-link>
             <span class="mx-2 d-none d-sm-inline">|</span>
             <router-link class="text-decoration-none text-secondary custom-link" to="/resend-verification">Gửi lại email</router-link>
             <span class="mx-2 d-none d-sm-inline">|</span>
