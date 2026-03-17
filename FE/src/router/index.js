@@ -5,6 +5,7 @@ import HomeView from '../components/homepage/Homepage.vue'
 import ServiceView from '../components/services/Service.vue'
 import ServiceDetailView from '../components/services/ServiceDetail.vue'
 import Product from '../components/product/Product.vue'
+import ProductDetail from '../components/product/ProductDetail.vue';
 import Contact from '../components/contact/Contact.vue'
 import Cart from '../components/cart/Cart.vue'
 import Login from '../components/auth/Login.vue'
@@ -50,6 +51,11 @@ const routes = [
     path: '/products',
     name: 'product',
     component: Product
+  },
+  {
+    path: '/product/:id',
+    name: 'product-detail',
+    component: ProductDetail
   },
   {
     path: '/contact',

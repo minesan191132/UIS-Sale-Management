@@ -10,6 +10,7 @@ public class ProductResponse {
     private String sku;
     private BigDecimal price;
     private String imageUrl;
+    private String description;
 
     // Dùng để UI hiển thị nhãn "CÒN HÀNG" hoặc "HẾT HÀNG"
     private Integer stockQuantity;
