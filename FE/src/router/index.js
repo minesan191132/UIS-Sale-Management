@@ -1,35 +1,58 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { isAuthenticated } from '../services/api'
 
-import HomeView from '../components/homepage/Homepage.vue'
-import ServiceView from '../components/services/Service.vue'
-import ServiceDetailView from '../components/services/ServiceDetail.vue'
-import Product from '../components/product/Product.vue'
-import ProductDetail from '../components/product/ProductDetail.vue';
-import Contact from '../components/contact/Contact.vue'
-import Cart from '../components/cart/Cart.vue'
-import Login from '../components/auth/Login.vue'
-import Register from '../components/auth/Register.vue'
-import CreateOrder from '../components/customer/CreateOrder.vue'
-import MyOrders from '../components/customer/MyOrders.vue'
 import AccountSetting from '../components/user/accountsetting.vue'
 
-import AdminLayout from '../layouts/AdminLayout.vue'
+const HomeView = () => import('../components/homepage/Homepage.vue')
+const ServiceView = () => import('../components/services/Service.vue')
+const ServiceDetailView = () => import('../components/services/ServiceDetail.vue')
+const Product = () => import('../components/product/Product.vue')
+const ProductDetail = () => import('../components/product/ProductDetail.vue')
+const Contact = () => import('../components/contact/Contact.vue')
+const Cart = () => import('../components/cart/Cart.vue')
+const Login = () => import('../components/auth/Login.vue')
+const Register = () => import('../components/auth/Register.vue')
+const CreateOrder = () => import('../components/customer/CreateOrder.vue')
+const MyOrders = () => import('../components/customer/MyOrders.vue')
+const AdminLayout = () => import('../layouts/AdminLayout.vue')
+const InventoryView = () => import('../components/admin/home.vue')
+const InvoiceMgmtView = () => import('../components/admin/ExportManagement.vue')
+const PreviewInvoiceView = () => import('../components/admin/preview.vue')
+const StatisticView = () => import('../components/admin/thongke.vue')
+const WarehouseView = () => import('../components/admin/nhapkho.vue')
+const WarehouseHistoryView = () => import('../components/admin/lichsunhapkho.vue')
+const ProductView = () => import('../components/admin/product.vue')
+const UserEditView = () => import('../components/admin/user_edit.vue')
+const UserListView = () => import('../components/admin/user_list.vue')
 
-import InventoryView from '../components/admin/home.vue'
-import InvoiceMgmtView from '../components/admin/ExportManagement.vue'
-import PreviewInvoiceView from '../components/admin/preview.vue'
-import StatisticView from '../components/admin/thongke.vue'
-import WarehouseView from '../components/admin/nhapkho.vue'
-import WarehouseHistoryView from '../components/admin/lichsunhapkho.vue'
-import ProductView from '../components/admin/product.vue'
-import UserEditView from '../components/admin/user_edit.vue'
-import UserListView from '../components/admin/user_list.vue'
-import OrderManagementView from '../components/admin/OrderManagement.vue'
-import ResendVerification from '../components/auth/ResendVerification.vue'
-import ForgotPassword from '../components/auth/ForgotPassword.vue'
-import VerifyOtp from '../components/auth/VerifyOtp.vue'
-import ResetPassword from '../components/auth/ResetPassword.vue'
+const ResendVerification = () => import('../components/auth/ResendVerification.vue')
+const ForgotPassword = () => import('../components/auth/ForgotPassword.vue')
+const VerifyOtp = () => import('../components/auth/VerifyOtp.vue')
+const ResetPassword = () => import('../components/auth/ResetPassword.vue')
+
+let adminChunksPrefetched = false;
+const prefetchAdminChunks = () => {
+  if (adminChunksPrefetched || typeof window === 'undefined') return;
+  adminChunksPrefetched = true;
+
+  const run = () => {
+    Promise.allSettled([
+      InventoryView(),
+      InvoiceMgmtView(),
+      PreviewInvoiceView(),
+      StatisticView(),
+    ]).catch(() => {
+      // Ignore prefetch failures to avoid impacting navigation.
+    });
+  };
+
+  if (typeof window.requestIdleCallback === 'function') {
+    window.requestIdleCallback(run, { timeout: 1200 });
+    return;
+  }
+
+  window.setTimeout(run, 200);
+};
 
 
 const routes = [
@@ -129,7 +152,7 @@ const routes = [
       { path: 'products', name: 'products', component: ProductView, meta: { roles: ['ADMIN'] } },
       { path: 'users', name: 'users', component: UserListView, meta: { roles: ['ADMIN'] } },
       { path: 'user-edit', name: 'user-edit', component: UserEditView, meta: { roles: ['ADMIN'] } },
-      { path: 'orders', name: 'orders', component: OrderManagementView, meta: { roles: ['ADMIN'] } },
+
       { path: 'warehouse', name: 'warehouse', component: WarehouseView }, // Needed for import?
       { path: 'warehouse-history', name: 'warehouse-history', component: WarehouseHistoryView }
     ]
@@ -190,18 +213,7 @@ router.beforeEach((to, from, next) => {
     }
   }
 
-  // 2. Check if route requires specific role
-  if (to.meta.roles && isAuthenticatedUser) {
-    if (!to.meta.roles.includes(user?.role)) {
-      // Unauthorized access -> Redirect to safe page based on role
-      if (user?.role === 'CUSTOMER') {
-        next('/'); // Redirect Customer to Home
-      } else {
-        next('/admin/dashboard');
-      }
-      return;
-    }
-  }
+
 
   // 3. Prevent logged-in user from visiting login/register
   if ((to.path === '/login' || to.path === '/register') && isAuthenticatedUser) {
@@ -221,5 +233,11 @@ router.beforeEach((to, from, next) => {
 
   next()
 })
+
+router.afterEach((to) => {
+  if (to.path.startsWith('/admin')) {
+    prefetchAdminChunks();
+  }
+});
 
 export default router

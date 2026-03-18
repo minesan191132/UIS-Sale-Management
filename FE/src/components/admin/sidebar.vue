@@ -22,11 +22,7 @@
           <i class="bi bi-cart me-2"></i> Danh sách user
         </RouterLink>
       </li>
-      <li v-if="isAdmin">
-        <RouterLink to="/admin/orders" class="nav-link link-dark" active-class="active bg-primary text-white">
-          <i class="bi bi-clipboard-check me-2"></i> Quản lý đơn hàng
-        </RouterLink>
-      </li>
+
       <li>
         <a @click="toggleProcessingDropdown" class="nav-link link-dark" style="cursor: pointer;">
           <i class="bi bi-cart me-2"></i> Sản phẩm gia công
