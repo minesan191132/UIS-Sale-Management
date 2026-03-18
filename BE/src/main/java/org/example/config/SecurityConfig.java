@@ -83,6 +83,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/companies/**").hasRole("ADMIN") // Company creation
                         .requestMatchers(HttpMethod.GET, "/api/orders", "/api/orders/*/quote", "/api/orders/*/status")
                         .hasRole("ADMIN") // Admin order views
+                        .requestMatchers(HttpMethod.POST, "/api/orders/admin-import").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/orders/**").hasRole("ADMIN") // Admin order updates
                         .requestMatchers("/api/orders/my", "/api/orders/upload").authenticated() // Customer order
                                                                                                  // access

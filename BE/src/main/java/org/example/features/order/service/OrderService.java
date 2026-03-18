@@ -18,19 +18,36 @@ import org.example.features.order.entity.OrderStatus;
 import org.example.features.order.repository.OrderItemRepository;
 import org.example.features.order.repository.OrderRepository;
 import org.example.features.payment.service.PaymentService;
+import org.example.features.warehouse.entity.DrawingMeta;
+import org.example.features.warehouse.repository.DrawingMetaRepository;
+import org.example.features.warehouse.service.QuotePricingService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Predicate;
 
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -47,6 +64,8 @@ public class OrderService {
     private final UserRepository userRepository;
     private final CompanyRepository companyRepository;
     private final PaymentService paymentService;
+    private final QuotePricingService quotePricingService;
+    private final DrawingMetaRepository drawingMetaRepository;
 
     /**
      * Import order from Excel file
@@ -70,30 +89,8 @@ public class OrderService {
                 throw new IllegalArgumentException("No valid items found in Excel file");
             }
 
-            // Create order
-            Order order = new Order();
-            order.setOrderNumber(generateOrderNumber());
-            order.setUser(user);
-            order.setCompany(company);
-            order.setStatus(OrderStatus.PENDING_QUOTE);
-
-            // Add items
-            for (OrderItemDTO itemDTO : items) {
-                OrderItem item = new OrderItem();
-                item.setItemCode(itemDTO.getItemCode());
-                item.setDrawingNumber(itemDTO.getDrawingNumber());
-                item.setItemName(itemDTO.getItemName());
-                item.setSpecification(itemDTO.getSpecification());
-                item.setMaterialType(itemDTO.getMaterial());
-                item.setQuantity(itemDTO.getQuantity());
-                item.setUnit(itemDTO.getUnit());
-                item.setNotes(itemDTO.getNotes());
-                order.addItem(item);
-            }
-
-            // Save order
-            Order savedOrder = orderRepository.save(order);
-            log.info("Order created successfully: {}", savedOrder.getOrderNumber());
+            Order savedOrder = createOrUpdateOrderFromParsedItems(items, user, company, true, false);
+            log.info("Order import completed successfully: {}", savedOrder.getOrderNumber());
 
             return mapToDTO(savedOrder);
 
@@ -101,6 +98,117 @@ public class OrderService {
             log.error("Error reading Excel file", e);
             throw new RuntimeException("Failed to read Excel file: " + e.getMessage());
         }
+    }
+
+    /**
+     * Admin import for a selected company.
+     * If VNN_NO already exists, old order is replaced to match source behavior.
+     */
+    @Transactional
+    public OrderResponseDTO importOrderFromExcelForCompany(MultipartFile file, Long companyId) {
+        try {
+            log.info("Admin importing order for company ID: {}", companyId);
+
+            Company company = companyRepository.findById(companyId)
+                    .orElseThrow(() -> new IllegalArgumentException("Company not found"));
+
+            User companyUser = userRepository.findByCompanyId(companyId).stream()
+                    .filter(u -> Boolean.TRUE.equals(u.getIsActive()))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Company has no active user to own the imported order"));
+
+            List<OrderItemDTO> items = parseExcelFile(file);
+            if (items.isEmpty()) {
+                throw new IllegalArgumentException("No valid items found in Excel file");
+            }
+
+            Order savedOrder = createOrUpdateOrderFromParsedItems(items, companyUser, company, false, true);
+            log.info("Admin imported order successfully: {}", savedOrder.getOrderNumber());
+            return mapToDTO(savedOrder);
+        } catch (IOException e) {
+            log.error("Error reading Excel file", e);
+            throw new RuntimeException("Failed to read Excel file: " + e.getMessage());
+        }
+    }
+
+    private Order createOrUpdateOrderFromParsedItems(
+            List<OrderItemDTO> items,
+            User owner,
+            Company company,
+            boolean allowCustomerUpdatePendingQuote,
+            boolean replaceIfDuplicateVnn) {
+        String vnnNo = items.stream()
+                .map(OrderItemDTO::getUnit)
+                .filter(u -> u != null && !u.isBlank())
+                .findFirst()
+                .orElse(null);
+
+        Order order;
+        if (vnnNo != null && !vnnNo.isBlank()) {
+            var existing = orderRepository.findByOrderNumber(vnnNo);
+            if (existing.isPresent()) {
+                Order existingOrder = existing.get();
+
+                if (allowCustomerUpdatePendingQuote) {
+                    Long existingCompanyId = existingOrder.getCompany() != null ? existingOrder.getCompany().getId() : null;
+                    if (existingCompanyId == null || !existingCompanyId.equals(company.getId())) {
+                        throw new IllegalArgumentException("Không có quyền cập nhật đơn hàng này");
+                    }
+                    if (existingOrder.getStatus() != OrderStatus.PENDING_QUOTE) {
+                        throw new IllegalArgumentException(
+                                "Chỉ có thể import cập nhật khi đơn hàng đang ở trạng thái CHỜ BÁO GIÁ");
+                    }
+
+                    existingOrder.getItems().clear();
+                    order = existingOrder;
+                    log.info("Updated existing pending-quote order by VNN_NO: {}", vnnNo);
+                } else if (replaceIfDuplicateVnn) {
+                    orderRepository.delete(existingOrder);
+                    orderRepository.flush();
+                    order = new Order();
+                    log.info("Replaced existing order by VNN_NO: {}", vnnNo);
+                } else {
+                    throw new IllegalArgumentException("Mã đơn hàng (VNN NO) đã tồn tại: " + vnnNo);
+                }
+            } else {
+                order = new Order();
+            }
+            order.setOrderNumber(vnnNo);
+        } else {
+            order = new Order();
+            order.setOrderNumber(generateOrderNumber());
+        }
+
+        order.setUser(owner);
+        order.setCompany(company);
+        order.setStatus(OrderStatus.PENDING_QUOTE);
+        order.setTotalPrice(null);
+        order.setDepositAmount(null);
+        order.setPaymentQrUrl(null);
+        order.setPaidAt(null);
+        order.setNotes(null);
+
+        for (OrderItemDTO itemDTO : items) {
+            OrderItem item = new OrderItem();
+            item.setItemCode(itemDTO.getItemCode());
+            item.setDrawingNumber(itemDTO.getDrawingNumber());
+            item.setItemName(itemDTO.getItemName());
+            item.setSpecification(itemDTO.getSpecification());
+            item.setMaterialType(itemDTO.getMaterial());
+            item.setQuantity(itemDTO.getQuantity());
+            item.setUnit(itemDTO.getUnit());
+            item.setNotes(itemDTO.getNotes());
+
+            if (itemDTO.getDeliveryDate() != null && !itemDTO.getDeliveryDate().isBlank()) {
+                parseFlexibleDate(itemDTO.getDeliveryDate()).ifPresentOrElse(
+                        item::setDeliveryDate,
+                        () -> log.warn("Cannot parse delivery date: {}", itemDTO.getDeliveryDate()));
+            }
+            order.addItem(item);
+        }
+
+        return orderRepository.save(order);
     }
 
     /**
@@ -112,8 +220,9 @@ public class OrderService {
         List<OrderItemDTO> items = new ArrayList<>();
 
         try (Workbook workbook = WorkbookFactory.create(file.getInputStream())) {
-            int activeSheetIndex = workbook.getActiveSheetIndex();
-            Sheet sheet = workbook.getSheetAt(activeSheetIndex);
+            Sheet sheet = findDataSheet(workbook);
+            int deliveryDateColumnIndex = detectDeliveryDateColumnIndex(sheet);
+            log.info("Detected delivery date column index: {}", deliveryDateColumnIndex);
 
             // Skip header row (row 0)
             for (int i = 1; i <= sheet.getLastRowNum(); i++) {
@@ -159,10 +268,10 @@ public class OrderService {
                     continue;
                 }
 
-                // Column 8: Delivery Date (希望納期) - store in notes for now
-                String deliveryDate = getCellValueAsString(row.getCell(8));
+                // Delivery Date from detected column in sheet 梱包指示
+                String deliveryDate = getCellValueAsString(row.getCell(deliveryDateColumnIndex));
                 if (!deliveryDate.isEmpty()) {
-                    item.setNotes("Ngày giao: " + deliveryDate);
+                    item.setDeliveryDate(deliveryDate);
                 }
 
                 // Validate required fields
@@ -186,6 +295,86 @@ public class OrderService {
         }
 
         return items;
+    }
+
+    private int detectDeliveryDateColumnIndex(Sheet sheet) {
+        Row headerRow = sheet.getRow(0);
+        if (headerRow == null) {
+            return 8;
+        }
+
+        int lastCellNum = Math.max(headerRow.getLastCellNum(), (short) 9);
+        for (int col = 0; col < lastCellNum; col++) {
+            String header = getCellValueAsString(headerRow.getCell(col));
+            if (isDeliveryDateHeader(header)) {
+                return col;
+            }
+        }
+
+        // Legacy fallback used in existing imports.
+        return 8;
+    }
+
+    private boolean isDeliveryDateHeader(String header) {
+        if (header == null) {
+            return false;
+        }
+        String normalized = header
+                .trim()
+                .toLowerCase(Locale.ROOT)
+                .replaceAll("\\s+", "");
+
+        return normalized.contains("希望納期")
+                || normalized.contains("出荷日")
+                || normalized.contains("納期")
+                || normalized.contains("deliverydate")
+                || normalized.contains("delivery")
+                || normalized.contains("ngayxuat")
+                || normalized.contains("ngàyxuất");
+    }
+
+    private Optional<LocalDate> parseFlexibleDate(String rawValue) {
+        if (rawValue == null) {
+            return Optional.empty();
+        }
+
+        String value = rawValue.trim();
+        if (value.isEmpty()) {
+            return Optional.empty();
+        }
+
+        // Excel-style full timestamp e.g. 2026-03-18T00:00 or 2026-03-18 00:00:00
+        if (value.length() >= 10) {
+            String firstTen = value.substring(0, 10);
+            try {
+                return Optional.of(LocalDate.parse(firstTen, DateTimeFormatter.ISO_LOCAL_DATE));
+            } catch (DateTimeParseException ignored) {
+            }
+        }
+
+        String normalized = value
+                .replace('年', '-')
+                .replace('月', '-')
+                .replace("日", "")
+                .replace('.', '-')
+                .replace('/', '-')
+                .trim();
+
+        DateTimeFormatter[] formatters = new DateTimeFormatter[] {
+                DateTimeFormatter.ISO_LOCAL_DATE,
+                DateTimeFormatter.ofPattern("d-M-uuuu"),
+                DateTimeFormatter.ofPattern("uuuu-M-d"),
+                DateTimeFormatter.ofPattern("M-d-uuuu")
+        };
+
+        for (DateTimeFormatter formatter : formatters) {
+            try {
+                return Optional.of(LocalDate.parse(normalized, formatter));
+            } catch (DateTimeParseException ignored) {
+            }
+        }
+
+        return Optional.empty();
     }
 
     /**
@@ -222,6 +411,32 @@ public class OrderService {
     }
 
     /**
+     * Find the data sheet in the workbook.
+     * Priority: sheet name containing "梱包指示" > "Dg" > active sheet
+     */
+    private Sheet findDataSheet(Workbook workbook) {
+        // Priority 1: sheet containing "梱包指示"
+        for (int i = 0; i < workbook.getNumberOfSheets(); i++) {
+            String name = workbook.getSheetName(i);
+            if (name != null && name.contains("梱包指示")) {
+                log.info("Found target sheet by '梱包指示': {}", name);
+                return workbook.getSheetAt(i);
+            }
+        }
+        // Priority 2: sheet containing "Dg"
+        for (int i = 0; i < workbook.getNumberOfSheets(); i++) {
+            String name = workbook.getSheetName(i);
+            if (name != null && name.contains("Dg")) {
+                log.info("Found target sheet by 'Dg': {}", name);
+                return workbook.getSheetAt(i);
+            }
+        }
+        // Fallback: active sheet
+        log.info("No target sheet found, using active sheet index: {}", workbook.getActiveSheetIndex());
+        return workbook.getSheetAt(workbook.getActiveSheetIndex());
+    }
+
+    /**
      * Generate unique order number: ORD-YYYYMMDD-XXX
      */
     private String generateOrderNumber() {
@@ -235,7 +450,56 @@ public class OrderService {
      * Get all orders (Admin)
      */
     public Page<OrderResponseDTO> getAllOrders(Pageable pageable) {
-        return orderRepository.findAll(pageable).map(this::mapToDTO);
+        return getAllOrders(pageable, null, null, null, null);
+    }
+
+    /**
+     * Get all orders (Admin) with optional filters.
+     */
+    public Page<OrderResponseDTO> getAllOrders(
+            Pageable pageable,
+            String keyword,
+            OrderStatus status,
+            LocalDate fromDate,
+            LocalDate toDate) {
+        if (fromDate != null && toDate != null && fromDate.isAfter(toDate)) {
+            throw new IllegalArgumentException("Khoảng ngày không hợp lệ: Từ ngày phải nhỏ hơn hoặc bằng Đến ngày");
+        }
+
+        String normalizedKeyword = keyword != null ? keyword.trim().toLowerCase() : null;
+        LocalDateTime fromDateTime = fromDate != null ? fromDate.atStartOfDay() : null;
+        LocalDateTime toDateExclusive = toDate != null ? toDate.plusDays(1).atStartOfDay() : null;
+
+        Specification<Order> specification = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            if (normalizedKeyword != null && !normalizedKeyword.isBlank()) {
+                String likePattern = "%" + normalizedKeyword + "%";
+                Join<Order, User> userJoin = root.join("user", JoinType.LEFT);
+                Join<Order, Company> companyJoin = root.join("company", JoinType.LEFT);
+
+                predicates.add(cb.or(
+                        cb.like(cb.lower(cb.coalesce(root.get("orderNumber"), "")), likePattern),
+                        cb.like(cb.lower(cb.coalesce(userJoin.get("fullName"), "")), likePattern),
+                        cb.like(cb.lower(cb.coalesce(companyJoin.get("companyName"), "")), likePattern)));
+            }
+
+            if (status != null) {
+                predicates.add(cb.equal(root.get("status"), status));
+            }
+
+            if (fromDateTime != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), fromDateTime));
+            }
+
+            if (toDateExclusive != null) {
+                predicates.add(cb.lessThan(root.get("createdAt"), toDateExclusive));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        return orderRepository.findAll(specification, pageable).map(this::mapToDTO);
     }
 
     /**
@@ -282,10 +546,23 @@ public class OrderService {
 
         // Validate based on review status
         if (request.getReviewStatus() == ItemReviewStatus.APPROVED) {
-            if (request.getUnitPrice() == null || request.getUnitPrice().compareTo(BigDecimal.ZERO) <= 0) {
+            BigDecimal unitPrice = request.getUnitPrice();
+
+            // Auto-fill from drawing_categories if no price provided
+            if ((unitPrice == null || unitPrice.compareTo(BigDecimal.ZERO) <= 0)
+                    && item.getDrawingNumber() != null && !item.getDrawingNumber().isBlank()) {
+                unitPrice = quotePricingService.getDefaultPriceForDrawing(item.getDrawingNumber());
+            }
+
+            if (unitPrice == null || unitPrice.compareTo(BigDecimal.ZERO) <= 0) {
                 throw new IllegalArgumentException("Đơn giá phải lớn hơn 0 khi duyệt sản phẩm");
             }
-            item.setUnitPrice(request.getUnitPrice());
+            item.setUnitPrice(unitPrice);
+
+            // Sync price back to drawing_categories DB
+            if (item.getDrawingNumber() != null && !item.getDrawingNumber().isBlank()) {
+                quotePricingService.upsertPrice(item.getDrawingNumber(), null, unitPrice);
+            }
         } else if (request.getReviewStatus() == ItemReviewStatus.REJECTED
                 || request.getReviewStatus() == ItemReviewStatus.NEED_DISCUSSION) {
             if (request.getAdminNote() == null || request.getAdminNote().trim().isEmpty()) {
@@ -393,11 +670,32 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found"));
 
+        OrderStatus currentStatus = order.getStatus();
+        if (newStatus == null) {
+            throw new IllegalArgumentException("New status is required");
+        }
+
+        if (newStatus != currentStatus && !isValidTransition(currentStatus, newStatus)) {
+            throw new IllegalStateException(
+                    "Không thể chuyển trạng thái từ " + currentStatus + " sang " + newStatus);
+        }
+
         order.setStatus(newStatus);
         Order savedOrder = orderRepository.save(order);
 
         log.info("Order {} status updated to {}", savedOrder.getOrderNumber(), newStatus);
         return mapToDTO(savedOrder);
+    }
+
+    private boolean isValidTransition(OrderStatus from, OrderStatus to) {
+        Set<OrderStatus> allowedTargets = switch (from) {
+            case PENDING_QUOTE -> EnumSet.of(OrderStatus.AWAITING_PAYMENT, OrderStatus.CANCELLED);
+            case AWAITING_PAYMENT -> EnumSet.of(OrderStatus.DEPOSITED, OrderStatus.PROCESSING, OrderStatus.CANCELLED);
+            case DEPOSITED -> EnumSet.of(OrderStatus.PROCESSING, OrderStatus.CANCELLED);
+            case PROCESSING -> EnumSet.of(OrderStatus.COMPLETED, OrderStatus.CANCELLED);
+            case COMPLETED, CANCELLED -> EnumSet.noneOf(OrderStatus.class);
+        };
+        return allowedTargets.contains(to);
     }
 
     /**
@@ -407,10 +705,10 @@ public class OrderService {
         OrderResponseDTO dto = new OrderResponseDTO();
         dto.setId(order.getId());
         dto.setOrderNumber(order.getOrderNumber());
-        dto.setUserId(order.getUser().getId());
-        dto.setUserName(order.getUser().getFullName());
-        dto.setCompanyId(order.getCompany().getId());
-        dto.setCompanyName(order.getCompany().getCompanyName());
+        dto.setUserId(order.getUser() != null ? order.getUser().getId() : null);
+        dto.setUserName(order.getUser() != null ? order.getUser().getFullName() : null);
+        dto.setCompanyId(order.getCompany() != null ? order.getCompany().getId() : null);
+        dto.setCompanyName(order.getCompany() != null ? order.getCompany().getCompanyName() : null);
         dto.setStatus(order.getStatus());
         dto.setTotalPrice(order.getTotalPrice());
         dto.setDepositAmount(order.getDepositAmount());
@@ -419,6 +717,8 @@ public class OrderService {
         dto.setNotes(order.getNotes());
         dto.setCreatedAt(order.getCreatedAt());
         dto.setUpdatedAt(order.getUpdatedAt());
+
+        Map<String, BigDecimal> weightByDrawing = loadWeightByDrawing(order.getItems());
 
         // Map items
         List<OrderItemDTO> itemDTOs = order.getItems().stream().map(item -> {
@@ -439,10 +739,36 @@ public class OrderService {
             if (item.getUnitPrice() != null && item.getQuantity() != null) {
                 itemDTO.setTotalItemPrice(item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
             }
+            // Delivery date
+            itemDTO.setDeliveryDate(item.getDeliveryDate() != null ? item.getDeliveryDate().toString() : null);
+            itemDTO.setWeight(weightByDrawing.get(item.getDrawingNumber()));
             return itemDTO;
         }).collect(Collectors.toList());
         dto.setItems(itemDTOs);
 
         return dto;
+    }
+
+    private Map<String, BigDecimal> loadWeightByDrawing(List<OrderItem> items) {
+        if (items == null || items.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        List<String> drawingNumbers = items.stream()
+                .map(OrderItem::getDrawingNumber)
+                .filter(d -> d != null && !d.isBlank())
+                .distinct()
+                .toList();
+
+        if (drawingNumbers.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        Map<String, BigDecimal> result = new HashMap<>();
+        List<DrawingMeta> metas = drawingMetaRepository.findByDrawingNumberIn(drawingNumbers);
+        for (DrawingMeta meta : metas) {
+            result.put(meta.getDrawingNumber(), meta.getWeight());
+        }
+        return result;
     }
 }

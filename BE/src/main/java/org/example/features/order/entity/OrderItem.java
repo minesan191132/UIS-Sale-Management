@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 /**
  * Order Item Entity
@@ -57,4 +58,7 @@ public class OrderItem {
 
     @Column(name = "admin_note", columnDefinition = "TEXT")
     private String adminNote;
+
+    @Column(name = "delivery_date")
+    private LocalDate deliveryDate;
 }

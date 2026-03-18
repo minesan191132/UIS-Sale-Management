@@ -13,12 +13,14 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
 import java.util.Map;
 
 /**
@@ -70,7 +72,44 @@ public class OrderController {
     }
 
     /**
-     * Customer: Get my orders (optionally filtered by status)
+     * Admin: Import Excel for a target company
+     * POST /api/orders/admin-import
+     */
+    @PostMapping("/admin-import")
+    public ResponseEntity<?> adminImportOrder(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("companyId") Long companyId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        try {
+            if (!"ADMIN".equals(userDetails.getRole())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("error", "Unauthorized"));
+            }
+
+            if (file.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "File is empty"));
+            }
+
+            String filename = file.getOriginalFilename();
+            if (filename == null || (!filename.endsWith(".xlsx") && !filename.endsWith(".xls"))) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "Invalid file type. Please upload Excel file (.xlsx or .xls)"));
+            }
+
+            OrderResponseDTO order = orderService.importOrderFromExcelForCompany(file, companyId);
+            return ResponseEntity.status(HttpStatus.CREATED).body(order);
+        } catch (IllegalArgumentException e) {
+            log.warn("Admin import validation error: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Admin import error", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to import order: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Customer: Get my orders
      * GET /api/orders/my
      */
     @GetMapping("/my")
@@ -98,6 +137,10 @@ public class OrderController {
     public ResponseEntity<?> getAllOrders(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "15") int size,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) OrderStatus status,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         try {
             // Check if user is admin (already protected by SecurityConfig, but
@@ -108,8 +151,10 @@ public class OrderController {
             }
 
             Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-            Page<OrderResponseDTO> orders = orderService.getAllOrders(pageable);
+            Page<OrderResponseDTO> orders = orderService.getAllOrders(pageable, keyword, status, dateFrom, dateTo);
             return ResponseEntity.ok(orders);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Error fetching all orders", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -193,6 +238,8 @@ public class OrderController {
             OrderResponseDTO order = orderService.updateOrderStatus(id, status);
             return ResponseEntity.ok(order);
         } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (IllegalStateException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Error updating order status", e);

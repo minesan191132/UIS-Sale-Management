@@ -5,17 +5,19 @@ import org.example.features.order.entity.OrderStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 /**
  * Order Repository
  */
 @Repository
-public interface OrderRepository extends JpaRepository<Order, Long> {
+public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecificationExecutor<Order> {
 
         /**
          * Find order by order number
@@ -44,6 +46,32 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
          */
         @Query("SELECT o FROM Order o WHERE o.company.id = :companyId ORDER BY o.createdAt DESC")
         Page<Order> findByCompanyId(@Param("companyId") Long companyId, Pageable pageable);
+
+        /**
+         * Find all orders by company ID (no pagination - used by WarehouseService)
+         */
+        @Query("SELECT o FROM Order o WHERE o.company.id = :companyId ORDER BY o.createdAt DESC")
+        java.util.List<Order> findByCompanyId(@Param("companyId") Long companyId);
+
+                                /**
+                                 * Admin filtered search with pagination
+                                 */
+                                @Query("""
+                                                                                                SELECT o FROM Order o
+                                                                                                WHERE (:keyword IS NULL OR :keyword = '' OR
+                                                                                                                         LOWER(o.orderNumber) LIKE LOWER(CONCAT('%', :keyword, '%')) OR
+                                                                                                                         LOWER(o.user.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR
+                                                                                                                         LOWER(o.company.companyName) LIKE LOWER(CONCAT('%', :keyword, '%')))
+                                                                                                        AND (:status IS NULL OR o.status = :status)
+                                                                                                        AND (:fromDate IS NULL OR o.createdAt >= :fromDate)
+                                                                                                        AND (:toDateExclusive IS NULL OR o.createdAt < :toDateExclusive)
+                                                                                                """)
+                                Page<Order> searchAdminOrders(
+                                                                                                @Param("keyword") String keyword,
+                                                                                                @Param("status") OrderStatus status,
+                                                                                                @Param("fromDate") LocalDateTime fromDate,
+                                                                                                @Param("toDateExclusive") LocalDateTime toDateExclusive,
+                                                                                                Pageable pageable);
 
         /**
          * Count orders created today for generating order number
