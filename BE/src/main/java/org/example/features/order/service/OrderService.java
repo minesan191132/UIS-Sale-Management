@@ -239,9 +239,12 @@ public class OrderService {
     }
 
     /**
-     * Get user's orders
+     * Get user's orders (optionally filtered by status)
      */
-    public Page<OrderResponseDTO> getUserOrders(Long userId, Pageable pageable) {
+    public Page<OrderResponseDTO> getUserOrders(Long userId, OrderStatus status, Pageable pageable) {
+        if (status != null) {
+            return orderRepository.findByUserIdAndStatus(userId, status, pageable).map(this::mapToDTO);
+        }
         return orderRepository.findByUserId(userId, pageable).map(this::mapToDTO);
     }
 

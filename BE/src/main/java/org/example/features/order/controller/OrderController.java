@@ -70,17 +70,18 @@ public class OrderController {
     }
 
     /**
-     * Customer: Get my orders
+     * Customer: Get my orders (optionally filtered by status)
      * GET /api/orders/my
      */
     @GetMapping("/my")
     public ResponseEntity<?> getMyOrders(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) OrderStatus status,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         try {
             Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-            Page<OrderResponseDTO> orders = orderService.getUserOrders(userDetails.getUserId(), pageable);
+            Page<OrderResponseDTO> orders = orderService.getUserOrders(userDetails.getUserId(), status, pageable);
             return ResponseEntity.ok(orders);
         } catch (Exception e) {
             log.error("Error fetching customer orders", e);

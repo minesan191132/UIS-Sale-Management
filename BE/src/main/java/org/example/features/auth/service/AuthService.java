@@ -4,8 +4,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.config.security.JwtTokenProvider;
 import org.example.features.auth.dto.AuthResponseDTO;
+import org.example.features.auth.dto.ChangePasswordDTO;
 import org.example.features.auth.dto.LoginDTO;
 import org.example.features.auth.dto.RegisterDTO;
+import org.example.features.auth.dto.UpdateProfileDTO;
 import org.example.features.company.entity.Company;
 import org.example.features.company.entity.User;
 import org.example.features.company.entity.UserRole;
@@ -26,6 +28,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -213,6 +217,82 @@ public class AuthService {
                 .role(user.getRole().name())
                 .expiresIn(jwtExpiration)
                 .build();
+    }
+
+    /**
+     * Get full user profile from database
+     */
+    public Map<String, Object> getUserProfile(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User không tồn tại"));
+
+        Map<String, Object> profile = new HashMap<>();
+        profile.put("userId", user.getId());
+        profile.put("email", user.getEmail());
+        profile.put("fullName", user.getFullName());
+        profile.put("companyId", user.getCompany() != null ? user.getCompany().getId() : null);
+        profile.put("role", user.getRole().name());
+        profile.put("phone", user.getPhone());
+        profile.put("gender", user.getGender());
+        profile.put("dobDay", user.getDobDay());
+        profile.put("dobMonth", user.getDobMonth());
+        profile.put("dobYear", user.getDobYear());
+        // Company info
+        if (user.getCompany() != null) {
+            profile.put("taxCode", user.getCompany().getTaxCode());
+            profile.put("companyName", user.getCompany().getCompanyName());
+            profile.put("companyAddress", user.getCompany().getAddress());
+            profile.put("companyRepresentative", user.getCompany().getRepresentative());
+            profile.put("companyPhone", user.getCompany().getPhone());
+            profile.put("companyEmail", user.getCompany().getEmail());
+        }
+        return profile;
+    }
+
+    /**
+     * Update user profile
+     */
+    @Transactional
+    public void updateProfile(Long userId, UpdateProfileDTO dto) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User không tồn tại"));
+
+        if (dto.getFullName() != null)
+            user.setFullName(dto.getFullName());
+        if (dto.getPhone() != null)
+            user.setPhone(dto.getPhone());
+        if (dto.getGender() != null)
+            user.setGender(dto.getGender());
+        if (dto.getDobDay() != null)
+            user.setDobDay(dto.getDobDay());
+        if (dto.getDobMonth() != null)
+            user.setDobMonth(dto.getDobMonth());
+        if (dto.getDobYear() != null)
+            user.setDobYear(dto.getDobYear());
+
+        userRepository.save(user);
+        log.info("Profile updated for user: {}", user.getEmail());
+    }
+
+    /**
+     * Change user password
+     */
+    @Transactional
+    public void changePassword(Long userId, ChangePasswordDTO dto) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User không tồn tại"));
+
+        if (!passwordEncoder.matches(dto.getCurrentPassword(), user.getPassword())) {
+            throw new BadCredentialsException("Mật khẩu hiện tại không chính xác");
+        }
+
+        if (!dto.getNewPassword().equals(dto.getConfirmPassword())) {
+            throw new IllegalArgumentException("Mật khẩu mới và xác nhận mật khẩu không khớp");
+        }
+
+        user.setPassword(passwordEncoder.encode(dto.getNewPassword()));
+        userRepository.save(user);
+        log.info("Password changed for user: {}", user.getEmail());
     }
 
     /**

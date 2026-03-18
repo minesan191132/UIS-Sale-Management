@@ -54,6 +54,12 @@
                 </div>
               </button>
               <ul class="dropdown-menu dropdown-menu-end shadow border-0" aria-labelledby="userDropdown">
+                <!-- Account Setting -->
+                <li>
+                  <router-link to="/account" class="dropdown-item">
+                    <i class="bi bi-person-circle me-2"></i>Tài khoản
+                  </router-link>
+                </li>
                 <!-- Admin Menu -->
                 <li v-if="user.role === 'ADMIN'">
                   <router-link to="/admin/dashboard" class="dropdown-item">

@@ -12,6 +12,7 @@ import Login from '../components/auth/Login.vue'
 import Register from '../components/auth/Register.vue'
 import CreateOrder from '../components/customer/CreateOrder.vue'
 import MyOrders from '../components/customer/MyOrders.vue'
+import AccountSetting from '../components/user/accountsetting.vue'
 
 import AdminLayout from '../layouts/AdminLayout.vue'
 
@@ -108,6 +109,12 @@ const routes = [
     name: 'my-orders',
     component: MyOrders,
     meta: { requiresAuth: true, roles: ['CUSTOMER'] }
+  },
+  {
+    path: '/account',
+    name: 'account-setting',
+    component: AccountSetting,
+    meta: { requiresAuth: true }
   },
 
   {

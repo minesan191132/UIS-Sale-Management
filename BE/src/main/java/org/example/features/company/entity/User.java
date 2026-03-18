@@ -56,6 +56,21 @@ public class User {
     @Column(name = "last_login")
     private LocalDateTime lastLogin;
 
+    @Column(name = "phone", length = 20)
+    private String phone;
+
+    @Column(name = "gender", length = 10)
+    private String gender;
+
+    @Column(name = "dob_day")
+    private Integer dobDay;
+
+    @Column(name = "dob_month")
+    private Integer dobMonth;
+
+    @Column(name = "dob_year")
+    private Integer dobYear;
+
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) {
