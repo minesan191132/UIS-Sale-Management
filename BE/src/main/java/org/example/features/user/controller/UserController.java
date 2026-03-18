@@ -19,7 +19,7 @@ import java.util.Map;
  * Handles profile, password, and address endpoints for authenticated users
  * Base path: /api/user
  */
-@RestController
+@RestController("userProfileController")
 @RequestMapping("/api/user")
 @RequiredArgsConstructor
 @Slf4j
