@@ -1,10 +1,36 @@
 <script setup>
+import { ref } from 'vue';
 import Navbar from '../base/Navbar.vue';
 import Footer from '../base/Footer.vue';
+import { contactAPI } from '../../services/api.js';
 
-// Hàm cuộn lên đầu trang (cho nút Floating)
-const scrollToTop = () => {
-  window.scrollTo({ top: 0, behavior: "smooth" });
+const form = ref({
+  fullName: '',
+  phone: '',
+  email: '',
+  subject: '',
+  message: '',
+});
+
+const loading = ref(false);
+const successMsg = ref('');
+const errorMsg = ref('');
+
+const submitForm = async () => {
+  successMsg.value = '';
+  errorMsg.value = '';
+  loading.value = true;
+
+  try {
+    const res = await contactAPI.send(form.value);
+    successMsg.value = res.message || 'Yêu cầu đã được gửi thành công!';
+    // Reset form
+    form.value = { fullName: '', phone: '', email: '', subject: '', message: '' };
+  } catch (err) {
+    errorMsg.value = err.response?.data?.error || 'Gửi thất bại. Vui lòng thử lại sau.';
+  } finally {
+    loading.value = false;
+  }
 };
 </script>
 
@@ -84,35 +110,86 @@ const scrollToTop = () => {
           <div class="contact-form-wrapper bg-white p-4 p-md-5 rounded shadow h-100 border-top-accent">
             <h3 class="text-uppercase fw-bold text-dark mb-4 section-title">Gửi tin nhắn</h3>
             
-            <form @submit.prevent>
+            <!-- Alert thành công -->
+            <div v-if="successMsg" class="alert alert-success alert-dismissible fade show d-flex align-items-center gap-2" role="alert">
+              <i class="fas fa-check-circle"></i>
+              <span>{{ successMsg }}</span>
+              <button type="button" class="btn-close" @click="successMsg = ''"></button>
+            </div>
+
+            <!-- Alert lỗi -->
+            <div v-if="errorMsg" class="alert alert-danger alert-dismissible fade show d-flex align-items-center gap-2" role="alert">
+              <i class="fas fa-exclamation-circle"></i>
+              <span>{{ errorMsg }}</span>
+              <button type="button" class="btn-close" @click="errorMsg = ''"></button>
+            </div>
+
+            <form @submit.prevent="submitForm">
               <div class="row g-3">
                 <div class="col-md-6">
                   <label class="form-label fw-bold small text-muted">Họ và tên *</label>
-                  <input type="text" class="form-control form-control-lg bg-light fs-6" placeholder="Nhập tên của bạn">
+                  <input
+                    v-model="form.fullName"
+                    type="text"
+                    class="form-control form-control-lg bg-light fs-6"
+                    placeholder="Nhập tên của bạn"
+                    required
+                  >
                 </div>
                 <div class="col-md-6">
                   <label class="form-label fw-bold small text-muted">Số điện thoại *</label>
-                  <input type="tel" class="form-control form-control-lg bg-light fs-6" placeholder="Nhập SĐT liên hệ">
+                  <input
+                    v-model="form.phone"
+                    type="tel"
+                    class="form-control form-control-lg bg-light fs-6"
+                    placeholder="Nhập SĐT liên hệ"
+                    required
+                  >
                 </div>
                 
                 <div class="col-md-12">
                   <label class="form-label fw-bold small text-muted">Email</label>
-                  <input type="email" class="form-control form-control-lg bg-light fs-6" placeholder="example@gmail.com">
+                  <input
+                    v-model="form.email"
+                    type="email"
+                    class="form-control form-control-lg bg-light fs-6"
+                    placeholder="example@gmail.com"
+                  >
                 </div>
 
                 <div class="col-md-12">
                   <label class="form-label fw-bold small text-muted">Chủ đề</label>
-                  <input type="text" class="form-control form-control-lg bg-light fs-6" placeholder="Báo giá / Tư vấn kỹ thuật...">
+                  <input
+                    v-model="form.subject"
+                    type="text"
+                    class="form-control form-control-lg bg-light fs-6"
+                    placeholder="Báo giá / Tư vấn kỹ thuật..."
+                  >
                 </div>
 
                 <div class="col-md-12">
                   <label class="form-label fw-bold small text-muted">Nội dung tin nhắn *</label>
-                  <textarea class="form-control form-control-lg bg-light fs-6" rows="5" placeholder="Mô tả yêu cầu chi tiết..."></textarea>
+                  <textarea
+                    v-model="form.message"
+                    class="form-control form-control-lg bg-light fs-6"
+                    rows="5"
+                    placeholder="Mô tả yêu cầu chi tiết..."
+                    required
+                  ></textarea>
                 </div>
 
                 <div class="col-12 mt-4">
-                  <button class="btn btn-primary btn-lg w-100 fw-bold text-uppercase py-3 shadow-sm btn-send">
-                    <i class="fas fa-paper-plane me-2"></i>Gửi yêu cầu
+                  <button
+                    type="submit"
+                    class="btn btn-primary btn-lg w-100 fw-bold text-uppercase py-3 shadow-sm btn-send"
+                    :disabled="loading"
+                  >
+                    <span v-if="loading">
+                      <span class="spinner-border spinner-border-sm me-2" role="status"></span>Đang gửi...
+                    </span>
+                    <span v-else>
+                      <i class="fas fa-paper-plane me-2"></i>Gửi yêu cầu
+                    </span>
                   </button>
                 </div>
               </div>
@@ -123,7 +200,7 @@ const scrollToTop = () => {
       </div>
     </div>
 
-    <<div class="map-wrapper">
+    <div class="map-wrapper">
       <iframe
       title="Bản đồ Utsunomiya Industry Vietnam"
       src="https://maps.google.com/maps?q=C%C3%94NG%20TY%20TNHH%20UTSUNOMIYA%20INDUSTRY%20VI%E1%BB%86T%20NAM%2C%2070%20Xu%C3%A2n%20Th%E1%BB%9Bi%20S%C6%A1n%202B%2C%20H%C3%B3c%20M%C3%B4n&t=&z=15&ie=UTF8&iwloc=&output=embed"
@@ -142,7 +219,7 @@ const scrollToTop = () => {
 <style scoped>
 /* --- CẤU HÌNH CHUNG --- */
 .contact-page {
-  background-color: #f8fafc; /* Nền xám nhạt */
+  background-color: #f8fafc;
   color: #334155;
 }
 
@@ -196,39 +273,27 @@ const scrollToTop = () => {
   box-shadow: 0 0 0 0.25rem rgba(245, 158, 11, 0.15);
 }
 .btn-send {
-  background-color: #0f172a; /* Màu xanh đen */
+  background-color: #0f172a;
   border: none;
   transition: all 0.3s;
 }
-.btn-send:hover {
-  background-color: #f59e0b; /* Hover chuyển màu cam */
+.btn-send:hover:not(:disabled) {
+  background-color: #f59e0b;
   color: #000;
   transform: translateY(-2px);
 }
+.btn-send:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
 
 /* --- MAP --- */
-.map-section {
+.map-wrapper {
   filter: grayscale(20%);
 }
-
-/* --- FLOATING BUTTONS --- */
-.floating-group {
-  position: fixed; bottom: 30px; right: 30px;
-  display: flex; flex-direction: column; gap: 10px; z-index: 1000;
-}
-.float-btn {
-  width: 45px; height: 45px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  color: white; font-weight: bold; cursor: pointer;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.2); font-size: 0.8rem;
-}
-.zalo-bg { background-color: #0068ff; }
-.messenger-bg { background-color: #1877f2; }
-.top-bg { background-color: #f59e0b; font-size: 1.1rem; }
 
 /* Animation */
 .animate-up { animation: fadeUp 0.8s forwards; opacity: 0; transform: translateY(20px); }
 .delay-1 { animation-delay: 0.2s; }
 @keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
-
 </style>

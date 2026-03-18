@@ -20,6 +20,7 @@ public class EmailService {
     @Value("${spring.mail.username}")
     private String from;
 
+    @Async
     public void sendOtpEmail(String toEmail, String otp) {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(from);

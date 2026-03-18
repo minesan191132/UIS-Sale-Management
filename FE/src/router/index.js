@@ -5,6 +5,7 @@ import HomeView from '../components/homepage/Homepage.vue'
 import ServiceView from '../components/services/Service.vue'
 import ServiceDetailView from '../components/services/ServiceDetail.vue'
 import Product from '../components/product/Product.vue'
+import ProductDetail from '../components/product/ProductDetail.vue';
 import Contact from '../components/contact/Contact.vue'
 import Cart from '../components/cart/Cart.vue'
 import Login from '../components/auth/Login.vue'
@@ -26,6 +27,9 @@ import UserEditView from '../components/admin/user_edit.vue'
 import UserListView from '../components/admin/user_list.vue'
 import OrderManagementView from '../components/admin/OrderManagement.vue'
 import ResendVerification from '../components/auth/ResendVerification.vue'
+import ForgotPassword from '../components/auth/ForgotPassword.vue'
+import VerifyOtp from '../components/auth/VerifyOtp.vue'
+import ResetPassword from '../components/auth/ResetPassword.vue'
 
 
 const routes = [
@@ -48,6 +52,11 @@ const routes = [
     path: '/products',
     name: 'product',
     component: Product
+  },
+  {
+    path: '/product/:id',
+    name: 'product-detail',
+    component: ProductDetail
   },
   {
     path: '/contact',
@@ -73,6 +82,21 @@ const routes = [
     path: '/resend-verification',
     name: 'ResendVerification',
     component: ResendVerification
+  },
+  {
+    path: '/forgot-password',
+    name: 'ForgotPassword',
+    component: ForgotPassword
+  },
+  {
+    path: '/forgot-password/verify',
+    name: 'VerifyOtp',
+    component: VerifyOtp
+  },
+  {
+    path: '/reset-password',
+    name: 'ResetPassword',
+    component: ResetPassword
   },
   {
     path: '/create-order',

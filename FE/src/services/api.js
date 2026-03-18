@@ -85,6 +85,7 @@ export const authAPI = {
   },
 
   /**
+<<<<<<< HEAD
    * Update user profile
    */
   updateProfile: async (data) => {
@@ -166,6 +167,26 @@ export const userAPI = {
   setDefaultAddress: async (id) => {
     const response = await apiClient.put(`/user/addresses/${id}/default`);
     return response.data;
+=======
+   * Step 1 - Forgot password: send OTP to email
+   */
+  forgotPassword: async (email) => {
+    return await apiClient.post('/auth/forgot-password', { email });
+  },
+
+  /**
+   * Step 2 - Verify OTP: returns reset token
+   */
+  verifyOtp: async (email, otp) => {
+    return await apiClient.post('/auth/forgot-password/verify', { email, otp });
+  },
+
+  /**
+   * Step 3 - Reset password using reset token
+   */
+  resetPassword: async (resetToken, newPassword) => {
+    return await apiClient.post('/auth/reset-password', { resetToken, newPassword });
+>>>>>>> 750a62eb53391a1885a9711f699642685fad7da4
   },
 };
 
@@ -219,6 +240,58 @@ export const companiesAPI = {
     const response = await apiClient.get('/companies', {
       params: { keyword, page, size }
     });
+    return response.data;
+  },
+};
+
+// ==================== ADMIN USER APIs ====================
+
+export const usersAPI = {
+  /**
+   * Get all users with optional search/role/company filter and pagination
+   */
+  getAll: async (search = '', role = '', page = 0, size = 20, companySearch = '') => {
+    const params = { page, size };
+    if (search) params.search = search;
+    if (role && role !== 'all') params.role = role;
+    if (companySearch) params.companySearch = companySearch;
+    const response = await apiClient.get('/admin/users', { params });
+    return response.data;
+  },
+
+  /**
+   * Update user role
+   */
+  updateRole: async (userId, role) => {
+    const response = await apiClient.put(`/admin/users/${userId}/role`, { role });
+    return response.data;
+  },
+
+  /**
+   * Update user info (phone, fullName, role, password)
+   */
+  updateUser: async (userId, data) => {
+    const response = await apiClient.patch(`/admin/users/${userId}`, data);
+    return response.data;
+  },
+
+  /**
+   * Toggle user active/inactive status
+   */
+  toggleActive: async (userId) => {
+    const response = await apiClient.put(`/admin/users/${userId}/toggle-active`);
+    return response.data;
+  },
+};
+
+// ==================== CONTACT API ====================
+
+export const contactAPI = {
+  /**
+   * Gửi yêu cầu liên hệ qua email
+   */
+  send: async (data) => {
+    const response = await apiClient.post('/contact/send', data);
     return response.data;
   },
 };

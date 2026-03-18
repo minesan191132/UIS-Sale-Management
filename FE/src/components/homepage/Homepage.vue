@@ -4,35 +4,41 @@ import { ref } from 'vue';
 import Navbar from '../base/Navbar.vue';
 import Footer from '../base/Footer.vue';
 
-// Dữ liệu giả lập các loại sắt thép phổ biến
+// IMPORT ẢNH TỪ THƯ MỤC ASSETS (BẠN HÃY SỬA LẠI TÊN FILE ẢNH CHO ĐÚNG VỚI ẢNH BẠN CÓ NHÉ)
+import sp1Img from '../../assets/picture/homepageimg/FanGuard.jpg';
+import sp2Img from '../../assets/picture/homepageimg/StrainerPipe.jpg';
+import sp3Img from '../../assets/picture/homepageimg/PipeSupport.jpg';
+import sp4Img from '../../assets/picture/homepageimg/CrossBrace.jpg';
+
+// Dữ liệu 4 sản phẩm gia công tiêu biểu (Showroom)
 const featuredProducts = ref([
   { 
     id: 1, 
-    name: 'Thép Cuộn Cán Nóng', 
-    desc: 'Mác thép SS400, tiêu chuẩn JIS',
-    price: 'Liên hệ báo giá', 
-    image: 'https://placehold.co/300x300/e2e8f0/1e293b?text=Thep+Cuon' // Ảnh minh họa màu xám công nghiệp
+    name: 'Lưới bảo vệ quạt công nghiệp', 
+    desc: 'Gia công cắt lốc, đột dập CNC chính xác. Bề mặt sơn tĩnh điện chống gỉ sét, đảm bảo an toàn tối đa',
+    price: 'Sản phẩm mẫu', 
+    image: sp1Img 
   },
   { 
     id: 2, 
-    name: 'Thép Hình Chữ I/H', 
-    desc: 'Chịu lực cao, đa dạng kích thước',
-    price: 'Liên hệ báo giá', 
-    image: 'https://placehold.co/300x300/e2e8f0/1e293b?text=Thep+Hinh+I' 
+    name: 'Ống lọc công nghiệp', 
+    desc: 'Chế tạo từ Inox SUS 304/316 dập lỗ chuẩn xác, chịu áp lực cao, chuyên dụng cho mảng xử lý nước thải',
+    price: 'Sản phẩm mẫu', 
+    image: sp2Img 
   },
   { 
     id: 3, 
-    name: 'Thép Ống Mạ Kẽm', 
-    desc: 'Chống ăn mòn, độ bền vượt trội',
-    price: 'Liên hệ báo giá', 
-    image: 'https://placehold.co/300x300/e2e8f0/1e293b?text=Thep+Ong' 
+    name: 'Giá đỡ đường ống', 
+    desc: 'Gia công hàn kết cấu thép SS400 vững chắc, phủ sơn Epoxy bảo vệ. Chịu tải trọng lớn cho các cụm ống',
+    price: 'Sản phẩm mẫu', 
+    image: sp3Img 
   },
   { 
     id: 4, 
-    name: 'Tôn Lợp Công Nghiệp', 
-    desc: 'Cán sóng vuông, nhiều màu sắc',
-    price: 'Liên hệ báo giá', 
-    image: 'https://placehold.co/300x300/e2e8f0/1e293b?text=Ton+Lop' 
+    name: 'Thanh giằng chéo / Thanh chống', 
+    desc: 'Cắt xẻ phôi, chấn dập lỗ lắp ghép đồng đều. Sử dụng thép mạ kẽm gia tăng độ cứng vững cho khung nhà xưởng',
+    price: 'Sản phẩm mẫu', 
+    image: sp4Img 
   },
 ]);
 </script>
@@ -48,13 +54,12 @@ const featuredProducts = ref([
           <div class="col-lg-7">
             <span class="badge bg-warning text-dark mb-3 px-3 py-2 fw-bold">CHẤT LƯỢNG ISO 9001:2015</span>
             <h1 class="display-4 fw-bold mb-3 animate-up text-uppercase">
-              Vững xây công trình<br>
-              <span class="text-gradient">Kiến tạo tương lai</span>
+              Gia Công Chính Xác<br>
+              <span class="text-gradient">Tiêu Chuẩn Nhật Bản</span>
             </h1>
             <p class="lead mb-4 text-white-50 animate-up delay-1">
-              Đối tác tin cậy cung cấp sắt thép xây dựng, thép hình, thép tấm cho mọi công trình trọng điểm quốc gia và dân dụng.
+              Đối tác tin cậy chuyên cung cấp giải pháp gia công cơ khí, cắt chấn kim loại và xử lý nước thải cho doanh nghiệp.
             </p>
-            
           </div>
         </div>
       </div>
@@ -65,10 +70,10 @@ const featuredProducts = ref([
         <div class="d-flex justify-content-between align-items-end mb-5">
           <div>
             <h6 class="text-primary fw-bold text-uppercase mb-2">Sản phẩm chủ lực</h6>
-            <h2 class="fw-bold text-dark">Vật Liệu Xây Dựng & Công Nghiệp</h2>
+            <h2 class="fw-bold text-dark">Năng Lực Gia Công & Chế Tạo</h2>
             <div class="title-underline"></div>
           </div>
-          <a href="#" class="btn btn-link text-decoration-none fw-bold">Xem tất cả <i class="fas fa-arrow-right"></i></a>
+          <router-link to="/products" class="btn btn-link text-decoration-none fw-bold">Xem kho vật tư <i class="fas fa-arrow-right"></i></router-link>
         </div>
 
         <div class="row g-4">
@@ -76,18 +81,20 @@ const featuredProducts = ref([
             <div class="card product-card h-100 border-0">
               <div class="card-img-wrapper">
                 <img :src="product.image" class="card-img-top" :alt="product.name">
-                <span class="badge-stock">Còn hàng</span>
               </div>
               
-              <div class="card-body">
-                <h5 class="card-title fw-bold text-dark mb-1">{{ product.name }}</h5>
+              <div class="card-body d-flex flex-column">
+                <h5 class="card-title fw-bold text-dark mb-2" style="display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.5rem;">
+                  {{ product.name }}
+                </h5>
+                
                 <p class="text-muted small mb-3">{{ product.desc }}</p>
                 
-                <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top">
-                  <span class="price-tag fw-bold">{{ product.price }}</span>
-                  <button class="btn btn-sm btn-primary rounded-circle btn-cart">
-                    <i class="fas fa-plus"></i>
-                  </button>
+                <div class="mt-auto d-flex justify-content-between align-items-center pt-3 border-top">
+                  <span class="price-tag fw-bold text-secondary">{{ product.price }}</span>
+                  <router-link to="/contact" class="btn btn-sm btn-outline-primary rounded-pill px-3 fw-bold">
+                    Liên hệ
+                  </router-link>
                 </div>
               </div>
             </div>
@@ -100,45 +107,43 @@ const featuredProducts = ref([
       <div class="container">
         <div class="row text-center g-4">
           <div class="col-md-4">
-            <div class="p-4 border rounded-3 feature-box">
-              <i class="fas fa-truck-moving fa-3x text-primary mb-3"></i>
-              <h5 class="fw-bold">Giao hàng tận công trình</h5>
-              <p class="text-muted">Đội xe vận tải chuyên dụng, hỗ trợ vận chuyển toàn quốc nhanh chóng.</p>
+            <div class="p-4 border rounded-0 feature-box h-100">
+              <i class="fas fa-cogs fa-3x text-primary mb-3"></i>
+              <h5 class="fw-bold text-uppercase">Công nghệ hiện đại</h5>
+              <p class="text-muted">Hệ thống máy CNC, cắt Laser Fiber và chấn gập công nghệ cao, đáp ứng dung sai khắt khe.</p>
             </div>
           </div>
           <div class="col-md-4">
-            <div class="p-4 border rounded-3 feature-box">
+            <div class="p-4 border rounded-0 feature-box h-100">
               <i class="fas fa-shield-alt fa-3x text-primary mb-3"></i>
-              <h5 class="fw-bold">Cam kết chính hãng</h5>
-              <p class="text-muted">Sản phẩm đầy đủ chứng chỉ CO/CQ từ Hòa Phát, Việt Nhật, Pomina.</p>
+              <h5 class="fw-bold text-uppercase">Kiểm định QC 100%</h5>
+              <p class="text-muted">Mọi sản phẩm gia công đều trải qua khâu kiểm tra chất lượng nghiêm ngặt trước khi xuất xưởng.</p>
             </div>
           </div>
           <div class="col-md-4">
-            <div class="p-4 border rounded-3 feature-box">
-              <i class="fas fa-tags fa-3x text-primary mb-3"></i>
-              <h5 class="fw-bold">Giá gốc tại kho</h5>
-              <p class="text-muted">Cạnh tranh nhất thị trường, chiết khấu cao cho đơn hàng dự án lớn.</p>
+            <div class="p-4 border rounded-0 feature-box h-100">
+              <i class="fas fa-handshake fa-3x text-primary mb-3"></i>
+              <h5 class="fw-bold text-uppercase">Dịch vụ B2B chuyên nghiệp</h5>
+              <p class="text-muted">Hỗ trợ tư vấn kỹ thuật, báo giá nhanh chóng và cung cấp chứng chỉ vật liệu (CO/CQ) đầy đủ.</p>
             </div>
           </div>
         </div>
       </div>
     </section>
+    
     <Footer />
-
   </div>
 </template>
 
 <style scoped>
 /* --- STYLE CHO BANNER --- */
 .hero-banner {
-  /* Màu xanh công nghiệp đậm (Deep Navy) kết hợp với màu xám thép */
-  background: linear-gradient(135deg, #1e293b 0%, #0f172a 60%, #334155 100%);
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #334155 100%);
   min-height: 600px;
   position: relative;
   overflow: hidden;
 }
 
-/* Chữ Gradient màu kim loại */
 .text-gradient {
   background: linear-gradient(to right, #fbbf24, #f59e0b);
   -webkit-background-clip: text;
@@ -146,54 +151,47 @@ const featuredProducts = ref([
   -webkit-text-fill-color: transparent;
 }
 
-.hero-img {
-  filter: drop-shadow(0 10px 20px rgba(0,0,0,0.3));
-  /* Animation nhẹ nhàng */
-  animation: slideIn 1s ease-out;
+.animate-up {
+  opacity: 0;
+  transform: translateY(20px);
+  animation: fadeUp 0.8s forwards;
 }
+.delay-1 { animation-delay: 0.2s; }
 
-@keyframes slideIn {
-  from { opacity: 0; transform: translateX(50px); }
-  to { opacity: 1; transform: translateX(0); }
-}
-
-.btn-action {
-  transition: transform 0.2s;
-}
-.btn-action:hover {
-  transform: translateY(-3px);
+@keyframes fadeUp {
+  to { opacity: 1; transform: translateY(0); }
 }
 
 /* --- STYLE CHO SẢN PHẨM --- */
 .products-section {
-  background-color: #f1f5f9; /* Màu nền xám nhạt (Slate-100) */
+  background-color: #f8fafc; 
 }
 
 .title-underline {
   width: 80px;
   height: 4px;
-  background-color: #f59e0b; /* Màu vàng cam công nghiệp */
+  background-color: #f59e0b; 
   margin-top: 8px;
 }
 
 .product-card {
   transition: all 0.3s ease;
   background: white;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-  border-radius: 8px; /* Bo góc ít hơn để tạo cảm giác cứng cáp */
+  border: 1px solid rgba(0,0,0,0.08) !important;
+  border-radius: 0; /* Bo góc 0 để hợp với phong cách B2B Cơ khí */
   overflow: hidden;
 }
 
 .product-card:hover {
   transform: translateY(-5px);
-  box-shadow: 0 15px 30px rgba(0,0,0,0.1);
-  border-color: #f59e0b; /* Hover hiện viền cam */
+  box-shadow: 0 10px 20px rgba(0,0,0,0.05) !important;
+  border-color: #0b2e59 !important; 
 }
 
 .card-img-wrapper {
   position: relative;
-  background: #e2e8f0;
-  height: 200px;
+  background: #f1f5f9;
+  height: 220px;
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -208,54 +206,17 @@ const featuredProducts = ref([
 }
 
 .product-card:hover .card-img-top {
-  transform: scale(1.1);
-}
-
-.badge-stock {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  background: rgba(16, 185, 129, 0.9); /* Màu xanh lá báo còn hàng */
-  color: white;
-  font-size: 0.7rem;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-weight: 600;
-}
-
-.price-tag {
-  color: #b45309; /* Màu cam đất đậm */
-  font-size: 1.1rem;
-}
-
-.btn-cart {
-  width: 35px;
-  height: 35px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  transform: scale(1.08);
 }
 
 /* --- FEATURE BOX --- */
 .feature-box {
   background: white;
   transition: 0.3s;
+  border-color: rgba(0,0,0,0.1) !important;
 }
 .feature-box:hover {
-  border-color: #3b82f6 !important;
-  box-shadow: 0 10px 20px rgba(59, 130, 246, 0.1);
-}
-
-/* Animation Text */
-.animate-up {
-  opacity: 0;
-  transform: translateY(20px);
-  animation: fadeUp 0.8s forwards;
-}
-.delay-1 { animation-delay: 0.2s; }
-.delay-2 { animation-delay: 0.4s; }
-
-@keyframes fadeUp {
-  to { opacity: 1; transform: translateY(0); }
+  border-color: #0b2e59 !important;
+  box-shadow: 0 10px 20px rgba(11, 46, 89, 0.05);
 }
 </style>
