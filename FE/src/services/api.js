@@ -85,20 +85,24 @@ export const authAPI = {
   },
 
   /**
-<<<<<<< HEAD
-   * Update user profile
+   * Step 1 - Forgot password: send OTP to email
    */
-  updateProfile: async (data) => {
-    const response = await apiClient.put('/auth/profile', data);
-    return response.data;
+  forgotPassword: async (email) => {
+    return await apiClient.post('/auth/forgot-password', { email });
   },
 
   /**
-   * Change password
+   * Step 2 - Verify OTP: returns reset token
    */
-  changePassword: async (data) => {
-    const response = await apiClient.put('/auth/change-password', data);
-    return response.data;
+  verifyOtp: async (email, otp) => {
+    return await apiClient.post('/auth/forgot-password/verify', { email, otp });
+  },
+
+  /**
+   * Step 3 - Reset password using reset token
+   */
+  resetPassword: async (resetToken, newPassword) => {
+    return await apiClient.post('/auth/reset-password', { resetToken, newPassword });
   },
 };
 
@@ -167,26 +171,6 @@ export const userAPI = {
   setDefaultAddress: async (id) => {
     const response = await apiClient.put(`/user/addresses/${id}/default`);
     return response.data;
-=======
-   * Step 1 - Forgot password: send OTP to email
-   */
-  forgotPassword: async (email) => {
-    return await apiClient.post('/auth/forgot-password', { email });
-  },
-
-  /**
-   * Step 2 - Verify OTP: returns reset token
-   */
-  verifyOtp: async (email, otp) => {
-    return await apiClient.post('/auth/forgot-password/verify', { email, otp });
-  },
-
-  /**
-   * Step 3 - Reset password using reset token
-   */
-  resetPassword: async (resetToken, newPassword) => {
-    return await apiClient.post('/auth/reset-password', { resetToken, newPassword });
->>>>>>> 750a62eb53391a1885a9711f699642685fad7da4
   },
 };
 

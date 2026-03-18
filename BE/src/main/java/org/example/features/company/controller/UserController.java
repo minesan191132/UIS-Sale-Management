@@ -15,7 +15,7 @@ import java.util.stream.Collectors;
  * Admin REST API for user management
  * Security: handled by SecurityConfig (/api/admin/** => ADMIN role)
  */
-@RestController
+@RestController("adminUserController")
 @RequestMapping("/api/admin/users")
 @CrossOrigin("*")
 @RequiredArgsConstructor
