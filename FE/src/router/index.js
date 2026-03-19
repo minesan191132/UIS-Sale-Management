@@ -29,6 +29,7 @@ const ResendVerification = () => import('../components/auth/ResendVerification.v
 const ForgotPassword = () => import('../components/auth/ForgotPassword.vue')
 const VerifyOtp = () => import('../components/auth/VerifyOtp.vue')
 const ResetPassword = () => import('../components/auth/ResetPassword.vue')
+const Checkout = () => import('../components/payment/Checkout.vue')
 
 let adminChunksPrefetched = false;
 const prefetchAdminChunks = () => {
@@ -53,7 +54,6 @@ const prefetchAdminChunks = () => {
 
   window.setTimeout(run, 200);
 };
-
 
 const routes = [
   {
@@ -90,6 +90,11 @@ const routes = [
     path: '/cart',
     name: 'cart',
     component: Cart
+  },
+  {
+    path: '/checkout',
+    name: 'checkout',
+    component: Checkout
   },
   {
     path: '/login',

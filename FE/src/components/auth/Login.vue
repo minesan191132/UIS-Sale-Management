@@ -91,6 +91,7 @@ import { ref, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import Swal from 'sweetalert2';
 import { authAPI, saveAuthData } from '../../services/api';
+import { loadCart } from '../../store/cart.js';
 
 const router = useRouter();
 const route = useRoute();
@@ -150,6 +151,8 @@ const handleLogin = async () => {
     const response = await authAPI.login(email.value, password.value);
     
     saveAuthData(response, rememberMe.value);
+
+    loadCart();
 
     Swal.fire({
       icon: 'success',

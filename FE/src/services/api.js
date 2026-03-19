@@ -297,6 +297,10 @@ export const saveAuthData = (authResponse, rememberMe = false) => {
     companyId: authResponse.companyId,
     companyName: authResponse.companyName,
     role: authResponse.role || 'CUSTOMER',
+
+    taxCode: authResponse.taxCode || '', 
+    companyPhone: authResponse.companyPhone || authResponse.phone || '', 
+    companyEmail: authResponse.companyEmail || '',
   }));
 };
 

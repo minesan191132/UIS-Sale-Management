@@ -24,4 +24,7 @@ public class UserProfileResponseDTO {
     private String role;
     private Long companyId;
     private String companyName;
+    private String taxCode;
+    private String companyPhone;
+    private String companyEmail;
 }
