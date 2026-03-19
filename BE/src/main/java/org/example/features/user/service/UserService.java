@@ -222,6 +222,9 @@ public class UserService {
                 .role(user.getRole().name())
                 .companyId(user.getCompany() != null ? user.getCompany().getId() : null)
                 .companyName(user.getCompany() != null ? user.getCompany().getCompanyName() : null)
+                .taxCode(user.getCompany() != null ? user.getCompany().getTaxCode() : null)
+                .companyPhone(user.getCompany() != null ? user.getCompany().getPhone() : null)
+                .companyEmail(user.getCompany() != null ? user.getCompany().getEmail() : null)
                 .build();
     }
 }

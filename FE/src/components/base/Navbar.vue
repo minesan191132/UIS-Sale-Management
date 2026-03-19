@@ -28,8 +28,8 @@
           <div class="d-flex align-items-center gap-3 actions-menu">
             <router-link to="/cart" class="cart-btn position-relative me">
               <i class="fas fa-shopping-bag"></i>
-              <span v-if="cartCount > 0" class="cart-badge">
-                {{ cartCount }}
+              <span v-if="cartItemCount > 0" class="cart-badge">
+                {{ cartItemCount }}
               </span>
             </router-link>
 
@@ -98,8 +98,8 @@
   import { ref, onMounted } from 'vue';
   import { getStoredUser, logout, isAuthenticated } from '../../services/api';
   import { Dropdown } from 'bootstrap';
+  import { cartItemCount } from '../../store/cart.js';
   
-  const cartCount = ref(3);
   const user = ref(null);
   let dropdownInstance = null;
 

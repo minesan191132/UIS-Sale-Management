@@ -2,6 +2,8 @@
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
+import { addToCart } from '../../store/cart.js';
+import Swal from 'sweetalert2';
 
 import Navbar from '../base/Navbar.vue';
 import Footer from '../base/Footer.vue';
@@ -43,6 +45,25 @@ const fetchProductDetail = async () => {
 
 const goBack = () => {
   router.push('/products');
+};
+
+const handleAddToCart = () => {
+  addToCart(product.value, orderQuantity.value);
+  
+  Swal.fire({
+    title: 'Đã thêm vào giỏ!',
+    text: `Bạn vừa thêm ${orderQuantity.value} x ${product.value.name}`,
+    icon: 'success',
+    showCancelButton: true,
+    confirmButtonColor: '#0b2e59',
+    cancelButtonColor: '#6c757d',
+    confirmButtonText: 'Đến giỏ hàng',
+    cancelButtonText: 'Mua tiếp'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      router.push('/cart');
+    }
+  });
 };
 
 onMounted(() => {
@@ -141,7 +162,7 @@ onMounted(() => {
                 <button class="btn btn-light border-0 h-100 px-3 fw-bold fs-5" @click="orderQuantity++">+</button>
               </div>
               
-              <button class="btn btn-add-cart flex-grow-1 fw-bold text-white fs-5 rounded-3 d-flex align-items-center justify-content-center" style="height: 50px; background-color: #f59e0b;">
+              <button @click="handleAddToCart" class="btn btn-add-cart flex-grow-1 fw-bold text-white fs-5 rounded-3 d-flex align-items-center justify-content-center" style="height: 50px; background-color: #f59e0b;">
                 <i class="fas fa-shopping-cart me-2"></i> THÊM VÀO BÁO GIÁ
               </button>
             </div>
