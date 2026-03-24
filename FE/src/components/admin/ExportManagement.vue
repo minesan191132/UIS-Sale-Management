@@ -736,12 +736,14 @@ const openReviewModal = async (order) => {
   }
 };
 
-const initializeReviewDrafts = (items) => {
+const initializeReviewDrafts = (items, options = {}) => {
+  const { preserveExisting = false } = options;
   const nextDrafts = {};
   for (const item of items) {
+    const existingDraft = reviewDrafts.value[item.id] || {};
     nextDrafts[item.id] = {
-      unitPrice: item.unitPrice ?? '',
-      adminNote: item.adminNote || '',
+      unitPrice: item.unitPrice ?? (preserveExisting ? (existingDraft.unitPrice ?? '') : ''),
+      adminNote: item.adminNote || (preserveExisting ? (existingDraft.adminNote || '') : ''),
     };
   }
   reviewDrafts.value = nextDrafts;
@@ -799,7 +801,7 @@ const setDraftNote = (item, value) => {
 
 const syncUpdatedOrderState = (updatedOrder) => {
   selectedOrder.value = updatedOrder;
-  initializeReviewDrafts(updatedOrder.items || []);
+  initializeReviewDrafts(updatedOrder.items || [], { preserveExisting: true });
 
   const idx = orders.value.findIndex(o => o.id === updatedOrder.id);
   if (idx !== -1) {
