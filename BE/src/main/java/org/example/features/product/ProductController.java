@@ -9,10 +9,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import lombok.RequiredArgsConstructor;
 
-@CrossOrigin("*")
 @RestController
 @RequestMapping("/api/products")
 @RequiredArgsConstructor

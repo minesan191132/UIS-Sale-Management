@@ -7,6 +7,7 @@ import org.example.features.company.entity.Company;
 import org.example.features.company.entity.User;
 import org.example.features.company.repository.CompanyRepository;
 import org.example.features.company.repository.UserRepository;
+import org.example.features.order.dto.CartOrderRequestDTO;
 import org.example.features.order.dto.ItemReviewRequestDTO;
 import org.example.features.order.dto.OrderItemDTO;
 import org.example.features.order.dto.OrderResponseDTO;
@@ -130,6 +131,75 @@ public class OrderService {
             log.error("Error reading Excel file", e);
             throw new RuntimeException("Failed to read Excel file: " + e.getMessage());
         }
+    }
+
+    /**
+     * Create order from shopping cart (e-commerce checkout flow).
+     * - Status: AWAITING_PAYMENT
+     * - depositAmount = totalPrice (100% payment, no deposit logic)
+     * - SePay QR generated immediately
+     */
+    @Transactional
+    public OrderResponseDTO createOrderFromCart(CartOrderRequestDTO request, Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        Company company = user.getCompany();
+        if (company == null) {
+            throw new IllegalArgumentException("User must belong to a company");
+        }
+
+        if (request.getItems() == null || request.getItems().isEmpty()) {
+            throw new IllegalArgumentException("Cart is empty");
+        }
+
+        // Build order
+        Order order = new Order();
+        order.setOrderNumber(generateOrderNumber());
+        order.setUser(user);
+        order.setCompany(company);
+        order.setStatus(OrderStatus.AWAITING_PAYMENT);
+
+        // Map cart items to order items
+        for (CartOrderRequestDTO.CartItemDTO cartItem : request.getItems()) {
+            OrderItem item = new OrderItem();
+            item.setItemName(cartItem.getName());
+            item.setQuantity(cartItem.getQuantity() != null ? cartItem.getQuantity() : 1);
+            item.setUnitPrice(cartItem.getPrice());
+            if (cartItem.getPrice() != null && cartItem.getQuantity() != null) {
+                item.setReviewStatus(org.example.features.order.entity.ItemReviewStatus.APPROVED);
+            }
+            order.addItem(item);
+        }
+
+        // Calculate total = sum(price * qty)
+        BigDecimal totalPrice = request.getItems().stream()
+                .filter(i -> i.getPrice() != null && i.getQuantity() != null)
+                .map(i -> i.getPrice().multiply(BigDecimal.valueOf(i.getQuantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        order.setTotalPrice(totalPrice);
+
+        // 100% payment — depositAmount equals totalPrice
+        order.setDepositAmount(totalPrice);
+
+        // Notes from shipping info
+        if (request.getShippingInfo() != null) {
+            CartOrderRequestDTO.ShippingInfoDTO info = request.getShippingInfo();
+            StringBuilder notes = new StringBuilder();
+            if (info.getRecipientName() != null) notes.append("Người nhận: ").append(info.getRecipientName()).append("\n");
+            if (info.getPhone() != null)          notes.append("SĐT: ").append(info.getPhone()).append("\n");
+            if (info.getAddress() != null)        notes.append("Địa chỉ: ").append(info.getAddress()).append("\n");
+            if (info.getNote() != null)           notes.append("Ghi chú: ").append(info.getNote()).append("\n");
+            if (info.getPaymentMethod() != null)  notes.append("Thanh toán: ").append(info.getPaymentMethod());
+            order.setNotes(notes.toString().trim());
+        }
+
+        // Generate SePay QR URL
+        String qrUrl = paymentService.generateSepayQrUrl(order.getOrderNumber(), totalPrice);
+        order.setPaymentQrUrl(qrUrl);
+
+        Order saved = orderRepository.save(order);
+        log.info("Created cart order: {} — total={}", saved.getOrderNumber(), totalPrice);
+        return mapToDTO(saved);
     }
 
     private Order createOrUpdateOrderFromParsedItems(

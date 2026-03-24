@@ -1,12 +1,15 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import Navbar from '../base/Navbar.vue';
 import Footer from '../base/Footer.vue';
-import { cartState, cartTotalPrice } from '../../store/cart.js';
+import { cartState, cartTotalPrice, loadCart } from '../../store/cart.js';
+import { isAuthenticated, getStoredUser, userAPI, ordersAPI } from '../../services/api';
+import Swal from 'sweetalert2';
 
-import { isAuthenticated, getStoredUser, userAPI } from '../../services/api';
-
-const selectedPayment = ref('COD');
+const router = useRouter();
+const selectedPayment = ref('BANK');
+const isSubmitting = ref(false);
 
 const form = reactive({
   name: '',
@@ -21,31 +24,97 @@ const form = reactive({
 
 onMounted(async () => {
   if (isAuthenticated()) {
-
     const basicUser = getStoredUser();
     if (basicUser) {
       form.name = basicUser.fullName || '';
       form.orderEmail = basicUser.email || '';
     }
-
     try {
       const fullProfile = await userAPI.getProfile();
-      console.log("Full Profile từ Database:", fullProfile);
-      
-      form.name = fullProfile.fullName || form.name; 
-      
-      form.phone = fullProfile.phone || ''; 
-      
+      form.name = fullProfile.fullName || form.name;
+      form.phone = fullProfile.phone || '';
       form.companyName = fullProfile.companyName || '';
-      
-      form.taxId = fullProfile.taxCode || fullProfile.taxId || ''; 
-      form.invoiceEmail = fullProfile.companyEmail || form.orderEmail; 
-
+      form.taxId = fullProfile.taxCode || fullProfile.taxId || '';
+      form.invoiceEmail = fullProfile.companyEmail || form.orderEmail;
     } catch (error) {
-      console.error("Không thể lấy full thông tin user:", error);
+      console.error('Không thể lấy full thông tin user:', error);
     }
   }
 });
+
+async function submitOrder() {
+  // Validate required fields
+  if (!form.name.trim()) {
+    Swal.fire('Thiếu thông tin', 'Vui lòng nhập tên người nhận.', 'warning');
+    return;
+  }
+  if (!form.phone.trim()) {
+    Swal.fire('Thiếu thông tin', 'Vui lòng nhập số điện thoại.', 'warning');
+    return;
+  }
+  if (!form.address.trim()) {
+    Swal.fire('Thiếu thông tin', 'Vui lòng nhập địa chỉ nhận hàng.', 'warning');
+    return;
+  }
+  if (cartState.items.length === 0) {
+    Swal.fire('Giỏ hàng trống', 'Vui lòng thêm sản phẩm vào giỏ hàng.', 'warning');
+    return;
+  }
+  if (!isAuthenticated()) {
+    router.push({ path: '/login', query: { redirect: '/checkout' } });
+    return;
+  }
+
+  isSubmitting.value = true;
+  try {
+    const payload = {
+      items: cartState.items.map(item => ({
+        productId: item.id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        image: item.image
+      })),
+      shippingInfo: {
+        recipientName: form.name,
+        phone: form.phone,
+        email: form.orderEmail,
+        address: form.address,
+        companyName: form.companyName,
+        taxId: form.taxId,
+        invoiceEmail: form.invoiceEmail,
+        note: form.note,
+        paymentMethod: selectedPayment.value
+      }
+    };
+
+    const order = await ordersAPI.createFromCart(payload);
+
+    // Clear cart after order created
+    cartState.items = [];
+    localStorage.removeItem(`upec_cart_${getStoredUser()?.email}`);
+    loadCart();
+
+    if (selectedPayment.value === 'BANK') {
+      // Redirect to QR payment page
+      router.push({ name: 'payment-qr', params: { orderId: order.id } });
+    } else {
+      // COD — show success and go to order history
+      await Swal.fire({
+        icon: 'success',
+        title: 'Đặt hàng thành công!',
+        text: `Mã đơn hàng: ${order.orderNumber}. Nhân viên sẽ liên hệ xác nhận.`,
+        confirmButtonText: 'Xem đơn hàng'
+      });
+      router.push('/account');
+    }
+  } catch (err) {
+    const msg = err.response?.data?.error || err.message || 'Có lỗi xảy ra, vui lòng thử lại.';
+    Swal.fire('Đặt hàng thất bại', msg, 'error');
+  } finally {
+    isSubmitting.value = false;
+  }
+}
 </script>
 
 <template>
@@ -137,7 +206,7 @@ onMounted(async () => {
                   <input class="form-check-input mt-0 me-3" type="radio" value="BANK" v-model="selectedPayment" style="transform: scale(1.2);">
                   <div class="d-flex flex-grow-1 justify-content-between align-items-center">
                     <div>
-                      <h6 class="mb-0 fw-bold text-dark">Chuyển khoản ngân hàng (VietQR)</h6>
+                      <h6 class="mb-0 fw-bold text-dark">Chuyển khoản ngân hàng (SePay)</h6>
                       <small class="text-muted">Quét mã QR tự động xác nhận nhanh chóng</small>
                     </div>
                     <i class="bi bi-qr-code fs-3 text-primary opacity-75"></i>
@@ -195,8 +264,17 @@ onMounted(async () => {
                 <span class="fw-bold text-danger fs-3">{{ cartTotalPrice.toLocaleString('vi-VN') }} ₫</span>
               </div>
 
-              <button class="btn w-100 fw-bold text-white rounded-3 py-3 text-uppercase fs-6 shadow-sm btn-glow hover-elevate" style="background-color: #0b2e59;">
-                Xác nhận đặt hàng <i class="bi bi-check2-circle ms-2"></i>
+              <button 
+                @click="submitOrder"
+                :disabled="isSubmitting"
+                class="btn w-100 fw-bold text-white rounded-3 py-3 text-uppercase fs-6 shadow-sm btn-glow hover-elevate" 
+                style="background-color: #0b2e59;">
+                <span v-if="isSubmitting">
+                  <span class="spinner-border spinner-border-sm me-2" role="status"></span>Đang xử lý...
+                </span>
+                <span v-else>
+                  Xác nhận đặt hàng <i class="bi bi-check2-circle ms-2"></i>
+                </span>
               </button>
               
               <p class="text-center text-muted small mt-3 mb-0">

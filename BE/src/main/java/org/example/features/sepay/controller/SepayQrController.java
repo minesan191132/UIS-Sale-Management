@@ -18,7 +18,6 @@ import java.util.Map;
  * POST /webhook/sepay            — nhận webhook từ SePay (public, no auth)
  */
 @RestController
-@CrossOrigin("*")
 @RequiredArgsConstructor
 @Slf4j
 public class SepayQrController {

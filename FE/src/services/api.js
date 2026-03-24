@@ -280,7 +280,32 @@ export const contactAPI = {
   },
 };
 
+// ==================== ORDERS API ====================
+
+export const ordersAPI = {
+  /**
+   * Create order from shopping cart
+   */
+  createFromCart: async (data) => {
+    const response = await apiClient.post('/orders/from-cart', data);
+    return response.data;
+  },
+};
+
+// ==================== PAYMENT API ====================
+
+export const paymentAPI = {
+  /**
+   * Get payment info + QR URL for an order
+   */
+  getPaymentInfo: async (orderId) => {
+    const response = await apiClient.get(`/payments/orders/${orderId}/qr`);
+    return response.data;
+  },
+};
+
 // ==================== HELPERS ====================
+
 
 /**
  * Save auth token and user info

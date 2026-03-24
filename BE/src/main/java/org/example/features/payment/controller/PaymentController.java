@@ -18,7 +18,6 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/payments")
-@CrossOrigin("*")
 @RequiredArgsConstructor
 @Slf4j
 public class PaymentController {
