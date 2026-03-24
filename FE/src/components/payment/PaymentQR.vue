@@ -17,20 +17,16 @@
     <!-- ── Success / Paid ─────────────────────────────── -->
     <div v-else-if="paid" class="state-card state-success">
       <div class="success-circle">✓</div>
-      <h2>Đặt cọc thành công!</h2>
-      <p class="sub">Đơn hàng <strong>#{{ info.orderNumber }}</strong> đã được xác nhận cọc.</p>
+      <h2>Thanh toán thành công!</h2>
+      <p class="sub">Đơn hàng <strong>#{{ info.orderNumber }}</strong> đã được xác nhận thanh toán.</p>
       <div class="success-detail">
         <div class="srow">
-          <span>Số tiền đã cọc</span>
-          <span class="green">{{ formatCurrency(info.depositAmount) }}</span>
-        </div>
-        <div class="srow">
-          <span>Số dư còn lại</span>
-          <span>{{ formatCurrency(remaining_amount) }}</span>
+          <span>Số tiền đã thanh toán</span>
+          <span class="green">{{ formatCurrency(info.totalPrice) }}</span>
         </div>
       </div>
       <p class="sub mt-8">Tự động chuyển trang sau {{ redirectCountdown }} giây...</p>
-      <button class="btn-retry" style="margin-top:12px" @click="goBack">Về trang chủ ngay</button>
+      <button class="btn-retry" style="margin-top:12px" @click="goBack">Xem đơn hàng</button>
     </div>
 
     <!-- ── Timeout ─────────────────────────────────────── -->
@@ -69,13 +65,13 @@
             </button>
           </div>
           <div class="summary-card highlight">
-            <p class="summary-label">Tiền cọc</p>
-            <p class="summary-value">{{ formatCurrency(info.depositAmount) }}</p>
+            <p class="summary-label">Số tiền cần thanh toán</p>
+            <p class="summary-value">{{ formatCurrency(info.totalPrice) }}</p>
           </div>
           <div class="summary-card">
             <p class="summary-label">Trạng thái</p>
             <p class="summary-value status-text" :class="info.orderStatus === 'DEPOSITED' ? 'success' : 'pending'">
-              {{ info.orderStatus === 'DEPOSITED' ? '✓ Đã cọc' : '◯ Chờ xác nhận' }}
+              {{ info.orderStatus === 'DEPOSITED' ? '✓ Đã thanh toán' : '◯ Chờ xác nhận' }}
             </p>
           </div>
         </div>
@@ -87,9 +83,8 @@
             <p class="price-value">{{ formatCurrency(info.totalPrice) }}</p>
           </div>
           <div class="price-card accent">
-            <p class="price-label">Tiền cọc cần thanh toán</p>
-            <p class="price-value highlight">{{ formatCurrency(info.depositAmount) }}</p>
-            <p class="price-note">{{ depositPercent }}% giá trị đơn</p>
+            <p class="price-label">Cần thanh toán (100%)</p>
+            <p class="price-value highlight">{{ formatCurrency(info.totalPrice) }}</p>
           </div>
         </div>
 
@@ -141,7 +136,7 @@
 
           <div class="info-row">
             <span class="info-label">Số tiền</span>
-            <span class="info-value amount-big">{{ formatCurrency(info.depositAmount) }}</span>
+            <span class="info-value amount-big">{{ formatCurrency(info.totalPrice) }}</span>
           </div>
 
           <div class="info-row transfer-content-row">
@@ -160,7 +155,7 @@
           <h4 class="note-title">⚠️ Lưu ý quan trọng</h4>
           <ul class="note-list">
             <li>Nhập <strong>đúng nội dung chuyển khoản</strong> để hệ thống tự xác nhận</li>
-            <li>Chuyển <strong>đúng số tiền</strong> {{ formatCurrency(info.depositAmount) }}</li>
+            <li>Chuyển <strong>đúng số tiền</strong> {{ formatCurrency(info.totalPrice) }}</li>
             <li>Đơn hàng sẽ tự cập nhật sau khi ngân hàng xác nhận (30s - 2 phút)</li>
           </ul>
         </div>
@@ -179,8 +174,8 @@
             <div class="tl-item" :class="{ done: info.orderStatus === 'DEPOSITED', active: info.orderStatus === 'AWAITING_PAYMENT' }">
               <div class="tl-dot">{{ info.orderStatus === 'DEPOSITED' ? '✓' : '2' }}</div>
               <div class="tl-content">
-                <p class="tl-title">Thanh toán cọc</p>
-                <p class="tl-sub">{{ info.orderStatus === 'DEPOSITED' ? 'Đã cọc thành công' : 'Đang chờ thanh toán...' }}</p>
+                <p class="tl-title">Thanh toán 100%</p>
+                <p class="tl-sub">{{ info.orderStatus === 'DEPOSITED' ? 'Đã thanh toán thành công' : 'Đang chờ thanh toán...' }}</p>
               </div>
             </div>
             <div class="tl-item">
@@ -250,7 +245,7 @@ const ss = computed(() => String(remainingSecs.value % 60).padStart(2, '0'))
 const statusLabel = computed(() => {
   if (!info.value) return ''
   return info.value.orderStatus === 'DEPOSITED'
-    ? '✅ Đã cọc thành công'
+    ? '✅ Đã thanh toán thành công'
     : '🕐 Đang chờ thanh toán'
 })
 
@@ -346,7 +341,7 @@ function clearAll() {
 }
 
 function goBack() {
-  router.push('/')
+  router.push('/account')
 }
 
 async function copy(text, key) {

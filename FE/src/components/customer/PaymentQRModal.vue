@@ -152,7 +152,7 @@ async function fetchPaymentInfo() {
   error.value = null
 
   try {
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token')
+    const token = sessionStorage.getItem('authToken') || localStorage.getItem('authToken')
     const res = await fetch(`${API_BASE}/payments/orders/${props.orderId}/qr`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })

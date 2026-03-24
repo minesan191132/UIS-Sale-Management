@@ -51,10 +51,11 @@ public class PaymentService {
     private static final String SEPAY_QR_BASE = "https://qr.sepay.vn/img";
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    // Pattern để tìm mã đơn trong nội dung chuyển khoản
-    // Khớp với: COC-ORD-YYYYMMDD-XXX hoặc COC ORD-YYYYMMDD-XXX
-    private static final Pattern ORDER_CODE_PATTERN = Pattern.compile("(?i)COC[-\\s]?(ORD[-\\w]+)",
-            Pattern.CASE_INSENSITIVE);
+    // Pattern để tìm mã thanh toán trong nội dung chuyển khoản
+    // Khớp với: COC25A0305250083 (format mới, không dấu gạch ngang)
+    // Hoặc COC-ORD-YYYYMMDD-XXX (format cũ, để tương thích)
+    private static final Pattern ORDER_CODE_PATTERN = Pattern.compile(
+            "(?i)COC[-\\s]?([A-Z0-9]{6,})", Pattern.CASE_INSENSITIVE);
 
     // =====================================================
     // QR GENERATION
@@ -68,7 +69,7 @@ public class PaymentService {
      * Ví dụ: COC-ORD-20240115-001
      */
     public String generateSepayQrUrl(String orderNumber, BigDecimal depositAmount) {
-        String description = "COC-" + orderNumber;
+        String description = generateTransferContent(orderNumber);
 
         String url = UriComponentsBuilder.fromHttpUrl(SEPAY_QR_BASE)
                 .queryParam("acc", bankAccount)
@@ -84,10 +85,12 @@ public class PaymentService {
     }
 
     /**
-     * Tạo nội dung chuyển khoản chuẩn cho đơn hàng
+     * Tạo nội dung chuyển khoản ngắn gọn, không dấu đặc biệt.
+     * Ví dụ: ORD-25-A0305-25-0083 → COC25A0305250083
      */
     public String generateTransferContent(String orderNumber) {
-        return "COC-" + orderNumber;
+        String cleaned = orderNumber.replaceAll("[^A-Za-z0-9]", "").toUpperCase();
+        return "COC" + cleaned;
     }
 
     // =====================================================
@@ -121,23 +124,31 @@ public class PaymentService {
         }
 
         // 3. Tìm mã đơn hàng trong nội dung
-        String orderNumber = extractOrderNumber(webhook.getContent());
-        if (orderNumber == null) {
-            orderNumber = extractOrderNumber(webhook.getCode());
+        String cleanedCode = extractOrderNumber(webhook.getContent());
+        if (cleanedCode == null) {
+            cleanedCode = extractOrderNumber(webhook.getCode());
         }
 
-        if (orderNumber == null) {
+        if (cleanedCode == null) {
             log.warn("Cannot extract order number from webhook content: '{}'", webhook.getContent());
             return WebhookResult.failed("Cannot identify order from transfer content");
         }
 
-        final String finalOrderNumber = orderNumber;
+        final String finalCleanedCode = cleanedCode;
 
-        // 4. Tìm đơn hàng
-        Optional<Order> orderOpt = orderRepository.findByOrderNumber(finalOrderNumber);
+        // 4. Tìm đơn hàng bằng cách match cleaned order number
+        // So sánh phần sau COC với orderNumber đã xoá ký tự đặc biệt
+        Optional<Order> orderOpt = orderRepository.findAll().stream()
+                .filter(o -> o.getOrderNumber() != null &&
+                        o.getOrderNumber().replaceAll("[^A-Za-z0-9]", "").equalsIgnoreCase(finalCleanedCode))
+                .findFirst();
         if (orderOpt.isEmpty()) {
-            log.warn("Order not found for number: {}", finalOrderNumber);
-            return WebhookResult.failed("Order not found: " + finalOrderNumber);
+            // Thử tìm trực tiếp (format cũ)
+            orderOpt = orderRepository.findByOrderNumber(finalCleanedCode);
+        }
+        if (orderOpt.isEmpty()) {
+            log.warn("Order not found for cleaned code: {}", finalCleanedCode);
+            return WebhookResult.failed("Order not found: " + finalCleanedCode);
         }
 
         Order order = orderOpt.get();
@@ -145,7 +156,7 @@ public class PaymentService {
         // 5. Kiểm tra trạng thái đơn hàng
         if (order.getStatus() != OrderStatus.AWAITING_PAYMENT) {
             log.warn("Order {} is not in AWAITING_PAYMENT status (current: {})",
-                    finalOrderNumber, order.getStatus());
+                    order.getOrderNumber(), order.getStatus());
             return WebhookResult.ignored("Order is not awaiting payment (status: " + order.getStatus() + ")");
         }
 
@@ -156,7 +167,7 @@ public class PaymentService {
             BigDecimal diff = webhook.getTransferAmount().subtract(depositRequired).abs();
             if (diff.compareTo(tolerance) > 0 && webhook.getTransferAmount().compareTo(depositRequired) < 0) {
                 log.warn("Insufficient deposit for order {}: required={}, received={}",
-                        finalOrderNumber, depositRequired, webhook.getTransferAmount());
+                        order.getOrderNumber(), depositRequired, webhook.getTransferAmount());
                 // Vẫn record payment nhưng không đổi trạng thái
                 recordPaymentOnly(order, webhook, PaymentType.PARTIAL);
                 return WebhookResult.partialPayment("Payment recorded but insufficient for deposit confirmation");
@@ -180,16 +191,15 @@ public class PaymentService {
         order.setPaidAt(LocalDateTime.now());
         orderRepository.save(order);
 
-        log.info("✅ Deposit confirmed for order {}: amount={}", finalOrderNumber, webhook.getTransferAmount());
-        return WebhookResult.success(finalOrderNumber, webhook.getTransferAmount());
+        log.info("✅ Deposit confirmed for order {}: amount={}", order.getOrderNumber(), webhook.getTransferAmount());
+        return WebhookResult.success(order.getOrderNumber(), webhook.getTransferAmount());
     }
 
     /**
-     * Trích xuất mã đơn hàng từ nội dung chuyển khoản.
-     * Hỗ trợ các format:
-     * - "COC-ORD-20240115-001"
-     * - "COC ORD-20240115-001"
-     * - "DANG TRAN HOANG ANH chuyen COC-ORD-20240115-001"
+     * Trích xuất phần mã sau tiền tố COC từ nội dung chuyển khoản.
+     * Hỗ trợ:
+     * - Format mới: "COC25A0305250083" → "25A0305250083"
+     * - Format cũ:  "COC-ORD-20240115-001" → "ORD20240115001" (đã clean)
      */
     private String extractOrderNumber(String content) {
         if (content == null || content.isBlank())
@@ -197,7 +207,8 @@ public class PaymentService {
 
         Matcher matcher = ORDER_CODE_PATTERN.matcher(content);
         if (matcher.find()) {
-            return matcher.group(1).trim().toUpperCase();
+            // Trả về phần alphanumeric sau COC (đã xoá ký tự đặc biệt)
+            return matcher.group(1).replaceAll("[^A-Za-z0-9]", "").toUpperCase();
         }
         return null;
     }
@@ -246,6 +257,18 @@ public class PaymentService {
 
         String qrUrl = freshQrUrl != null ? freshQrUrl : order.getPaymentQrUrl();
 
+        List<PaymentItemDTO> paymentItems = payments.stream()
+                .map(p -> new PaymentItemDTO(
+                        p.getId(),
+                        p.getAmount(),
+                        p.getPaymentType() != null ? p.getPaymentType().name() : null,
+                        p.getPaymentMethod() != null ? p.getPaymentMethod().name() : null,
+                        p.getTransactionRef(),
+                        p.getCreatedAt() != null ? p.getCreatedAt().format(FORMATTER) : null,
+                        p.getVerifiedAt() != null ? p.getVerifiedAt().format(FORMATTER) : null,
+                        p.isVerified()))
+                .collect(Collectors.toList());
+
         return new PaymentInfoDTO(
                 order.getId(),
                 order.getOrderNumber(),
@@ -258,7 +281,7 @@ public class PaymentService {
                 bankAccount,
                 "DANG TRAN HOANG ANH",
                 bankCode,
-                payments);
+                paymentItems);
     }
 
     /**
@@ -348,6 +371,20 @@ public class PaymentService {
             String bankAccount,
             String accountName,
             String bankName,
-            List<Payment> paymentHistory) {
+            List<PaymentItemDTO> paymentHistory) {
+    }
+
+    /**
+     * Simple payment item DTO - không chứa JPA entity để tránh circular reference
+     */
+    public record PaymentItemDTO(
+            Long id,
+            BigDecimal amount,
+            String paymentType,
+            String paymentMethod,
+            String transactionRef,
+            String createdAt,
+            String verifiedAt,
+            boolean verified) {
     }
 }

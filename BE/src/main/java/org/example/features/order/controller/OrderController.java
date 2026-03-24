@@ -29,12 +29,32 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/orders")
-@CrossOrigin("*")
 @RequiredArgsConstructor
 @Slf4j
 public class OrderController {
 
     private final OrderService orderService;
+
+    /**
+     * Customer: Create order directly from shopping cart
+     * POST /api/orders/from-cart
+     */
+    @PostMapping("/from-cart")
+    public ResponseEntity<?> createFromCart(
+            @RequestBody org.example.features.order.dto.CartOrderRequestDTO request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        try {
+            OrderResponseDTO order = orderService.createOrderFromCart(request, userDetails.getUserId());
+            return ResponseEntity.status(HttpStatus.CREATED).body(order);
+        } catch (IllegalArgumentException e) {
+            log.warn("Cart order validation error: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Cart order creation error", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to create order: " + e.getMessage()));
+        }
+    }
 
     /**
      * Customer: Upload Excel file to create order

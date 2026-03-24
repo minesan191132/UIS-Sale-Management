@@ -30,6 +30,7 @@ const ForgotPassword = () => import('../components/auth/ForgotPassword.vue')
 const VerifyOtp = () => import('../components/auth/VerifyOtp.vue')
 const ResetPassword = () => import('../components/auth/ResetPassword.vue')
 const Checkout = () => import('../components/payment/Checkout.vue')
+const CheckoutPaymentQR = () => import('../components/payment/PaymentQR.vue')
 
 let adminChunksPrefetched = false;
 const prefetchAdminChunks = () => {
@@ -95,6 +96,12 @@ const routes = [
     path: '/checkout',
     name: 'checkout',
     component: Checkout
+  },
+  {
+    path: '/payment/:orderId',
+    name: 'payment-qr',
+    component: CheckoutPaymentQR,
+    meta: { requiresAuth: true }
   },
   {
     path: '/login',

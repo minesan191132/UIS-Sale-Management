@@ -69,6 +69,8 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/auth/**",
                                 "/api/contact/**",
+                                "/api/payments/sepay/webhook", // SePay gọi từ server ngoài, không có JWT
+                                "/api/payments/dev/**",       // Dev simulation endpoints
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
                                 "/actuator/health",
