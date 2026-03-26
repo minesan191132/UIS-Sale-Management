@@ -19,6 +19,7 @@ import org.example.features.order.entity.OrderStatus;
 import org.example.features.order.repository.OrderItemRepository;
 import org.example.features.order.repository.OrderRepository;
 import org.example.features.payment.service.PaymentService;
+import org.example.features.productadmin.AdminProductService;
 import org.example.features.warehouse.entity.DrawingMeta;
 import org.example.features.warehouse.repository.DrawingMetaRepository;
 import org.example.features.warehouse.service.QuotePricingService;
@@ -67,6 +68,7 @@ public class OrderService {
     private final PaymentService paymentService;
     private final QuotePricingService quotePricingService;
     private final DrawingMetaRepository drawingMetaRepository;
+    private final AdminProductService adminProductService;
 
     /**
      * Import order from Excel file
@@ -728,6 +730,17 @@ public class OrderService {
 
         Order savedOrder = orderRepository.save(order);
         log.info("Payment confirmed / Processing started for order: {}", savedOrder.getOrderNumber());
+
+        // Trừ tồn kho cho từng sản phẩm trong đơn hàng
+        for (org.example.features.order.entity.OrderItem item : savedOrder.getItems()) {
+            if (item.getItemName() != null && item.getQuantity() != null && item.getQuantity() > 0) {
+                try {
+                    adminProductService.deductStock(item.getItemName(), item.getQuantity());
+                } catch (Exception ex) {
+                    log.warn("deductStock failed for item='{}': {}", item.getItemName(), ex.getMessage());
+                }
+            }
+        }
 
         return mapToDTO(savedOrder);
     }

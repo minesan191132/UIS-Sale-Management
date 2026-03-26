@@ -3,8 +3,10 @@ package org.example.features.payment.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.features.order.entity.Order;
+import org.example.features.order.entity.OrderItem;
 import org.example.features.order.entity.OrderStatus;
 import org.example.features.order.repository.OrderRepository;
+import org.example.features.productadmin.AdminProductService;
 import org.example.features.payment.dto.PaymentSummaryDTO;
 import org.example.features.payment.dto.SepayWebhookDTO;
 import org.example.features.payment.entity.Payment;
@@ -38,6 +40,7 @@ public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
+    private final AdminProductService adminProductService;
 
     @Value("${sepay.bank.account}")
     private String bankAccount;
@@ -190,6 +193,19 @@ public class PaymentService {
         order.setStatus(OrderStatus.DEPOSITED);
         order.setPaidAt(LocalDateTime.now());
         orderRepository.save(order);
+
+        // 9. Trừ tồn kho cho từng sản phẩm trong đơn hàng
+        if (order.getItems() != null) {
+            for (OrderItem item : order.getItems()) {
+                if (item.getItemName() != null && item.getQuantity() != null && item.getQuantity() > 0) {
+                    try {
+                        adminProductService.deductStock(item.getItemName(), item.getQuantity());
+                    } catch (Exception ex) {
+                        log.warn("deductStock failed for item='{}': {}", item.getItemName(), ex.getMessage());
+                    }
+                }
+            }
+        }
 
         log.info("✅ Deposit confirmed for order {}: amount={}", order.getOrderNumber(), webhook.getTransferAmount());
         return WebhookResult.success(order.getOrderNumber(), webhook.getTransferAmount());

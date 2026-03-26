@@ -304,6 +304,60 @@ export const paymentAPI = {
   },
 };
 
+// ==================== PRODUCT ADMIN APIs ====================
+
+export const productAdminAPI = {
+  /**
+   * Thống kê tổng quan sản phẩm (4 card)
+   */
+  getStats: async () => {
+    const response = await apiClient.get('/productadmin/stats');
+    return response.data;
+  },
+
+  /**
+   * Danh sách sản phẩm (phân trang, tìm kiếm, lọc)
+   */
+  getAll: async ({ keyword = '', categoryId = null, status = '', page = 0, size = 20 } = {}) => {
+    const params = { keyword, status, page, size };
+    if (categoryId) params.categoryId = categoryId;
+    const response = await apiClient.get('/productadmin', { params });
+    return response.data;
+  },
+
+  /**
+   * Chi tiết 1 sản phẩm
+   */
+  getById: async (id) => {
+    const response = await apiClient.get(`/productadmin/${id}`);
+    return response.data;
+  },
+
+  /**
+   * Thêm sản phẩm mới
+   */
+  create: async (data) => {
+    const response = await apiClient.post('/productadmin', data);
+    return response.data;
+  },
+
+  /**
+   * Cập nhật sản phẩm
+   */
+  update: async (id, data) => {
+    const response = await apiClient.put(`/productadmin/${id}`, data);
+    return response.data;
+  },
+
+  /**
+   * Xoá sản phẩm (soft delete)
+   */
+  delete: async (id) => {
+    const response = await apiClient.delete(`/productadmin/${id}`);
+    return response.data;
+  },
+};
+
 // ==================== HELPERS ====================
 
 
