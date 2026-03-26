@@ -107,7 +107,7 @@
                     title="Khoá / Mở khoá tài khoản"
                     @click="handleToggleActive(user)"
                   >
-                    {{ user.isActive ? '🔒' : '🔓' }}
+                    {{ user.isActive ? '🔓' : '🔒' }}
                   </button>
                   <span
                     v-else
@@ -119,7 +119,7 @@
                     class="btn btn-light btn-sm border px-3 rounded-pill fw-bold"
                     @click="openEdit(user)"
                   >
-                    Sửa
+                   XEM CHI TIET
                   </button>
                 </div>
               </td>

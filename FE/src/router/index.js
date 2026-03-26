@@ -24,6 +24,7 @@ const WarehouseHistoryView = () => import('../components/admin/lichsunhapkho.vue
 const ProductView = () => import('../components/admin/product.vue')
 const UserEditView = () => import('../components/admin/user_edit.vue')
 const UserListView = () => import('../components/admin/user_list.vue')
+const ProductOrderMgmtView = () => import('../components/admin/ProductOrderManagement.vue')
 
 const ResendVerification = () => import('../components/auth/ResendVerification.vue')
 const ForgotPassword = () => import('../components/auth/ForgotPassword.vue')
@@ -160,6 +161,7 @@ const routes = [
       { path: 'dashboard', name: 'dashboard', component: StatisticView, meta: { roles: ['ADMIN'] } },
       { path: 'inventory', name: 'inventory', component: InventoryView }, // All authenticated users
       { path: 'invoice-management', name: 'invoice-management', component: InvoiceMgmtView },
+      { path: 'product-orders', name: 'product-orders', component: ProductOrderMgmtView },
       { path: 'invoice-preview', name: 'invoice-preview', component: PreviewInvoiceView },
       { path: 'products', name: 'products', component: ProductView, meta: { roles: ['ADMIN'] } },
       { path: 'users', name: 'users', component: UserListView, meta: { roles: ['ADMIN'] } },

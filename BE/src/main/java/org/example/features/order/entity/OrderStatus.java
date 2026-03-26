@@ -27,6 +27,22 @@ public enum OrderStatus {
     PROCESSING,
 
     /**
+     * Payment received for READY_MADE order; awaiting delivery preparation
+     */
+    AWAITING_DELIVERY,
+
+    /**
+     * Order handed to shipping carrier / delivery unit
+     */
+    SHIPPING,
+
+    /**
+     * 7 days before delivery_date for CUSTOM_MANUFACTURING:
+     * customer must pay the remaining 30%
+     */
+    AWAITING_REMAINING_PAYMENT,
+
+    /**
      * Order completed and delivered
      */
     COMPLETED,

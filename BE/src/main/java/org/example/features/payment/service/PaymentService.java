@@ -153,45 +153,85 @@ public class PaymentService {
 
         Order order = orderOpt.get();
 
-        // 5. Kiểm tra trạng thái đơn hàng
-        if (order.getStatus() != OrderStatus.AWAITING_PAYMENT) {
-            log.warn("Order {} is not in AWAITING_PAYMENT status (current: {})",
-                    order.getOrderNumber(), order.getStatus());
-            return WebhookResult.ignored("Order is not awaiting payment (status: " + order.getStatus() + ")");
+        // 5. Kiểm tra trạng thái đơn hàng và xác định loại thanh toán
+        OrderStatus currentStatus = order.getStatus();
+        PaymentType paymentType = PaymentType.DEPOSIT; // Mặc định
+        boolean isSecondPayment = false;
+
+        if (currentStatus == OrderStatus.AWAITING_PAYMENT) {
+            paymentType = PaymentType.DEPOSIT;
+        } else if (currentStatus == OrderStatus.PROCESSING || currentStatus == OrderStatus.AWAITING_REMAINING_PAYMENT) {
+            // Thanh toán đợt 2 cho đơn gia công
+            paymentType = PaymentType.FINAL;
+            isSecondPayment = true;
+        } else {
+            log.warn("Order {} is not in AWAITING_PAYMENT/PROCESSING/AWAITING_REMAINING_PAYMENT status (current: {})",
+                    order.getOrderNumber(), currentStatus);
+            return WebhookResult.ignored("Order is not awaiting payment (status: " + currentStatus + ")");
         }
 
-        // 6. Kiểm tra số tiền (cho phép ±1% sai số làm tròn)
-        BigDecimal depositRequired = order.getDepositAmount();
-        if (depositRequired != null) {
-            BigDecimal tolerance = depositRequired.multiply(BigDecimal.valueOf(0.01));
-            BigDecimal diff = webhook.getTransferAmount().subtract(depositRequired).abs();
-            if (diff.compareTo(tolerance) > 0 && webhook.getTransferAmount().compareTo(depositRequired) < 0) {
-                log.warn("Insufficient deposit for order {}: required={}, received={}",
-                        order.getOrderNumber(), depositRequired, webhook.getTransferAmount());
-                // Vẫn record payment nhưng không đổi trạng thái
-                recordPaymentOnly(order, webhook, PaymentType.PARTIAL);
-                return WebhookResult.partialPayment("Payment recorded but insufficient for deposit confirmation");
+        // 6. Tính toán số tiền cần thiết dựa theo loại thanh toán
+        BigDecimal amountRequired = BigDecimal.ZERO;
+        if (!isSecondPayment) {
+            // Thanh toán đợt 1: deposit
+            amountRequired = order.getDepositAmount() != null ? order.getDepositAmount() : BigDecimal.ZERO;
+        } else {
+            // Thanh toán đợt 2: số tiền còn lại = total - deposit
+            if (order.getTotalPrice() != null && order.getDepositAmount() != null) {
+                amountRequired = order.getTotalPrice().subtract(order.getDepositAmount());
             }
         }
 
-        // 7. Tạo Payment record đầy đủ
+        // 7. Kiểm tra số tiền (cho phép ±1% sai số làm tròn)
+        BigDecimal tolerance = amountRequired.multiply(BigDecimal.valueOf(0.01));
+        BigDecimal diff = webhook.getTransferAmount().subtract(amountRequired).abs();
+        if (diff.compareTo(tolerance) > 0 && webhook.getTransferAmount().compareTo(amountRequired) < 0) {
+            log.warn("Insufficient payment for order {}: required={}, received={}",
+                    order.getOrderNumber(), amountRequired, webhook.getTransferAmount());
+            // Vẫn record payment nhưng không đổi trạng thái
+            recordPaymentOnly(order, webhook, PaymentType.PARTIAL);
+            return WebhookResult.partialPayment("Payment recorded but insufficient for confirmation");
+        }
+
+        // 8. Tạo Payment record
         Payment payment = new Payment();
         payment.setOrder(order);
         payment.setAmount(webhook.getTransferAmount());
-        payment.setPaymentType(PaymentType.DEPOSIT);
+        payment.setPaymentType(paymentType);
         payment.setPaymentMethod(PaymentMethod.SEPAY);
         payment.setTransactionRef(webhook.getReferenceCode());
-        payment.setVerifiedAt(LocalDateTime.now()); // Tự động xác minh qua webhook
-        payment.setNotes("SePay webhook - " + webhook.getTransactionDate()
-                + " - content: " + webhook.getContent());
+        payment.setVerifiedAt(LocalDateTime.now());
+        payment.setNotes("SePay webhook - " + webhook.getTransactionDate() + " - " + webhook.getContent());
         paymentRepository.save(payment);
 
-        // 8. Cập nhật đơn hàng sang DEPOSITED
-        order.setStatus(OrderStatus.DEPOSITED);
-        order.setPaidAt(LocalDateTime.now());
-        orderRepository.save(order);
+        // 9. Cập nhật đơn hàng
+        if (!isSecondPayment) {
+            // Thanh toán đợt 1: AWAITING_PAYMENT -> DEPOSITED
+            order.setStatus(OrderStatus.DEPOSITED);
+            order.setPaidAt(LocalDateTime.now());
+            log.info("✅ Deposit confirmed for order {}: amount={}", order.getOrderNumber(), webhook.getTransferAmount());
+        } else {
+            // Thanh toán đợt 2: Cộng dồn vào deposit_amount
+            if (order.getDepositAmount() == null) {
+                order.setDepositAmount(webhook.getTransferAmount());
+            } else {
+                order.setDepositAmount(order.getDepositAmount().add(webhook.getTransferAmount()));
+            }
 
-        log.info("✅ Deposit confirmed for order {}: amount={}", order.getOrderNumber(), webhook.getTransferAmount());
+            // Nếu đã thanh toán đủ 100%, ghi nhận đã trả đủ
+            if (order.getTotalPrice() != null && 
+                order.getDepositAmount().compareTo(order.getTotalPrice()) >= 0) {
+                log.info("✅ Full payment confirmed for order {}: ({}/{})", 
+                    order.getOrderNumber(), order.getDepositAmount(), order.getTotalPrice());
+                // Giữ nguyên status PROCESSING/AWAITING_REMAINING_PAYMENT, không tự động sang AWAITING_DELIVERY
+                // vì xưởng vẫn có thể đang gia công
+            } else {
+                log.info("✅ Partial payment (đợt 2) recorded for order {}: amount={}", 
+                    order.getOrderNumber(), webhook.getTransferAmount());
+            }
+        }
+
+        orderRepository.save(order);
         return WebhookResult.success(order.getOrderNumber(), webhook.getTransferAmount());
     }
 

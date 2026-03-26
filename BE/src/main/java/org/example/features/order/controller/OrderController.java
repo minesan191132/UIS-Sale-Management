@@ -4,10 +4,13 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.config.security.CustomUserDetails;
+import org.example.features.auth.service.EmailService;
+import org.example.features.order.dto.DelayDeliveryRequestDTO;
 import org.example.features.order.dto.ItemReviewRequestDTO;
 import org.example.features.order.dto.OrderResponseDTO;
 import org.example.features.order.dto.QuoteRequestDTO;
 import org.example.features.order.entity.OrderStatus;
+import org.example.features.order.entity.OrderType;
 import org.example.features.order.service.OrderService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -34,6 +37,7 @@ import java.util.Map;
 public class OrderController {
 
     private final OrderService orderService;
+    private final EmailService emailService;
 
     /**
      * Customer: Create order directly from shopping cart
@@ -137,10 +141,11 @@ public class OrderController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) OrderStatus status,
+            @RequestParam(required = false) OrderType orderType,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         try {
             Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-            Page<OrderResponseDTO> orders = orderService.getUserOrders(userDetails.getUserId(), status, pageable);
+            Page<OrderResponseDTO> orders = orderService.getUserOrders(userDetails.getUserId(), status, orderType, pageable);
             return ResponseEntity.ok(orders);
         } catch (Exception e) {
             log.error("Error fetching customer orders", e);
@@ -159,19 +164,18 @@ public class OrderController {
             @RequestParam(defaultValue = "15") int size,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) OrderStatus status,
+            @RequestParam(required = false) OrderType orderType,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         try {
-            // Check if user is admin (already protected by SecurityConfig, but
-            // double-check)
             if (!"ADMIN".equals(userDetails.getRole())) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
                         .body(Map.of("error", "Unauthorized"));
             }
 
             Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-            Page<OrderResponseDTO> orders = orderService.getAllOrders(pageable, keyword, status, dateFrom, dateTo);
+            Page<OrderResponseDTO> orders = orderService.getAllOrders(pageable, keyword, status, dateFrom, dateTo, orderType);
             return ResponseEntity.ok(orders);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -204,6 +208,30 @@ public class OrderController {
             log.error("Error fetching order", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Failed to fetch order"));
+        }
+    }
+
+    /**
+     * Customer: Cancel a manufacturing order
+     * PUT /api/orders/{id}/cancel
+     */
+    @PutMapping("/{id}/cancel")
+    public ResponseEntity<?> cancelOrder(
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        try {
+            OrderResponseDTO order = orderService.cancelOrder(id, userDetails.getUserId());
+            return ResponseEntity.ok(order);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error cancelling order", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to cancel order"));
         }
     }
 
@@ -288,6 +316,80 @@ public class OrderController {
             log.error("Error reviewing order item", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Failed to review item"));
+        }
+    }
+
+    /**
+     * Admin: Delay delivery — update delivery_date and notify customer
+     * PUT /api/orders/{id}/delay-delivery
+     */
+    @PutMapping("/{id}/delay-delivery")
+    public ResponseEntity<?> delayDelivery(
+            @PathVariable Long id,
+            @Valid @RequestBody DelayDeliveryRequestDTO request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        try {
+            if (!"ADMIN".equals(userDetails.getRole())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Unauthorized"));
+            }
+            OrderResponseDTO order = orderService.delayDelivery(id, request, emailService);
+            return ResponseEntity.ok(order);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error delaying delivery for order {}", id, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to update delivery date"));
+        }
+    }
+
+    /**
+     * Admin: Mark order as SHIPPING (handed to carrier)
+     * PUT /api/orders/{id}/ship
+     */
+    @PutMapping("/{id}/ship")
+    public ResponseEntity<?> shipOrder(
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        try {
+            if (!"ADMIN".equals(userDetails.getRole())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Unauthorized"));
+            }
+            OrderResponseDTO order = orderService.shipOrder(id);
+            return ResponseEntity.ok(order);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error shipping order {}", id, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to ship order"));
+        }
+    }
+
+    /**
+     * Admin: Mark order as COMPLETED (delivered successfully)
+     * PUT /api/orders/{id}/complete
+     */
+    @PutMapping("/{id}/complete")
+    public ResponseEntity<?> completeOrder(
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        try {
+            if (!"ADMIN".equals(userDetails.getRole())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Unauthorized"));
+            }
+            OrderResponseDTO order = orderService.completeOrder(id);
+            return ResponseEntity.ok(order);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error completing order {}", id, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to complete order"));
         }
     }
 }

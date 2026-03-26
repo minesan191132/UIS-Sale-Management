@@ -52,7 +52,7 @@ const featuredProducts = ref([
       <div class="container">
         <div class="row align-items-center">
           <div class="col-lg-7">
-            <span class="badge bg-warning text-dark mb-3 px-3 py-2 fw-bold">CHẤT LƯỢNG ISO 9001:2015</span>
+            <!-- <span class="badge bg-warning text-dark mb-3 px-3 py-2 fw-bold">CHẤT LƯỢNG JIS</span> -->
             <h1 class="display-4 fw-bold mb-3 animate-up text-uppercase">
               Gia Công Chính Xác<br>
               <span class="text-gradient">Tiêu Chuẩn Nhật Bản</span>
@@ -69,8 +69,9 @@ const featuredProducts = ref([
       <div class="container">
         <div class="d-flex justify-content-between align-items-end mb-5">
           <div>
-            <h6 class="text-primary fw-bold text-uppercase mb-2">Sản phẩm chủ lực</h6>
-            <h2 class="fw-bold text-dark">Năng Lực Gia Công & Chế Tạo</h2>
+            <h6 class="text-primary fw-bold text-uppercase mb-2">Năng Lực Gia Công & Chế Tạo
+</h6>
+            <h2 class="fw-bold text-dark">Sản phẩm chủ lực</h2>
             <div class="title-underline"></div>
           </div>
           <router-link to="/products" class="btn btn-link text-decoration-none fw-bold">Xem kho vật tư <i class="fas fa-arrow-right"></i></router-link>

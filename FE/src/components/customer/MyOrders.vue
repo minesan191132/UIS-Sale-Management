@@ -14,6 +14,20 @@
       </div>
     </div>
 
+    <!-- Main Type Tabs -->
+    <div class="type-tabs-wrap mb-4">
+      <button
+        v-for="typeTab in typeTabs"
+        :key="typeTab.key"
+        class="type-tab"
+        :class="{ active: activeOrderType === typeTab.key }"
+        @click="changeOrderType(typeTab.key)"
+      >
+        <span class="type-tab-icon">{{ typeTab.icon }}</span>
+        {{ typeTab.label }}
+      </button>
+    </div>
+
     <!-- Skeleton Loading -->
     <div v-if="isLoading" class="row g-3">
       <div v-for="i in 3" :key="i" class="col-12">
@@ -70,7 +84,7 @@
                     {{ order.items?.length || 0 }} sản phẩm
                   </p>
                   <span :class="getStatusBadgeClass(order.status)">
-                    {{ getStatusText(order.status) }}
+                    {{ getStatusText(order.status, order.orderType) }}
                   </span>
                 </div>
 
@@ -82,25 +96,76 @@
                       <small class="text-muted">Tổng giá trị:</small><br>
                       <strong class="fs-5 text-primary">{{ formatCurrency(order.totalPrice) }}</strong>
                     </p>
-                    <p class="mb-0">
+                    <!-- READY_MADE: "Đã thanh toán" label -->
+                    <p v-if="order.orderType === 'READY_MADE'" class="mb-0">
+                      <small class="text-muted">Đã thanh toán:</small><br>
+                      <strong class="text-success">{{ formatCurrency(order.depositAmount) }}</strong>
+                    </p>
+                    <!-- CUSTOM_MANUFACTURING: "Cọc trước 60%" label -->
+                    <p v-else class="mb-0">
                       <small class="text-muted">Cọc trước 60%:</small><br>
                       <strong class="text-success">{{ formatCurrency(order.depositAmount) }}</strong>
                     </p>
+
+                    <!-- Delivery Date Display -->
+                    <p v-if="order.deliveryDate" class="mb-0 mt-2">
+                      <small class="text-muted">Ngày giao dự kiến:</small><br>
+                      <strong :class="isDeliveryDateOverdue(order.deliveryDate) ? 'text-danger' : 'text-info'">
+                        {{ formatDate(order.deliveryDate) }}
+                        <i v-if="isDeliveryDateOverdue(order.deliveryDate)" class="bi bi-exclamation-circle ms-1"></i>
+                      </strong>
+                    </p>
+
+                    <!-- Full Payment Badge (for CUSTOM_MANUFACTURING when deposit >= total) -->
+                    <div v-if="order.orderType === 'CUSTOM_MANUFACTURING' && order.depositAmount && order.totalPrice && order.depositAmount >= order.totalPrice" class="mt-2">
+                      <span class="badge bg-success">
+                        <i class="bi bi-check-circle me-1"></i>Đã thanh toán toàn bộ
+                      </span>
+                    </div>
                   </div>
 
                   <!-- Actions -->
-                  <div class="d-flex gap-2 justify-content-md-end flex-wrap">
+                  <div class="d-flex gap-2 justify-content-md-end flex-wrap mt-2">
                     <button @click="openDetailModal(order)" class="btn btn-outline-primary btn-sm">
                       <i class="bi bi-eye me-1"></i>Xem chi tiết
                     </button>
+
+                    <!-- Payment Button - READY_MADE (100% payment) -->
                     <button 
-                      v-if="order.status === 'AWAITING_PAYMENT' || order.status === 'DEPOSITED'" 
+                      v-if="order.orderType === 'READY_MADE' && (order.status === 'AWAITING_PAYMENT' || order.status === 'DEPOSITED')" 
                       @click="openPaymentModal(order)" 
                       class="btn btn-sm"
                       :class="order.status === 'DEPOSITED' ? 'btn-outline-success' : 'btn-success'"
                     >
                       <i class="bi bi-qr-code me-1"></i>
-                      {{ order.status === 'DEPOSITED' ? 'Đã cọc ✔' : 'Thanh toán cọc' }}
+                      {{ order.status === 'DEPOSITED' ? 'Đã thanh toán ✔' : 'Thanh toán' }}
+                    </button>
+
+                    <!-- Deposit Payment Button - CUSTOM_MANUFACTURING (60% deposit) -->
+                    <button 
+                      v-else-if="order.orderType === 'CUSTOM_MANUFACTURING' && order.status === 'AWAITING_PAYMENT'" 
+                      @click="openPaymentModal(order)" 
+                      class="btn btn-sm btn-success"
+                    >
+                      <i class="bi bi-qr-code me-1"></i>Thanh toán cọc
+                    </button>
+
+                    <!-- Early Payment Button - CUSTOM_MANUFACTURING (remaining amount) -->
+                    <button 
+                      v-else-if="order.orderType === 'CUSTOM_MANUFACTURING' && (order.status === 'PROCESSING' || order.status === 'AWAITING_REMAINING_PAYMENT') && order.depositAmount && order.totalPrice && order.depositAmount < order.totalPrice" 
+                      @click="openRemainingPaymentModal(order)" 
+                      class="btn btn-sm btn-outline-warning"
+                    >
+                      <i class="bi bi-cash-coin me-1"></i>Thanh toán nốt số dư
+                    </button>
+
+                    <!-- Deposit Status - CUSTOM_MANUFACTURING -->
+                    <button 
+                      v-else-if="order.orderType === 'CUSTOM_MANUFACTURING' && order.status === 'DEPOSITED'" 
+                      @click="openPaymentModal(order)" 
+                      class="btn btn-sm btn-outline-success"
+                    >
+                      <i class="bi bi-check-circle me-1"></i>Đã cọc ✔
                     </button>
                   </div>
                 </div>
@@ -291,19 +356,44 @@ const selectedOrder = ref(null)
 const detailModalRef = ref(null)
 const paymentModalRef = ref(null)
 const selectedPaymentOrderId = ref(null)
+const activeOrderType = ref('CUSTOM_MANUFACTURING')
+const activeStatus = ref('ALL')
 let bsModal = null
 let bsPaymentModal = null
+
+// ── Type tabs (main level) ──
+const typeTabs = [
+  { key: 'CUSTOM_MANUFACTURING', label: 'Đơn hàng gia công', icon: '🔧' },
+  { key: 'READY_MADE',           label: 'Sản phẩm phôi',   icon: '🛒' },
+]
+
+
+
+const currentStatusTabs = computed(() =>
+  activeOrderType.value === 'READY_MADE' ? productStatusTabs : manufacturingStatusTabs
+)
 
 onMounted(() => {
   loadOrders()
 })
 
+const changeOrderType = (key) => {
+  activeOrderType.value = key
+  activeStatus.value = 'ALL'
+  loadOrders(0)
+}
+
+const changeStatus = (key) => {
+  activeStatus.value = key
+  loadOrders(0)
+}
+
 const loadOrders = async (page = 0) => {
   isLoading.value = true
   try {
-    const response = await apiClient.get('/orders/my', {
-      params: { page, size: 10 }
-    })
+    const params = { page, size: 10, orderType: activeOrderType.value }
+    if (activeStatus.value !== 'ALL') params.status = activeStatus.value
+    const response = await apiClient.get('/orders/my', { params })
     orders.value = response.data.content || response.data
     currentPage.value = response.data.number || 0
     totalPages.value = response.data.totalPages || 1
@@ -373,16 +463,29 @@ const showPaymentQR = (order) => {
   openPaymentModal(order)
 }
 
-const getStatusText = (status) => {
-  const statusMap = {
+const getStatusText = (status, orderType) => {
+  if (orderType === 'READY_MADE') {
+    const readyMadeMap = {
+      AWAITING_PAYMENT: 'Chờ thanh toán',
+      DEPOSITED: 'Đã thanh toán ✔',
+      PROCESSING: 'Đang chuẩn bị',
+      COMPLETED: 'Đã nhận được hàng',
+      CANCELLED: 'Đã hủy'
+    }
+    return readyMadeMap[status] || status
+  }
+  
+  // CUSTOM_MANUFACTURING
+  const customMap = {
     PENDING_QUOTE: 'Chờ báo giá',
     AWAITING_PAYMENT: 'Chờ thanh toán',
     DEPOSITED: 'Đã cọc ✔',
     PROCESSING: 'Đang gia công',
+    AWAITING_REMAINING_PAYMENT: 'Chờ thanh toán đợt 2',
     COMPLETED: 'Hoàn thành',
     CANCELLED: 'Đã hủy'
   }
-  return statusMap[status] || status
+  return customMap[status] || status
 }
 
 const getStatusBadgeClass = (status) => {
@@ -391,6 +494,9 @@ const getStatusBadgeClass = (status) => {
     AWAITING_PAYMENT: 'badge bg-info text-dark',
     DEPOSITED: 'badge bg-success',
     PROCESSING: 'badge bg-primary',
+    AWAITING_REMAINING_PAYMENT: 'badge bg-warning',
+    AWAITING_DELIVERY: 'badge bg-info',
+    SHIPPING: 'badge bg-primary',
     COMPLETED: 'badge bg-success',
     CANCELLED: 'badge bg-danger'
   }
@@ -420,6 +526,27 @@ const formatCurrency = (amount) => {
     style: 'currency',
     currency: 'VND'
   }).format(amount)
+}
+
+const isDeliveryDateOverdue = (deliveryDate) => {
+  if (!deliveryDate) return false
+  const delivery = new Date(deliveryDate)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  delivery.setHours(0, 0, 0, 0)
+  return delivery < today
+}
+
+const openRemainingPaymentModal = (order) => {
+  selectedPaymentOrderId.value = order.id
+  // Store remaining amount for display (optional, can be calculated in PaymentQR component)
+  selectedOrder.value = order
+  nextTick().then(() => {
+    if (!bsPaymentModal && paymentModalRef.value) {
+      bsPaymentModal = new Modal(paymentModalRef.value)
+    }
+    bsPaymentModal?.show()
+  })
 }
 </script>
 
@@ -562,5 +689,85 @@ const formatCurrency = (amount) => {
 .cell-truncate:hover {
   white-space: normal;
   word-break: break-word;
+}
+
+/* ── Type Tabs ── */
+.type-tabs-wrap {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  border-bottom: 2px solid #e2e8f0;
+  padding-bottom: 12px;
+}
+
+.type-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -14px;
+  position: relative;
+  top: 2px;
+}
+
+.type-tab:hover {
+  color: #334155;
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.type-tab.active {
+  color: #3b82f6;
+  border-bottom-color: #3b82f6;
+}
+
+.type-tab-icon {
+  font-size: 1.1em;
+}
+
+/* ── Status Filter Tabs ── */
+.order-tabs-wrap {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.order-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.order-tab {
+  padding: 6px 14px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 0.9rem;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.order-tab:hover {
+  background: #f1f5f9;
+  border-color: #3b82f6;
+  color: #3b82f6;
+}
+
+.order-tab.active {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
 }
 </style>

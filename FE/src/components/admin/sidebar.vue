@@ -40,6 +40,11 @@
             </RouterLink>
           </li>
           <li class="my-1">
+            <RouterLink to="/admin/product-orders" class="nav-link link-dark py-2" active-class="active bg-primary text-white">
+              <i class="bi bi-cart-check me-2"></i> Quản lý đơn sản phẩm
+            </RouterLink>
+          </li>
+          <li class="my-1">
             <RouterLink to="/admin/invoice-preview" class="nav-link link-dark py-2" active-class="active bg-primary text-white">
               <i class="bi bi-eye me-2"></i> Xem trước hoá đơn
             </RouterLink>

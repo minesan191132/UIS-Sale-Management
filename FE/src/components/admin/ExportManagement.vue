@@ -476,7 +476,7 @@ const loadCompaniesForImport = async () => {
 const loadOrders = async (page = 0) => {
   isLoading.value = true;
   try {
-    const params = { page, size: 15 };
+    const params = { page, size: 15, orderType: 'CUSTOM_MANUFACTURING' };
     if (searchKeyword.value?.trim()) params.keyword = searchKeyword.value.trim();
     if (filterStatus.value) params.status = filterStatus.value;
     if (dateFrom.value) params.dateFrom = dateFrom.value;
