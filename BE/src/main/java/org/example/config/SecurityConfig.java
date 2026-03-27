@@ -80,6 +80,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
                         .requestMatchers("/api/products/**").hasRole("ADMIN") // Product management
 
+                        .requestMatchers(HttpMethod.GET, "/api/productadmin/**").hasRole("ADMIN") // Admin product read
+                        .requestMatchers("/api/productadmin/**").hasRole("ADMIN") // Admin product write
+
                         .requestMatchers("/api/admin/**").hasRole("ADMIN") // Admin endpoints
                         .requestMatchers("/api/users/**").hasRole("ADMIN") // User management
                         .requestMatchers(HttpMethod.POST, "/api/companies/**").hasRole("ADMIN") // Company creation

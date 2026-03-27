@@ -3,8 +3,10 @@ package org.example.features.payment.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.features.order.entity.Order;
+import org.example.features.order.entity.OrderItem;
 import org.example.features.order.entity.OrderStatus;
 import org.example.features.order.repository.OrderRepository;
+import org.example.features.productadmin.AdminProductService;
 import org.example.features.payment.dto.PaymentSummaryDTO;
 import org.example.features.payment.dto.SepayWebhookDTO;
 import org.example.features.payment.entity.Payment;
@@ -38,6 +40,7 @@ public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
+    private final AdminProductService adminProductService;
 
     @Value("${sepay.bank.account}")
     private String bankAccount;
