@@ -10,6 +10,10 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -54,6 +58,46 @@ public class EmailService {
 
         mailSender.send(email);
         log.info("Verification email sent to: {}", user.getEmail());
+    }
+
+    @Async
+    public void sendDelayNotification(User user, String orderNumber, LocalDate newDeliveryDate, String reason) {
+        String formattedDate = newDeliveryDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+        SimpleMailMessage email = new SimpleMailMessage();
+        email.setFrom(from);
+        email.setTo(user.getEmail());
+        email.setSubject("[UIS] Thông báo cập nhật ngày giao hàng - Đơn " + orderNumber);
+        email.setText("Kính gửi " + user.getFullName() + ",\n\n"
+                + "Chúng tôi xin thông báo rằng đơn hàng " + orderNumber + " của bạn đã được cập nhật ngày giao.\n\n"
+                + "Ngày giao mới: " + formattedDate + "\n"
+                + "Lý do: " + reason + "\n\n"
+                + "Chúng tôi thành thật xin lỗi vì sự bất tiện này và cam kết hoàn thành đơn hàng đúng hạn mới.\n\n"
+                + "Nếu có thắc mắc, vui lòng liên hệ với chúng tôi.\n\n"
+                + "Trân trọng,\n"
+                + "Đội ngũ UIS");
+        mailSender.send(email);
+        log.info("Delay notification sent to {} for order {}", user.getEmail(), orderNumber);
+    }
+
+    @Async
+    public void sendRemainingPaymentReminder(User user, String orderNumber,
+                                             BigDecimal remainingAmount, LocalDate deliveryDate) {
+        String formattedDate = deliveryDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+        String formattedAmount = String.format("%,.0f VNĐ", remainingAmount);
+        SimpleMailMessage email = new SimpleMailMessage();
+        email.setFrom(from);
+        email.setTo(user.getEmail());
+        email.setSubject("[UIS] Nhắc nhở thanh toán đợt 2 - Đơn " + orderNumber);
+        email.setText("Kính gửi " + user.getFullName() + ",\n\n"
+                + "Đơn hàng gia công " + orderNumber + " của bạn sắp hoàn thành.\n\n"
+                + "Số tiền cần thanh toán (30% còn lại): " + formattedAmount + "\n"
+                + "Ngày giao dự kiến: " + formattedDate + "\n\n"
+                + "Vui lòng thanh toán phần còn lại trước ngày giao hàng để đảm bảo quy trình giao nhận diễn ra suôn sẻ.\n\n"
+                + "Bạn có thể thanh toán trực tiếp qua hệ thống tại trang Lịch sử đơn hàng.\n\n"
+                + "Trân trọng,\n"
+                + "Đội ngũ UIS");
+        mailSender.send(email);
+        log.info("Remaining payment reminder sent to {} for order {}", user.getEmail(), orderNumber);
     }
 
 }

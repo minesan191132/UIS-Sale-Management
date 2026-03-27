@@ -8,6 +8,7 @@ import org.example.features.company.entity.User;
 import org.example.features.company.repository.CompanyRepository;
 import org.example.features.company.repository.UserRepository;
 import org.example.features.order.dto.CartOrderRequestDTO;
+import org.example.features.order.dto.DelayDeliveryRequestDTO;
 import org.example.features.order.dto.ItemReviewRequestDTO;
 import org.example.features.order.dto.OrderItemDTO;
 import org.example.features.order.dto.OrderResponseDTO;
@@ -16,6 +17,7 @@ import org.example.features.order.entity.ItemReviewStatus;
 import org.example.features.order.entity.Order;
 import org.example.features.order.entity.OrderItem;
 import org.example.features.order.entity.OrderStatus;
+import org.example.features.order.entity.OrderType;
 import org.example.features.order.repository.OrderItemRepository;
 import org.example.features.order.repository.OrderRepository;
 import org.example.features.payment.service.PaymentService;
@@ -160,6 +162,7 @@ public class OrderService {
         order.setUser(user);
         order.setCompany(company);
         order.setStatus(OrderStatus.AWAITING_PAYMENT);
+        order.setOrderType(OrderType.READY_MADE);
 
         // Map cart items to order items
         for (CartOrderRequestDTO.CartItemDTO cartItem : request.getItems()) {
@@ -255,6 +258,7 @@ public class OrderService {
         order.setUser(owner);
         order.setCompany(company);
         order.setStatus(OrderStatus.PENDING_QUOTE);
+        order.setOrderType(OrderType.CUSTOM_MANUFACTURING);
         order.setTotalPrice(null);
         order.setDepositAmount(null);
         order.setPaymentQrUrl(null);
@@ -522,7 +526,7 @@ public class OrderService {
      * Get all orders (Admin)
      */
     public Page<OrderResponseDTO> getAllOrders(Pageable pageable) {
-        return getAllOrders(pageable, null, null, null, null);
+        return getAllOrders(pageable, null, null, null, null, null);
     }
 
     /**
@@ -534,6 +538,19 @@ public class OrderService {
             OrderStatus status,
             LocalDate fromDate,
             LocalDate toDate) {
+        return getAllOrders(pageable, keyword, status, fromDate, toDate, null);
+    }
+
+    /**
+     * Get all orders (Admin) with optional filters including orderType.
+     */
+    public Page<OrderResponseDTO> getAllOrders(
+            Pageable pageable,
+            String keyword,
+            OrderStatus status,
+            LocalDate fromDate,
+            LocalDate toDate,
+            OrderType orderType) {
         if (fromDate != null && toDate != null && fromDate.isAfter(toDate)) {
             throw new IllegalArgumentException("Khoảng ngày không hợp lệ: Từ ngày phải nhỏ hơn hoặc bằng Đến ngày");
         }
@@ -560,6 +577,10 @@ public class OrderService {
                 predicates.add(cb.equal(root.get("status"), status));
             }
 
+            if (orderType != null) {
+                predicates.add(cb.equal(root.get("orderType"), orderType));
+            }
+
             if (fromDateTime != null) {
                 predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), fromDateTime));
             }
@@ -575,10 +596,14 @@ public class OrderService {
     }
 
     /**
-     * Get user's orders (optionally filtered by status)
+     * Get user's orders (optionally filtered by status and/or orderType)
      */
-    public Page<OrderResponseDTO> getUserOrders(Long userId, OrderStatus status, Pageable pageable) {
-        if (status != null) {
+    public Page<OrderResponseDTO> getUserOrders(Long userId, OrderStatus status, OrderType orderType, Pageable pageable) {
+        if (status != null && orderType != null) {
+            return orderRepository.findByUserIdAndStatusAndOrderType(userId, status, orderType, pageable).map(this::mapToDTO);
+        } else if (orderType != null) {
+            return orderRepository.findByUserIdAndOrderType(userId, orderType, pageable).map(this::mapToDTO);
+        } else if (status != null) {
             return orderRepository.findByUserIdAndStatus(userId, status, pageable).map(this::mapToDTO);
         }
         return orderRepository.findByUserId(userId, pageable).map(this::mapToDTO);
@@ -597,6 +622,34 @@ public class OrderService {
         }
 
         return mapToDTO(order);
+    }
+
+    /**
+     * User: Cancel a manufacturing order (only PENDING_QUOTE or AWAITING_PAYMENT)
+     */
+    @Transactional
+    public OrderResponseDTO cancelOrder(Long orderId, Long requestingUserId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found"));
+
+        if (!order.getUser().getId().equals(requestingUserId)) {
+            throw new SecurityException("Unauthorized access to order");
+        }
+
+        if (order.getOrderType() != OrderType.CUSTOM_MANUFACTURING) {
+            throw new IllegalStateException("Chỉ có thể hủy đơn hàng gia công");
+        }
+
+        OrderStatus currentStatus = order.getStatus();
+        if (currentStatus != OrderStatus.PENDING_QUOTE && currentStatus != OrderStatus.AWAITING_PAYMENT) {
+            throw new IllegalStateException(
+                    "Chỉ có thể hủy đơn khi đang ở trạng thái Chờ báo giá hoặc Chờ thanh toán. Trạng thái hiện tại: " + currentStatus);
+        }
+
+        order.setStatus(OrderStatus.CANCELLED);
+        Order saved = orderRepository.save(order);
+        log.info("Order {} cancelled by user {}", saved.getOrderNumber(), requestingUserId);
+        return mapToDTO(saved);
     }
 
     /**
@@ -746,6 +799,39 @@ public class OrderService {
     }
 
     /**
+     * Admin: Mark manufacturing as finished → AWAITING_REMAINING_PAYMENT
+     * Generates a new QR for the remaining balance (totalPrice - depositAmount)
+     */
+    @Transactional
+    public OrderResponseDTO finishProcessing(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found"));
+
+        if (order.getStatus() != OrderStatus.PROCESSING) {
+            throw new IllegalStateException(
+                    "Chỉ có thể hoàn thành gia công khi đơn đang ở trạng thái PROCESSING. Hiện tại: "
+                            + order.getStatus());
+        }
+
+        if (order.getTotalPrice() == null || order.getDepositAmount() == null) {
+            throw new IllegalStateException("Đơn hàng chưa có giá trị hoặc tiền cọc");
+        }
+
+        java.math.BigDecimal remaining = order.getTotalPrice().subtract(order.getDepositAmount());
+        if (remaining.compareTo(java.math.BigDecimal.ZERO) <= 0) {
+            throw new IllegalStateException("Khách đã thanh toán đủ, không cần chờ thanh toán đợt 2");
+        }
+
+        String qrUrl = paymentService.generateSepayQrUrl(order.getOrderNumber(), remaining);
+        order.setPaymentQrUrl(qrUrl);
+        order.setStatus(OrderStatus.AWAITING_REMAINING_PAYMENT);
+
+        Order saved = orderRepository.save(order);
+        log.info("Order {} → AWAITING_REMAINING_PAYMENT, remaining={}", saved.getOrderNumber(), remaining);
+        return mapToDTO(saved);
+    }
+
+    /**
      * Update order status (Admin)
      */
     @Transactional
@@ -773,12 +859,86 @@ public class OrderService {
     private boolean isValidTransition(OrderStatus from, OrderStatus to) {
         Set<OrderStatus> allowedTargets = switch (from) {
             case PENDING_QUOTE -> EnumSet.of(OrderStatus.AWAITING_PAYMENT, OrderStatus.CANCELLED);
-            case AWAITING_PAYMENT -> EnumSet.of(OrderStatus.DEPOSITED, OrderStatus.PROCESSING, OrderStatus.CANCELLED);
-            case DEPOSITED -> EnumSet.of(OrderStatus.PROCESSING, OrderStatus.CANCELLED);
-            case PROCESSING -> EnumSet.of(OrderStatus.COMPLETED, OrderStatus.CANCELLED);
+            case AWAITING_PAYMENT -> EnumSet.of(OrderStatus.DEPOSITED, OrderStatus.PROCESSING,
+                    OrderStatus.AWAITING_DELIVERY, OrderStatus.CANCELLED);
+            case DEPOSITED -> EnumSet.of(OrderStatus.PROCESSING, OrderStatus.AWAITING_DELIVERY,
+                    OrderStatus.CANCELLED);
+            case PROCESSING -> EnumSet.of(OrderStatus.AWAITING_REMAINING_PAYMENT,
+                    OrderStatus.AWAITING_DELIVERY, OrderStatus.COMPLETED, OrderStatus.CANCELLED);
+            case AWAITING_REMAINING_PAYMENT -> EnumSet.of(OrderStatus.AWAITING_DELIVERY, OrderStatus.CANCELLED);
+            case AWAITING_DELIVERY -> EnumSet.of(OrderStatus.SHIPPING);
+            case SHIPPING -> EnumSet.of(OrderStatus.COMPLETED);
             case COMPLETED, CANCELLED -> EnumSet.noneOf(OrderStatus.class);
         };
         return allowedTargets.contains(to);
+    }
+
+    /**
+     * Admin: Delay delivery — update delivery_date + send customer email
+     */
+    @Transactional
+    public OrderResponseDTO delayDelivery(Long orderId, DelayDeliveryRequestDTO request,
+                                          org.example.features.auth.service.EmailService emailService) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy đơn hàng"));
+
+        order.setDeliveryDate(request.getNewDeliveryDate());
+        Order saved = orderRepository.save(order);
+
+        // Notify customer async
+        try {
+            if (saved.getUser() != null && saved.getUser().getEmail() != null) {
+                emailService.sendDelayNotification(
+                        saved.getUser(),
+                        saved.getOrderNumber(),
+                        request.getNewDeliveryDate(),
+                        request.getReason());
+            }
+        } catch (Exception e) {
+            log.warn("Could not send delay notification email for order {}: {}", saved.getOrderNumber(), e.getMessage());
+        }
+
+        log.info("Order {} delivery date updated to {} (reason: {})",
+                saved.getOrderNumber(), request.getNewDeliveryDate(), request.getReason());
+        return mapToDTO(saved);
+    }
+
+    /**
+     * Admin: Mark order as SHIPPING (handed to carrier)
+     */
+    @Transactional
+    public OrderResponseDTO shipOrder(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy đơn hàng"));
+
+        if (order.getStatus() != OrderStatus.AWAITING_DELIVERY) {
+            throw new IllegalStateException(
+                    "Chỉ có thể giao khi đơn đang ở trạng thái Chờ giao hàng. Trạng thái hiện tại: " + order.getStatus());
+        }
+
+        order.setStatus(OrderStatus.SHIPPING);
+        Order saved = orderRepository.save(order);
+        log.info("Order {} is now SHIPPING", saved.getOrderNumber());
+        return mapToDTO(saved);
+    }
+
+    /**
+     * Admin: Mark order as COMPLETED (delivered successfully)
+     */
+    @Transactional
+    public OrderResponseDTO completeOrder(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy đơn hàng"));
+
+        if (order.getStatus() != OrderStatus.SHIPPING && order.getStatus() != OrderStatus.AWAITING_DELIVERY) {
+            throw new IllegalStateException(
+                    "Chỉ có thể hoàn thành khi đơn đang giao hoặc chờ giao. Trạng thái hiện tại: " + order.getStatus());
+        }
+
+        order.setStatus(OrderStatus.COMPLETED);
+        Order saved = orderRepository.save(order);
+        log.info("Order {} COMPLETED", saved.getOrderNumber());
+        return mapToDTO(saved);
     }
 
     /**
@@ -793,11 +953,13 @@ public class OrderService {
         dto.setCompanyId(order.getCompany() != null ? order.getCompany().getId() : null);
         dto.setCompanyName(order.getCompany() != null ? order.getCompany().getCompanyName() : null);
         dto.setStatus(order.getStatus());
+        dto.setOrderType(order.getOrderType());
         dto.setTotalPrice(order.getTotalPrice());
         dto.setDepositAmount(order.getDepositAmount());
         dto.setPaymentQrUrl(order.getPaymentQrUrl());
         dto.setPaidAt(order.getPaidAt());
         dto.setNotes(order.getNotes());
+        dto.setDeliveryDate(order.getDeliveryDate());
         dto.setCreatedAt(order.getCreatedAt());
         dto.setUpdatedAt(order.getUpdatedAt());
 

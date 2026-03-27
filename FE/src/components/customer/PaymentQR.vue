@@ -13,7 +13,7 @@
       <button @click="fetchPaymentInfo" class="btn-retry">Thử lại</button>
     </div>
 
-    <!-- Success: Paid -->
+    <!-- Success: Paid deposit (1st payment) -->
     <div v-else-if="paymentInfo && paymentInfo.orderStatus === 'DEPOSITED'" class="paid-state">
       <div class="success-icon">✅</div>
       <h3>Đã nhận tiền cọc!</h3>
@@ -23,11 +23,24 @@
       </div>
     </div>
 
+    <!-- Success: Full payment confirmed (2nd payment) -->
+    <div v-else-if="paymentInfo && paymentInfo.orderStatus === 'AWAITING_DELIVERY'" class="paid-state">
+      <div class="success-icon">✅</div>
+      <h3>Đã nhận đủ tiền!</h3>
+      <p>Đơn hàng <strong>{{ paymentInfo.orderNumber }}</strong> đã thanh toán đủ 100%.</p>
+      <div class="paid-amount">
+        Tổng đã thanh toán: <strong>{{ formatCurrency(paymentInfo.totalPrice) }}</strong>
+      </div>
+    </div>
+
     <!-- Payment QR Display -->
     <div v-else-if="paymentInfo" class="qr-payment">
       <!-- Header -->
       <div class="qr-header">
-        <h3>💳 Thanh toán đặt cọc 60%</h3>
+        <h3>
+          <template v-if="paymentInfo.orderStatus === 'AWAITING_REMAINING_PAYMENT'">💳 Thanh toán đợt 2 (40% còn lại)</template>
+          <template v-else>💳 Thanh toán đặt cọc 60%</template>
+        </h3>
         <p class="order-ref">Đơn hàng: <strong>{{ paymentInfo.orderNumber }}</strong></p>
       </div>
 
@@ -38,8 +51,14 @@
           <span>{{ formatCurrency(paymentInfo.totalPrice) }}</span>
         </div>
         <div class="amount-row highlight">
-          <span>Cần đặt cọc (60%)</span>
-          <span class="amount-primary">{{ formatCurrency(paymentInfo.depositAmount) }}</span>
+          <template v-if="paymentInfo.orderStatus === 'AWAITING_REMAINING_PAYMENT'">
+            <span>Cần thanh toán (40% còn lại)</span>
+            <span class="amount-primary">{{ formatCurrency(remainingAmount) }}</span>
+          </template>
+          <template v-else>
+            <span>Cần đặt cọc (60%)</span>
+            <span class="amount-primary">{{ formatCurrency(paymentInfo.depositAmount) }}</span>
+          </template>
         </div>
       </div>
 
@@ -84,8 +103,8 @@
           <div class="info-row">
             <span class="info-label">Số tiền</span>
             <div class="info-value-copy">
-              <span class="amount-text">{{ formatCurrency(paymentInfo.depositAmount) }}</span>
-              <button @click="copyText(String(paymentInfo.depositAmount))" class="btn-copy" title="Sao chép">
+              <span class="amount-text">{{ formatCurrency(paymentInfo.orderStatus === 'AWAITING_REMAINING_PAYMENT' ? remainingAmount : paymentInfo.depositAmount) }}</span>
+              <button @click="copyText(String(paymentInfo.orderStatus === 'AWAITING_REMAINING_PAYMENT' ? remainingAmount : paymentInfo.depositAmount))" class="btn-copy" title="Sao chép">
                 {{ copied.amount ? '✓' : '📋' }}
               </button>
             </div>
@@ -118,7 +137,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 
 const props = defineProps({
   orderId: {
@@ -138,6 +157,14 @@ const error = ref(null)
 const qrError = ref(false)
 const copied = ref({ account: false, amount: false, content: false })
 
+// Computed: số tiền còn lại cho thanh toán đợt 2
+const remainingAmount = computed(() => {
+  if (!paymentInfo.value) return 0
+  const total = Number(paymentInfo.value.totalPrice || 0)
+  const deposit = Number(paymentInfo.value.depositAmount || 0)
+  return total - deposit
+})
+
 let pollingTimer = null
 
 // Fetch payment info từ BE
@@ -155,8 +182,11 @@ async function fetchPaymentInfo() {
 
     paymentInfo.value = await res.json()
 
-    // Nếu đã thanh toán, dừng polling
-    if (paymentInfo.value.orderStatus === 'DEPOSITED') {
+    // Stop polling when full payment is confirmed
+    const confirmedStatuses = ['DEPOSITED', 'AWAITING_DELIVERY', 'AWAITING_REMAINING_PAYMENT']
+    // For 1st payment: DEPOSITED. For 2nd payment: AWAITING_DELIVERY.
+    if (paymentInfo.value.orderStatus === 'DEPOSITED' ||
+        paymentInfo.value.orderStatus === 'AWAITING_DELIVERY') {
       stopPolling()
       emit('payment-confirmed', paymentInfo.value)
     }

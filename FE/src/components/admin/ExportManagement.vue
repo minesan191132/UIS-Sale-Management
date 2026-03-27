@@ -20,6 +20,8 @@
                 <option value="AWAITING_PAYMENT">Chờ thanh toán</option>
                 <option value="DEPOSITED">Đã cọc</option>
                 <option value="PROCESSING">Đang gia công</option>
+                <option value="AWAITING_REMAINING_PAYMENT">Chờ TT đợt 2</option>
+                <option value="AWAITING_DELIVERY">Chờ giao hàng</option>
                 <option value="COMPLETED">Hoàn thành</option>
                 <option value="CANCELLED">Đã hủy</option>
               </select>
@@ -116,6 +118,10 @@
                 <button v-if="order.status === 'DEPOSITED'" @click="startProcessing(order)"
                   class="btn btn-success btn-sm" title="Bắt đầu gia công">
                   <i class="bi bi-play-fill me-1"></i>Gia công
+                </button>
+                <button v-if="order.status === 'PROCESSING'" @click="finishProcessing(order)"
+                  class="btn btn-warning btn-sm" title="Hoàn thành gia công" :disabled="finishing">
+                  <i class="bi bi-check-circle-fill me-1"></i>Đã hoàn thành gia công
                 </button>
               </div>
             </td>
@@ -476,7 +482,7 @@ const loadCompaniesForImport = async () => {
 const loadOrders = async (page = 0) => {
   isLoading.value = true;
   try {
-    const params = { page, size: 15 };
+    const params = { page, size: 15, orderType: 'CUSTOM_MANUFACTURING' };
     if (searchKeyword.value?.trim()) params.keyword = searchKeyword.value.trim();
     if (filterStatus.value) params.status = filterStatus.value;
     if (dateFrom.value) params.dateFrom = dateFrom.value;
@@ -919,6 +925,37 @@ const startProcessing = async (order) => {
       console.error('Failed to start processing:', error);
       Swal.fire('Lỗi', error.response?.data?.error || 'Không thể cập nhật trạng thái', 'error');
     }
+  }
+};
+
+const finishing = ref(false);
+
+const finishProcessing = async (order) => {
+  const result = await Swal.fire({
+    title: 'Hoàn thành gia công?',
+    html: `
+      <p>Đơn hàng <strong>${order.orderNumber}</strong> sẽ chuyển sang <strong>Chờ thanh toán đợt 2</strong>.</p>
+      <p class="text-muted small">Khách hàng sẽ thấy nút thanh toán phần còn lại.</p>
+    `,
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: '✅ Xác nhận hoàn thành',
+    confirmButtonColor: '#f59e0b',
+    cancelButtonText: 'Hủy',
+  });
+
+  if (!result.isConfirmed) return;
+
+  finishing.value = true;
+  try {
+    await apiClient.put(`/orders/${order.id}/finish-processing`);
+    Swal.fire('Thành công! 🎉', `Đơn ${order.orderNumber} đã chuyển sang "Chờ thanh toán đợt 2"`, 'success');
+    loadOrders(currentPage.value);
+  } catch (error) {
+    console.error('Failed to finish processing:', error);
+    Swal.fire('Lỗi', error.response?.data?.error || 'Không thể cập nhật trạng thái', 'error');
+  } finally {
+    finishing.value = false;
   }
 };
 
