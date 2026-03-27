@@ -20,7 +20,7 @@
                 <option value="AWAITING_PAYMENT">Chờ thanh toán</option>
                 <option value="DEPOSITED">Đã cọc</option>
                 <option value="PROCESSING">Đang gia công</option>
-                <option value="AWAITING_REMAINING_PAYMENT">Chờ TT đợt 2</option>
+                <option value="AWAITING_REMAINING_PAYMENT">Chờ thanh toán đợt 2</option>
                 <option value="AWAITING_DELIVERY">Chờ giao hàng</option>
                 <option value="COMPLETED">Hoàn thành</option>
                 <option value="CANCELLED">Đã hủy</option>

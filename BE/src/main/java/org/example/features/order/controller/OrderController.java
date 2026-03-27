@@ -141,12 +141,15 @@ public class OrderController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) OrderStatus status,
-            @RequestParam(required = false) OrderType orderType,
+            @RequestParam(required = false) String orderType,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         try {
             Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-            Page<OrderResponseDTO> orders = orderService.getUserOrders(userDetails.getUserId(), status, orderType, pageable);
+            OrderType parsedOrderType = OrderType.fromParam(orderType);
+            Page<OrderResponseDTO> orders = orderService.getUserOrders(userDetails.getUserId(), status, parsedOrderType, pageable);
             return ResponseEntity.ok(orders);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid orderType: " + orderType));
         } catch (Exception e) {
             log.error("Error fetching customer orders", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -164,7 +167,7 @@ public class OrderController {
             @RequestParam(defaultValue = "15") int size,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) OrderStatus status,
-            @RequestParam(required = false) OrderType orderType,
+            @RequestParam(required = false) String orderType,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
@@ -175,10 +178,11 @@ public class OrderController {
             }
 
             Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-            Page<OrderResponseDTO> orders = orderService.getAllOrders(pageable, keyword, status, dateFrom, dateTo, orderType);
+            OrderType parsedOrderType = OrderType.fromParam(orderType);
+            Page<OrderResponseDTO> orders = orderService.getAllOrders(pageable, keyword, status, dateFrom, dateTo, parsedOrderType);
             return ResponseEntity.ok(orders);
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid orderType: " + orderType));
         } catch (Exception e) {
             log.error("Error fetching all orders", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
