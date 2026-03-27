@@ -10,13 +10,13 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface AdminProductRepository extends JpaRepository<AdminProduct, Long> {
 
-    @Query("SELECT p FROM AdminProduct p WHERE " +
-           "(:keyword = '' OR LOWER(p.name) LIKE CONCAT('%', LOWER(:keyword), '%') OR LOWER(p.sku) LIKE CONCAT('%', LOWER(:keyword), '%')) " +
-           "AND (:categoryId IS NULL OR p.categoryId = :categoryId) " +
-           "AND (:status = '' " +
-               "OR (:status = 'in_stock' AND p.stockQuantity > 10) " +
-               "OR (:status = 'low_stock' AND p.stockQuantity > 0 AND p.stockQuantity <= 10) " +
-               "OR (:status = 'out_of_stock' AND (p.stockQuantity = 0 OR p.stockQuantity IS NULL)))")
+    @Query("SELECT p FROM AdminProduct p WHERE p.isActive = true " +
+            "AND (:keyword = '' OR LOWER(p.name) LIKE CONCAT('%', LOWER(:keyword), '%') OR LOWER(p.sku) LIKE CONCAT('%', LOWER(:keyword), '%')) " +
+            "AND (:categoryId IS NULL OR p.categoryId = :categoryId) " +
+            "AND (:status = '' " +
+            "OR (:status = 'in_stock' AND p.stockQuantity > 10) " +
+            "OR (:status = 'low_stock' AND p.stockQuantity > 0 AND p.stockQuantity <= 10) " +
+            "OR (:status = 'out_of_stock' AND (p.stockQuantity = 0 OR p.stockQuantity IS NULL)))")
     Page<AdminProduct> findByFilters(
             @Param("keyword") String keyword,
             @Param("categoryId") Long categoryId,

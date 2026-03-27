@@ -2,7 +2,6 @@
   <div class="products-container p-4">
     <h2 class="fw-bold mb-4 text-uppercase fs-4">Quản lý sản phẩm</h2>
 
-    <!-- Thống kê -->
     <div class="row g-3 mb-4">
       <div class="col-md-3" v-for="(stat, index) in productStats" :key="index">
         <div :class="stat.bgClass" class="card border-0 shadow-sm p-3 text-white h-100 position-relative overflow-hidden">
@@ -15,7 +14,6 @@
       </div>
     </div>
 
-    <!-- Danh sách -->
     <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
       <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
@@ -27,14 +25,13 @@
         </button>
       </div>
 
-      <!-- Bộ lọc -->
       <div class="row g-2 mb-4">
         <div class="col-md-4">
           <input type="text" class="form-control form-control-sm bg-light border-0"
-                 placeholder="Tìm kiếm theo tên..." v-model="filter.keyword">
+                 placeholder="Tìm kiếm theo tên hoặc SKU..." v-model="filter.keyword" @keyup.enter="searchProducts">
         </div>
         <div class="col-md-3">
-          <select class="form-select form-select-sm bg-light border-0" v-model="filter.status">
+          <select class="form-select form-select-sm bg-light border-0" v-model="filter.status" @change="searchProducts">
             <option value="">Tất cả trạng thái</option>
             <option value="in_stock">Còn hàng</option>
             <option value="low_stock">Sắp hết hàng</option>
@@ -42,27 +39,25 @@
           </select>
         </div>
         <div class="col-md-3">
-          <select class="form-select form-select-sm bg-light border-0" v-model="filter.categoryId">
+          <select class="form-select form-select-sm bg-light border-0" v-model="filter.categoryId" @change="searchProducts">
             <option :value="null">Tất cả danh mục</option>
-            <option value="1">Linh kiện thép</option>
-            <option value="2">Linh kiện nhôm</option>
+            <option :value="1">Phôi Sắt</option>
+            <option :value="2">Phôi Thép</option>
+            <option :value="3">Phôi Inox</option>
           </select>
         </div>
         <div class="col-md-2">
-          <button class="btn btn-primary btn-sm w-100 fw-bold" @click="loadProducts">Tìm kiếm</button>
+          <button class="btn btn-primary btn-sm w-100 fw-bold" @click="searchProducts">Tìm kiếm</button>
         </div>
       </div>
 
-      <!-- Loading -->
       <div v-if="loading" class="text-center py-4">
         <div class="spinner-border text-primary" role="status"></div>
         <p class="mt-2 text-muted">Đang tải...</p>
       </div>
 
-      <!-- Error -->
       <div v-else-if="error" class="alert alert-danger">{{ error }}</div>
 
-      <!-- Product list -->
       <div v-else class="product-list d-flex flex-column gap-3">
         <div v-if="products.length === 0" class="text-center text-muted py-5">
           Không tìm thấy sản phẩm nào.
@@ -96,15 +91,21 @@
         </div>
       </div>
 
-      <!-- Phân trang -->
-      <div v-if="totalPages > 1" class="d-flex justify-content-center gap-2 mt-4">
-        <button class="btn btn-outline-primary btn-sm" :disabled="currentPage === 0" @click="changePage(currentPage - 1)">‹</button>
-        <span class="btn btn-sm disabled">Trang {{ currentPage + 1 }} / {{ totalPages }}</span>
-        <button class="btn btn-outline-primary btn-sm" :disabled="currentPage >= totalPages - 1" @click="changePage(currentPage + 1)">›</button>
+      <div v-if="totalPages > 1" class="d-flex justify-content-center align-items-center gap-3 mt-4 pt-3 border-top">
+        <button class="btn btn-outline-primary px-4 fw-bold rounded-pill" :disabled="currentPage === 0" @click="changePage(currentPage - 1)">
+          <i class="bi bi-chevron-left me-1"></i> Trang trước
+        </button>
+        
+        <span class="badge bg-light text-dark border px-4 py-2 fs-6 rounded-pill shadow-sm">
+          Trang {{ currentPage + 1 }} / {{ totalPages }}
+        </span>
+        
+        <button class="btn btn-outline-primary px-4 fw-bold rounded-pill" :disabled="currentPage >= totalPages - 1" @click="changePage(currentPage + 1)">
+          Trang sau <i class="bi bi-chevron-right ms-1"></i>
+        </button>
       </div>
     </div>
 
-    <!-- Modal Thêm/Sửa -->
     <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
       <div class="modal-box card shadow-lg p-4 rounded-4" style="max-width:540px;width:100%">
         <h5 class="fw-bold mb-3">{{ editingId ? 'Sửa sản phẩm' : 'Thêm sản phẩm mới' }}</h5>
@@ -132,8 +133,9 @@
               <label class="form-label small fw-bold">Danh mục</label>
               <select class="form-select form-select-sm" v-model="form.categoryId">
                 <option :value="null">-- Chọn --</option>
-                <option value="1">Linh kiện thép</option>
-                <option value="2">Linh kiện nhôm</option>
+                <option :value="1">Phôi Sắt</option>
+                <option :value="2">Phôi Thép</option>
+                <option :value="3">Phôi Inox</option>
               </select>
             </div>
           </div>
@@ -208,6 +210,12 @@ async function loadStats() {
   }
 }
 
+// HÀM MỚI: Reset trang về 0 trước khi tìm kiếm
+function searchProducts() {
+  currentPage.value = 0;
+  loadProducts();
+}
+
 async function loadProducts() {
   loading.value = true;
   error.value = '';
@@ -217,10 +225,16 @@ async function loadProducts() {
       categoryId: filter.categoryId,
       status: filter.status,
       page: currentPage.value,
-      size: 10,
+      size: 5, 
     });
+    
     products.value = data.content ?? [];
-    totalPages.value = data.totalPages ?? 0;
+    
+    const totalElements = data.totalElements ?? (data.page?.totalElements ?? 0);
+    const pages = data.totalPages ?? (data.page?.totalPages ?? Math.ceil(totalElements / 5));
+    
+    totalPages.value = pages; // Gán lại tổng số trang
+    
   } catch (e) {
     error.value = 'Không thể tải danh sách sản phẩm. Vui lòng thử lại.';
     console.error('loadProducts error', e);

@@ -252,6 +252,14 @@ public class OrderService {
 
         Order saved = orderRepository.save(order);
         log.info("Created cart order: {} — total={}", saved.getOrderNumber(), totalPrice);
+
+        for (CartOrderRequestDTO.CartItemDTO cartItem : request.getItems()) {
+            if (cartItem.getName() != null && cartItem.getQuantity() != null && cartItem.getQuantity() > 0) {
+                // Gọi thẳng, nếu hết hàng BE sẽ tự ném lỗi có chữ tiếng Việt!
+                adminProductService.deductStock(cartItem.getName(), cartItem.getQuantity());
+            }
+        }
+
         return mapToDTO(saved);
     }
 
@@ -919,6 +927,7 @@ public class OrderService {
         Order savedOrder = orderRepository.save(order);
         log.info("Payment confirmed / Processing started for order: {}", savedOrder.getOrderNumber());
 
+        /*
         // Trừ tồn kho cho từng sản phẩm trong đơn hàng
         for (org.example.features.order.entity.OrderItem item : savedOrder.getItems()) {
             if (item.getItemName() != null && item.getQuantity() != null && item.getQuantity() > 0) {
@@ -929,6 +938,7 @@ public class OrderService {
                 }
             }
         }
+        */
 
         return mapToDTO(savedOrder);
     }

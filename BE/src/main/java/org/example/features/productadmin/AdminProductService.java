@@ -65,12 +65,19 @@ public class AdminProductService {
 
         AdminProduct product = adminProductRepository.findByNameIgnoreCase(productName.trim());
         if (product == null) {
-            log.warn("deductStock: Không tìm thấy sản phẩm tên='{}', bỏ qua", productName);
-            return;
+            throw new IllegalArgumentException("Hệ thống không tìm thấy sản phẩm: " + productName);
         }
 
         int current = product.getStockQuantity() != null ? product.getStockQuantity() : 0;
-        int newQty = Math.max(0, current - quantity);
+
+        if (current == 0) {
+            throw new IllegalArgumentException("Sản phẩm '" + productName + "' đã hết hàng!");
+        }
+        if (current < quantity) {
+            throw new IllegalArgumentException("Sản phẩm '" + productName + "' chỉ còn " + current + " sản phẩm. Vui lòng giảm số lượng!");
+        }
+
+        int newQty = current - quantity;
         product.setStockQuantity(newQty);
         adminProductRepository.save(product);
         log.info("deductStock: '{}' {} → {} (trừ {})", productName, current, newQty, quantity);
