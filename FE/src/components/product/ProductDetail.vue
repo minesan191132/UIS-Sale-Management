@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
 import { addToCart } from '../../store/cart.js';
@@ -14,6 +14,18 @@ const router = useRouter();
 const product = ref(null);
 const isLoading = ref(true);
 const orderQuantity = ref(1);
+
+// Thêm watch để kiểm tra nếu người dùng tự gõ số tay vào ô input
+watch(orderQuantity, (newVal) => {
+  if (product.value && newVal > product.value.stockQuantity) {
+    orderQuantity.value = product.value.stockQuantity;
+    Swal.fire({
+      toast: true, position: 'top-end', icon: 'warning',
+      title: `Chỉ còn tối đa ${product.value.stockQuantity} sản phẩm trong kho!`,
+      showConfirmButton: false, timer: 3000
+    });
+  }
+});
 
 const scrollToTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
 
@@ -157,13 +169,18 @@ onMounted(() => {
 
             <div class="d-flex flex-column flex-md-row gap-3 align-items-md-center">
               <div class="quantity-selector d-flex align-items-center border rounded-3 overflow-hidden" style="width: 140px; height: 50px;">
-                <button class="btn btn-light border-0 h-100 px-3 fw-bold fs-5" @click="orderQuantity > 1 ? orderQuantity-- : null">-</button>
-                <input type="number" class="form-control border-0 text-center fw-bold fs-5 h-100" v-model="orderQuantity" min="1">
-                <button class="btn btn-light border-0 h-100 px-3 fw-bold fs-5" @click="orderQuantity++">+</button>
+                <button class="btn btn-light border-0 h-100 px-3 fw-bold fs-5" @click="orderQuantity > 1 ? orderQuantity-- : null" :disabled="product.stockQuantity === 0">-</button>
+                <input type="number" class="form-control border-0 text-center fw-bold fs-5 h-100" v-model="orderQuantity" min="1" :max="product.stockQuantity" :disabled="product.stockQuantity === 0">
+                <button class="btn btn-light border-0 h-100 px-3 fw-bold fs-5" @click="orderQuantity < product.stockQuantity ? orderQuantity++ : null" :disabled="product.stockQuantity === 0">+</button>
               </div>
               
-              <button @click="handleAddToCart" class="btn btn-add-cart flex-grow-1 fw-bold text-white fs-5 rounded-3 d-flex align-items-center justify-content-center" style="height: 50px; background-color: #f59e0b;">
-                <i class="fas fa-shopping-cart me-2"></i> THÊM VÀO BÁO GIÁ
+              <button @click="handleAddToCart" 
+                      :disabled="product.stockQuantity === 0"
+                      class="btn btn-add-cart flex-grow-1 fw-bold text-white fs-5 rounded-3 d-flex align-items-center justify-content-center" 
+                      :style="product.stockQuantity === 0 ? 'background-color: #6c757d; cursor: not-allowed;' : 'background-color: #f59e0b;'"
+                      style="height: 50px;">
+                <i class="fas" :class="product.stockQuantity === 0 ? 'fa-ban' : 'fa-shopping-cart'"></i>
+                <span class="ms-2">{{ product.stockQuantity === 0 ? 'ĐÃ HẾT HÀNG' : 'THÊM VÀO BÁO GIÁ' }}</span>
               </button>
             </div>
 

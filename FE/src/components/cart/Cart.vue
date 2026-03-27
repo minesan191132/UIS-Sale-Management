@@ -33,6 +33,16 @@ const selectedTotalPrice = computed(() => {
 
 // Hàm tăng giảm số lượng
 const updateQuantity = (item, amount) => {
+  // LỚP PHÒNG THỦ: Không cho tăng số lượng lớn hơn tồn kho thực tế
+  if (amount > 0 && item.quantity >= (item.stockQuantity || 99999)) {
+    Swal.fire({
+      toast: true, position: 'top-end', icon: 'error',
+      title: `Sản phẩm này chỉ còn ${item.stockQuantity} cái trong kho!`,
+      showConfirmButton: false, timer: 3000
+    });
+    return;
+  }
+  
   if (item.quantity + amount > 0) {
     item.quantity += amount;
     localStorage.setItem('upec_cart', JSON.stringify(cartState.items));
