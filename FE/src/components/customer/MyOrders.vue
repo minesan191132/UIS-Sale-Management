@@ -101,10 +101,16 @@
                       <small class="text-muted">Đã thanh toán:</small><br>
                       <strong class="text-success">{{ formatCurrency(order.depositAmount) }}</strong>
                     </p>
-                    <!-- CUSTOM_MANUFACTURING: "Cọc trước 60%" label -->
+                    <!-- CUSTOM_MANUFACTURING: "Cọc trước 60%" or "Còn lại cần thanh toán" -->
                     <p v-else class="mb-0">
-                      <small class="text-muted">Cọc trước 60%:</small><br>
-                      <strong class="text-success">{{ formatCurrency(order.depositAmount) }}</strong>
+                      <small class="text-muted">
+                        {{ order.status === 'AWAITING_REMAINING_PAYMENT' ? 'Còn lại cần thanh toán:' : 'Cọc trước 60%:' }}
+                      </small><br>
+                      <strong :class="order.status === 'AWAITING_REMAINING_PAYMENT' ? 'text-danger' : 'text-success'">
+                        {{ order.status === 'AWAITING_REMAINING_PAYMENT' 
+                           ? formatCurrency(Number(order.totalPrice) - Number(order.depositAmount)) 
+                           : formatCurrency(order.depositAmount) }}
+                      </strong>
                     </p>
 
                     <!-- Delivery Date Display -->
@@ -222,8 +228,12 @@
                   <span class="text-primary fw-bold">{{ formatCurrency(selectedOrder.totalPrice) }}</span>
                 </p>
                 <p class="mb-1" v-if="selectedOrder.depositAmount">
-                  <strong>Cọc trước:</strong>
-                  <span class="text-success fw-bold">{{ formatCurrency(selectedOrder.depositAmount) }}</span>
+                  <strong>{{ selectedOrder.status === 'AWAITING_REMAINING_PAYMENT' ? 'Còn lại cần TT:' : 'Cọc trước:' }}</strong>
+                  <span :class="selectedOrder.status === 'AWAITING_REMAINING_PAYMENT' ? 'text-danger fw-bold' : 'text-success fw-bold'">
+                    {{ selectedOrder.status === 'AWAITING_REMAINING_PAYMENT' 
+                       ? formatCurrency(Number(selectedOrder.totalPrice) - Number(selectedOrder.depositAmount)) 
+                       : formatCurrency(selectedOrder.depositAmount) }}
+                  </span>
                 </p>
               </div>
               <div class="col-md-4">

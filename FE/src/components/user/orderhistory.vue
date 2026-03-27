@@ -126,9 +126,18 @@
               <span class="price-value">{{ formatCurrency(order.totalPrice) }}</span>
             </div>
             <div class="price-row">
-              <span class="price-label">{{ activeOrderType === 'READY_MADE' ? 'Thanh toán' : 'Cọc 60%' }}</span>
-              <span class="price-deposit">{{ formatCurrency(order.depositAmount) }}</span>
+              <span class="price-label">
+                <template v-if="order.status === 'AWAITING_REMAINING_PAYMENT'">Còn lại cần thanh toán</template>
+                <template v-else>{{ activeOrderType === 'READY_MADE' ? 'Thanh toán' : 'Cọc trước 60%' }}</template>
+              </span>
+              <span :class="order.status === 'AWAITING_REMAINING_PAYMENT' ? 'price-remaining' : 'price-deposit'">
+                <template v-if="order.status === 'AWAITING_REMAINING_PAYMENT'">
+                  {{ formatCurrency(Number(order.totalPrice) - Number(order.depositAmount)) }}
+                </template>
+                <template v-else>{{ formatCurrency(order.depositAmount) }}</template>
+              </span>
             </div>
+
           </div>
 
           <div class="order-btns">
@@ -876,6 +885,12 @@ onMounted(() => loadOrders())
   font-size: 13px;
   font-weight: 600;
   color: #16a34a;
+}
+
+.price-remaining {
+  font-size: 13px;
+  font-weight: 600;
+  color: #dc2626; /* Red/Orange for remaining amount */
 }
 
 .order-btns {

@@ -786,6 +786,39 @@ public class OrderService {
     }
 
     /**
+     * Admin: Mark manufacturing as finished → AWAITING_REMAINING_PAYMENT
+     * Generates a new QR for the remaining balance (totalPrice - depositAmount)
+     */
+    @Transactional
+    public OrderResponseDTO finishProcessing(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found"));
+
+        if (order.getStatus() != OrderStatus.PROCESSING) {
+            throw new IllegalStateException(
+                    "Chỉ có thể hoàn thành gia công khi đơn đang ở trạng thái PROCESSING. Hiện tại: "
+                            + order.getStatus());
+        }
+
+        if (order.getTotalPrice() == null || order.getDepositAmount() == null) {
+            throw new IllegalStateException("Đơn hàng chưa có giá trị hoặc tiền cọc");
+        }
+
+        java.math.BigDecimal remaining = order.getTotalPrice().subtract(order.getDepositAmount());
+        if (remaining.compareTo(java.math.BigDecimal.ZERO) <= 0) {
+            throw new IllegalStateException("Khách đã thanh toán đủ, không cần chờ thanh toán đợt 2");
+        }
+
+        String qrUrl = paymentService.generateSepayQrUrl(order.getOrderNumber(), remaining);
+        order.setPaymentQrUrl(qrUrl);
+        order.setStatus(OrderStatus.AWAITING_REMAINING_PAYMENT);
+
+        Order saved = orderRepository.save(order);
+        log.info("Order {} → AWAITING_REMAINING_PAYMENT, remaining={}", saved.getOrderNumber(), remaining);
+        return mapToDTO(saved);
+    }
+
+    /**
      * Update order status (Admin)
      */
     @Transactional

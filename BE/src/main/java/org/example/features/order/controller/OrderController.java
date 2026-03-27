@@ -392,4 +392,30 @@ public class OrderController {
                     .body(Map.of("error", "Failed to complete order"));
         }
     }
+
+    /**
+     * Admin: Mark manufacturing as finished — transitions PROCESSING → AWAITING_REMAINING_PAYMENT
+     * PUT /api/orders/{id}/finish-processing
+     */
+    @PutMapping("/{id}/finish-processing")
+    public ResponseEntity<?> finishProcessing(
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        try {
+            if (!"ADMIN".equals(userDetails.getRole())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Unauthorized"));
+            }
+            OrderResponseDTO order = orderService.finishProcessing(id);
+            return ResponseEntity.ok(order);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error finishing processing for order {}", id, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to finish processing"));
+        }
+    }
 }
+

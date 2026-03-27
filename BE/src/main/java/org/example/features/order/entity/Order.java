@@ -39,7 +39,7 @@ public class Order {
     private List<OrderItem> items = new ArrayList<>();
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false, length = 20)
+    @Column(name = "status", nullable = false, length = 30)
     private OrderStatus status = OrderStatus.PENDING_QUOTE;
 
     @Enumerated(EnumType.STRING)

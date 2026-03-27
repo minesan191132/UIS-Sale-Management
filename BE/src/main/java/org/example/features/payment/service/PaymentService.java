@@ -218,15 +218,15 @@ public class PaymentService {
                 order.setDepositAmount(order.getDepositAmount().add(webhook.getTransferAmount()));
             }
 
-            // Nếu đã thanh toán đủ 100%, ghi nhận đã trả đủ
-            if (order.getTotalPrice() != null && 
+            // Nếu đã thanh toán đủ 100%, tự động chuyển sang Chờ giao hàng
+            if (order.getTotalPrice() != null &&
                 order.getDepositAmount().compareTo(order.getTotalPrice()) >= 0) {
-                log.info("✅ Full payment confirmed for order {}: ({}/{})", 
+                order.setStatus(OrderStatus.AWAITING_DELIVERY);
+                order.setPaidAt(LocalDateTime.now());
+                log.info("✅ Full 2nd payment confirmed → AWAITING_DELIVERY: order={}, total={}/{}",
                     order.getOrderNumber(), order.getDepositAmount(), order.getTotalPrice());
-                // Giữ nguyên status PROCESSING/AWAITING_REMAINING_PAYMENT, không tự động sang AWAITING_DELIVERY
-                // vì xưởng vẫn có thể đang gia công
             } else {
-                log.info("✅ Partial payment (đợt 2) recorded for order {}: amount={}", 
+                log.info("✅ Partial 2nd payment recorded for order {}: amount={}",
                     order.getOrderNumber(), webhook.getTransferAmount());
             }
         }
