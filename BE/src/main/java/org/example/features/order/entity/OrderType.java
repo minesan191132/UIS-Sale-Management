@@ -22,4 +22,22 @@ public enum OrderType {
      * Đơn hàng có cả sản phẩm có sẵn và gia công
      */
     HYBRID
+
+    ;
+
+    /**
+     * Parse API/query input with backward compatibility for legacy values.
+     */
+    public static OrderType fromParam(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+
+        String normalized = raw.trim().toUpperCase().replace('-', '_');
+        if ("CUSTOM".equals(normalized)) {
+            return CUSTOM_MANUFACTURING;
+        }
+
+        return OrderType.valueOf(normalized);
+    }
 }
