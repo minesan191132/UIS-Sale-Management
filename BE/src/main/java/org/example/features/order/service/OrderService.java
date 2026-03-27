@@ -47,6 +47,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -63,6 +65,37 @@ import java.util.stream.Collectors;
 @Slf4j
 public class OrderService {
 
+    private static final String FIELD_VNN_NO = "vnnNo";
+    private static final String FIELD_ITEM_CODE = "itemCode";
+    private static final String FIELD_DRAWING_NUMBER = "drawingNumber";
+    private static final String FIELD_PART_NAME = "partName";
+    private static final String FIELD_SPECIFICATION = "specification";
+    private static final String FIELD_MATERIAL = "material";
+    private static final String FIELD_QUANTITY = "quantity";
+    private static final String FIELD_DELIVERY_DATE = "deliveryDate";
+
+    private static final List<String> REQUIRED_EXCEL_FIELDS = List.of(
+        FIELD_VNN_NO,
+        FIELD_ITEM_CODE,
+        FIELD_DRAWING_NUMBER,
+        FIELD_PART_NAME,
+        FIELD_SPECIFICATION,
+        FIELD_MATERIAL,
+        FIELD_QUANTITY,
+        FIELD_DELIVERY_DATE);
+
+    private static final Map<String, List<String>> EXCEL_HEADER_ALIASES = buildExcelHeaderAliases();
+
+    private static final Map<String, String> EXCEL_FIELD_DISPLAY_NAMES = Map.of(
+        FIELD_VNN_NO, "VNN、NO",
+        FIELD_ITEM_CODE, "Item Code",
+        FIELD_DRAWING_NUMBER, "Drawing Number",
+        FIELD_PART_NAME, "Part Name",
+        FIELD_SPECIFICATION, "Spec.",
+        FIELD_MATERIAL, "Material",
+        FIELD_QUANTITY, "QTY",
+        FIELD_DELIVERY_DATE, "Delivery Date");
+
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
     private final UserRepository userRepository;
@@ -71,6 +104,21 @@ public class OrderService {
     private final QuotePricingService quotePricingService;
     private final DrawingMetaRepository drawingMetaRepository;
     private final AdminProductService adminProductService;
+
+    private static Map<String, List<String>> buildExcelHeaderAliases() {
+        Map<String, List<String>> aliases = new LinkedHashMap<>();
+        aliases.put(FIELD_VNN_NO, List.of("vnn_no", "vnn no", "vnn", "受注番号", "注文番号", "order no", "order number"));
+        aliases.put(FIELD_ITEM_CODE, List.of("item code", "itemcode", "品目コード", "品目cd", "ma hang", "mã hàng"));
+        aliases.put(FIELD_DRAWING_NUMBER,
+            List.of("drawing number", "drawing no", "drawing", "図番", "ban ve", "bản vẽ"));
+        aliases.put(FIELD_PART_NAME, List.of("part name", "item name", "品名", "ten chi tiet", "tên chi tiết", "ten hang", "tên hàng"));
+        aliases.put(FIELD_SPECIFICATION, List.of("specification", "spec", "型式", "quy cach", "quy cách"));
+        aliases.put(FIELD_MATERIAL, List.of("material", "material type", "材質", "chat lieu", "chất liệu"));
+        aliases.put(FIELD_QUANTITY, List.of("quantity", "qty", "数量", "so luong", "số lượng"));
+        aliases.put(FIELD_DELIVERY_DATE,
+            List.of("希望納期", "出荷日", "納期", "delivery date", "delivery", "due date", "ngay xuat", "ngày xuất"));
+        return Collections.unmodifiableMap(aliases);
+    }
 
     /**
      * Import order from Excel file
@@ -289,16 +337,15 @@ public class OrderService {
 
     /**
      * Parse Excel file to extract order items
-     * Expected columns: STT | item_code | drawing_number | part_name | spec |
-     * material | quantity | delivery_date
+     * Required business columns are detected by header name (STT optional).
      */
     private List<OrderItemDTO> parseExcelFile(MultipartFile file) throws IOException {
         List<OrderItemDTO> items = new ArrayList<>();
 
         try (Workbook workbook = WorkbookFactory.create(file.getInputStream())) {
             Sheet sheet = findDataSheet(workbook);
-            int deliveryDateColumnIndex = detectDeliveryDateColumnIndex(sheet);
-            log.info("Detected delivery date column index: {}", deliveryDateColumnIndex);
+            Map<String, Integer> columnMap = resolveRequiredColumnMap(sheet);
+            log.info("Resolved Excel header mapping: {}", columnMap);
 
             // Skip header row (row 0)
             for (int i = 1; i <= sheet.getLastRowNum(); i++) {
@@ -306,57 +353,66 @@ public class OrderService {
                 if (row == null)
                     continue;
 
-                // Check if row has data (check STT column)
-                Cell firstCell = row.getCell(0);
-                if (firstCell == null || getCellValueAsString(firstCell).trim().isEmpty()) {
+                if (!hasBusinessData(row, columnMap)) {
                     continue;
                 }
 
                 OrderItemDTO item = new OrderItemDTO();
 
-                // Column 0: STT (skip - just for numbering)
+                String vnnNo = getCellValueByField(row, columnMap, FIELD_VNN_NO);
+                String itemCode = getCellValueByField(row, columnMap, FIELD_ITEM_CODE);
+                String drawingNumber = getCellValueByField(row, columnMap, FIELD_DRAWING_NUMBER);
+                String partName = getCellValueByField(row, columnMap, FIELD_PART_NAME);
+                String specification = getCellValueByField(row, columnMap, FIELD_SPECIFICATION);
+                String material = getCellValueByField(row, columnMap, FIELD_MATERIAL);
+                String quantityStr = getCellValueByField(row, columnMap, FIELD_QUANTITY);
+                String deliveryDate = getCellValueByField(row, columnMap, FIELD_DELIVERY_DATE);
 
-                // Column 1: VNN_NO - store in 'unit' field for display
-                item.setUnit(getCellValueAsString(row.getCell(1)));
+                List<String> missingFields = new ArrayList<>();
+                if (vnnNo.isBlank()) missingFields.add(EXCEL_FIELD_DISPLAY_NAMES.get(FIELD_VNN_NO));
+                if (itemCode.isBlank()) missingFields.add(EXCEL_FIELD_DISPLAY_NAMES.get(FIELD_ITEM_CODE));
+                if (drawingNumber.isBlank()) missingFields.add(EXCEL_FIELD_DISPLAY_NAMES.get(FIELD_DRAWING_NUMBER));
+                if (partName.isBlank()) missingFields.add(EXCEL_FIELD_DISPLAY_NAMES.get(FIELD_PART_NAME));
+                if (specification.isBlank()) missingFields.add(EXCEL_FIELD_DISPLAY_NAMES.get(FIELD_SPECIFICATION));
+                if (material.isBlank()) missingFields.add(EXCEL_FIELD_DISPLAY_NAMES.get(FIELD_MATERIAL));
+                if (quantityStr.isBlank()) missingFields.add(EXCEL_FIELD_DISPLAY_NAMES.get(FIELD_QUANTITY));
+                if (deliveryDate.isBlank()) missingFields.add(EXCEL_FIELD_DISPLAY_NAMES.get(FIELD_DELIVERY_DATE));
 
-                // Column 2: Item Code (品目コード)
-                item.setItemCode(getCellValueAsString(row.getCell(2)));
+                if (!missingFields.isEmpty()) {
+                    log.warn("Skipping row {} - missing required values: {}", i + 1, String.join(", ", missingFields));
+                    continue;
+                }
 
-                // Column 3: Drawing Number (図番)
-                item.setDrawingNumber(getCellValueAsString(row.getCell(3)));
-
-                // Column 4: Part Name (品名) - required
-                String partName = getCellValueAsString(row.getCell(4));
+                // Store VNN_NO in unit field for existing order grouping behavior.
+                item.setUnit(vnnNo);
+                item.setItemCode(itemCode);
+                item.setDrawingNumber(drawingNumber);
                 item.setItemName(partName);
+                item.setSpecification(specification);
+                item.setMaterial(material);
 
-                // Column 5: Specification (型式)
-                item.setSpecification(getCellValueAsString(row.getCell(5)));
+                String quantityDigits = quantityStr.replaceAll("[^0-9]", "");
+                if (quantityDigits.isEmpty()) {
+                    log.warn("Invalid quantity at row {}: {}", i + 1, quantityStr);
+                    continue;
+                }
 
-                // Column 6: Material (材質)
-                item.setMaterial(getCellValueAsString(row.getCell(6)));
-
-                // Column 7: Quantity (数量) - required
-                String quantityStr = getCellValueAsString(row.getCell(7));
                 try {
-                    item.setQuantity(Integer.parseInt(quantityStr.replaceAll("[^0-9]", "")));
+                    item.setQuantity(Integer.parseInt(quantityDigits));
                 } catch (NumberFormatException e) {
                     log.warn("Invalid quantity at row {}: {}", i + 1, quantityStr);
                     continue;
                 }
 
-                // Delivery Date from detected column in sheet 梱包指示
-                String deliveryDate = getCellValueAsString(row.getCell(deliveryDateColumnIndex));
-                if (!deliveryDate.isEmpty()) {
-                    item.setDeliveryDate(deliveryDate);
-                }
-
-                // Validate required fields
-                if (item.getItemName() == null || item.getItemName().trim().isEmpty()) {
-                    log.warn("Skipping row {} - missing part name", i + 1);
+                Optional<LocalDate> parsedDeliveryDate = parseFlexibleDate(deliveryDate);
+                if (parsedDeliveryDate.isEmpty()) {
+                    log.warn("Invalid delivery date at row {}: {}", i + 1, deliveryDate);
                     continue;
                 }
-                if (item.getQuantity() == null || item.getQuantity() <= 0) {
-                    log.warn("Skipping row {} - invalid quantity", i + 1);
+                item.setDeliveryDate(parsedDeliveryDate.get().toString());
+
+                if (item.getQuantity() <= 0) {
+                    log.warn("Skipping row {} - quantity must be greater than 0", i + 1);
                     continue;
                 }
 
@@ -373,40 +429,91 @@ public class OrderService {
         return items;
     }
 
-    private int detectDeliveryDateColumnIndex(Sheet sheet) {
+    private Map<String, Integer> resolveRequiredColumnMap(Sheet sheet) {
         Row headerRow = sheet.getRow(0);
         if (headerRow == null) {
-            return 8;
+            throw new IllegalArgumentException("Excel file is missing header row");
         }
 
-        int lastCellNum = Math.max(headerRow.getLastCellNum(), (short) 9);
+        Map<String, Integer> resolvedMap = new LinkedHashMap<>();
+        int lastCellNum = Math.max(headerRow.getLastCellNum(), (short) 0);
+
         for (int col = 0; col < lastCellNum; col++) {
-            String header = getCellValueAsString(headerRow.getCell(col));
-            if (isDeliveryDateHeader(header)) {
-                return col;
+            String normalizedHeader = normalizeHeader(getCellValueAsString(headerRow.getCell(col)));
+            if (normalizedHeader.isEmpty()) {
+                continue;
+            }
+
+            for (Map.Entry<String, List<String>> entry : EXCEL_HEADER_ALIASES.entrySet()) {
+                if (resolvedMap.containsKey(entry.getKey())) {
+                    continue;
+                }
+                if (matchesAnyAlias(normalizedHeader, entry.getValue())) {
+                    resolvedMap.put(entry.getKey(), col);
+                    break;
+                }
             }
         }
 
-        // Legacy fallback used in existing imports.
-        return 8;
+        List<String> missing = REQUIRED_EXCEL_FIELDS.stream()
+                .filter(field -> !resolvedMap.containsKey(field))
+                .map(field -> EXCEL_FIELD_DISPLAY_NAMES.get(field) + " (aliases: " + String.join(", ", EXCEL_HEADER_ALIASES.get(field)) + ")")
+                .toList();
+
+        if (!missing.isEmpty()) {
+            throw new IllegalArgumentException("Missing required headers: " + String.join("; ", missing));
+        }
+
+        return resolvedMap;
     }
 
-    private boolean isDeliveryDateHeader(String header) {
-        if (header == null) {
-            return false;
+    private String getCellValueByField(Row row, Map<String, Integer> columnMap, String field) {
+        Integer index = columnMap.get(field);
+        if (index == null) {
+            return "";
         }
-        String normalized = header
+        return getCellValueAsString(row.getCell(index));
+    }
+
+    private boolean hasBusinessData(Row row, Map<String, Integer> columnMap) {
+        for (String field : REQUIRED_EXCEL_FIELDS) {
+            if (!getCellValueByField(row, columnMap, field).isBlank()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean matchesAnyAlias(String normalizedHeader, List<String> aliases) {
+        Set<String> normalizedAliases = aliases.stream()
+                .map(this::normalizeHeader)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        for (String alias : normalizedAliases) {
+            if (alias.isBlank()) {
+                continue;
+            }
+            if (normalizedHeader.equals(alias)) {
+                return true;
+            }
+            // Accept composite headers such as "item code (品目コード)".
+            if (alias.length() >= 4 && normalizedHeader.contains(alias)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private String normalizeHeader(String rawHeader) {
+        if (rawHeader == null) {
+            return "";
+        }
+        return rawHeader
                 .trim()
                 .toLowerCase(Locale.ROOT)
-                .replaceAll("\\s+", "");
-
-        return normalized.contains("希望納期")
-                || normalized.contains("出荷日")
-                || normalized.contains("納期")
-                || normalized.contains("deliverydate")
-                || normalized.contains("delivery")
-                || normalized.contains("ngayxuat")
-                || normalized.contains("ngàyxuất");
+                .replace('＿', '_')
+                .replaceAll("[^\\p{L}\\p{N}]+", "");
     }
 
     private Optional<LocalDate> parseFlexibleDate(String rawValue) {
@@ -417,6 +524,16 @@ public class OrderService {
         String value = rawValue.trim();
         if (value.isEmpty()) {
             return Optional.empty();
+        }
+
+        int tIndex = value.indexOf('T');
+        if (tIndex > 0) {
+            value = value.substring(0, tIndex).trim();
+        }
+
+        int spaceIndex = value.indexOf(' ');
+        if (spaceIndex > 0) {
+            value = value.substring(0, spaceIndex).trim();
         }
 
         // Excel-style full timestamp e.g. 2026-03-18T00:00 or 2026-03-18 00:00:00
@@ -436,11 +553,29 @@ public class OrderService {
                 .replace('/', '-')
                 .trim();
 
+        String digitsOnly = normalized.replaceAll("[^0-9]", "");
+        if (digitsOnly.length() == 8) {
+            DateTimeFormatter[] compactFormatters = new DateTimeFormatter[] {
+                DateTimeFormatter.ofPattern("uuuuMMdd"),
+                DateTimeFormatter.ofPattern("ddMMyyyy"),
+                DateTimeFormatter.ofPattern("MMddyyyy")
+            };
+
+            for (DateTimeFormatter formatter : compactFormatters) {
+            try {
+                return Optional.of(LocalDate.parse(digitsOnly, formatter));
+            } catch (DateTimeParseException ignored) {
+            }
+            }
+        }
+
         DateTimeFormatter[] formatters = new DateTimeFormatter[] {
                 DateTimeFormatter.ISO_LOCAL_DATE,
                 DateTimeFormatter.ofPattern("d-M-uuuu"),
                 DateTimeFormatter.ofPattern("uuuu-M-d"),
-                DateTimeFormatter.ofPattern("M-d-uuuu")
+            DateTimeFormatter.ofPattern("M-d-uuuu"),
+            DateTimeFormatter.ofPattern("d-M-uu"),
+            DateTimeFormatter.ofPattern("M-d-uu")
         };
 
         for (DateTimeFormatter formatter : formatters) {

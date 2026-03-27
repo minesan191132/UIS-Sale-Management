@@ -24,6 +24,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -87,7 +89,7 @@ public class OrderController {
 
         } catch (IllegalArgumentException e) {
             log.warn("Order upload validation error: {}", e.getMessage());
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(buildImportValidationError(e.getMessage()));
         } catch (Exception e) {
             log.error("Order upload error", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -124,7 +126,7 @@ public class OrderController {
             return ResponseEntity.status(HttpStatus.CREATED).body(order);
         } catch (IllegalArgumentException e) {
             log.warn("Admin import validation error: {}", e.getMessage());
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(buildImportValidationError(e.getMessage()));
         } catch (Exception e) {
             log.error("Admin import error", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -237,6 +239,62 @@ public class OrderController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Failed to cancel order"));
         }
+    }
+
+    private Map<String, Object> buildImportValidationError(String message) {
+        String raw = message == null ? "" : message;
+        if (raw.startsWith("Missing required headers:")) {
+            List<String> missingHeaders = extractMissingHeaders(raw);
+            return Map.of(
+                    "error", "Thiếu cột bắt buộc trong file Excel",
+                    "type", "MISSING_HEADERS",
+                    "missingHeaders", missingHeaders,
+                    "details", raw);
+        }
+
+        if (raw.contains("No valid items found")) {
+            return Map.of(
+                    "error", "Không tìm thấy dòng dữ liệu hợp lệ để import",
+                    "type", "NO_VALID_ROWS",
+                    "details", raw);
+        }
+
+        return Map.of(
+                "error", raw,
+                "type", "VALIDATION_ERROR");
+    }
+
+    private List<String> extractMissingHeaders(String rawMessage) {
+        String prefix = "Missing required headers:";
+        if (rawMessage == null || !rawMessage.startsWith(prefix)) {
+            return List.of();
+        }
+
+        String payload = rawMessage.substring(prefix.length()).trim();
+        if (payload.isEmpty()) {
+            return List.of();
+        }
+
+        String[] tokens = payload.split(";");
+        List<String> result = new ArrayList<>();
+
+        for (String token : tokens) {
+            String item = token == null ? "" : token.trim();
+            if (item.isEmpty()) {
+                continue;
+            }
+
+            int bracketIndex = item.indexOf('(');
+            if (bracketIndex > 0) {
+                item = item.substring(0, bracketIndex).trim();
+            }
+
+            if (!item.isEmpty()) {
+                result.add(item);
+            }
+        }
+
+        return result;
     }
 
     /**
