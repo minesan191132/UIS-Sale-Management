@@ -23,6 +23,7 @@
                 <option value="PROCESSING">Đang gia công</option>
                 <option value="AWAITING_REMAINING_PAYMENT">Chờ thanh toán đợt 2</option>
                 <option value="AWAITING_DELIVERY">Chờ giao hàng</option>
+                <option value="SHIPPING">Đang giao hàng</option>
                 <option value="COMPLETED">Hoàn thành</option>
                 <option value="CANCELLED">Đã hủy</option>
               </select>
@@ -109,12 +110,17 @@
             <td>{{ formatDate(order.createdAt) }}</td>
             <td @click.stop>
               <div class="btn-group btn-group-sm">
-                <button @click="openReviewModal(order)" class="btn btn-outline-primary" title="Xem & Review">
+                <button @click="openReviewModal(order)" class="btn btn-outline-primary"
+                  :title="order.status === 'PENDING_APPROVAL' ? 'Xem chi tiết đơn' : 'Xem & Review'">
                   <i class="bi bi-eye"></i>
                 </button>
                 <button v-if="order.status === 'PENDING_APPROVAL'"
                   @click="approveOrder(order)" class="btn btn-outline-warning" title="Duyệt đơn">
                   <i class="bi bi-check2-circle"></i>
+                </button>
+                <button v-if="order.status === 'PENDING_APPROVAL' && order.isTempImport"
+                  @click="rejectOrder(order)" class="btn btn-outline-danger" title="Từ chối đơn">
+                  <i class="bi bi-x-circle"></i>
                 </button>
                 <button v-if="order.status === 'PENDING_QUOTE' && isAllReviewed(order)"
                   @click="submitQuote(order)" class="btn btn-outline-success" title="Gửi báo giá">
@@ -127,6 +133,10 @@
                 <button v-if="order.status === 'PROCESSING'" @click="finishProcessing(order)"
                   class="btn btn-warning btn-sm" title="Hoàn thành gia công" :disabled="finishing">
                   <i class="bi bi-check-circle-fill me-1"></i>Đã hoàn thành gia công
+                </button>
+                <button v-if="order.status === 'AWAITING_DELIVERY'" @click="markAsShipping(order)"
+                  class="btn btn-primary btn-sm" title="Bàn giao vận chuyển" :disabled="shipping">
+                  <i class="bi bi-truck me-1"></i>Giao hàng
                 </button>
               </div>
             </td>
@@ -265,7 +275,7 @@
           <div class="modal-header">
             <h5 class="modal-title">
               <i class="bi bi-clipboard-check me-2"></i>
-              {{ selectedOrder.orderNumber }} — Review & Báo giá
+              {{ selectedOrder.orderNumber }} — {{ selectedOrder.status === 'PENDING_APPROVAL' ? 'Chi tiết đơn chờ duyệt' : 'Review & Báo giá' }}
             </h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
@@ -286,7 +296,7 @@
                 <p class="mb-1"><strong>Ngày tạo:</strong> {{ formatDate(selectedOrder.createdAt) }}</p>
               </div>
               <div class="col-md-4">
-                <p class="mb-1"><strong>Tiến trình review:</strong> {{ getReviewProgress(selectedOrder) }}</p>
+                <p v-if="selectedOrder.status !== 'PENDING_APPROVAL'" class="mb-1"><strong>Tiến trình review:</strong> {{ getReviewProgress(selectedOrder) }}</p>
                 <p class="mb-1" v-if="selectedOrder.totalPrice">
                   <strong>Tổng giá trị:</strong> {{ formatCurrency(selectedOrder.totalPrice) }}
                 </p>
@@ -298,7 +308,7 @@
               <div class="small text-muted">
                 <i class="bi bi-arrows-move me-1"></i> Bảng có thể cuộn ngang, dữ liệu vẫn giữ đầy đủ.
               </div>
-              <div class="btn-group btn-group-sm" role="group" aria-label="Mật độ hiển thị bảng review">
+              <div v-if="selectedOrder.status !== 'PENDING_APPROVAL'" class="btn-group btn-group-sm" role="group" aria-label="Mật độ hiển thị bảng review">
                 <button
                   type="button"
                   class="btn"
@@ -428,10 +438,23 @@
               <i class="bi bi-check2-circle me-1"></i>Duyệt Đơn
             </button>
             <button
+              v-if="selectedOrder.status === 'PENDING_APPROVAL' && selectedOrder.isTempImport"
+              @click="rejectOrder(selectedOrder)"
+              class="btn btn-danger">
+              <i class="bi bi-x-circle me-1"></i>Từ chối đơn
+            </button>
+            <button
               v-if="selectedOrder.status === 'PENDING_QUOTE' && isAllReviewed(selectedOrder)"
               @click="submitQuoteFromModal()"
               class="btn btn-success">
               <i class="bi bi-send me-1"></i>Gửi Báo Giá ({{ formatCurrency(calculatedTotal) }})
+            </button>
+            <button
+              v-if="selectedOrder.status === 'AWAITING_DELIVERY'"
+              @click="markAsShipping(selectedOrder)"
+              class="btn btn-primary"
+              :disabled="shipping">
+              <i class="bi bi-truck me-1"></i>Chuyển sang Đang giao hàng
             </button>
           </div>
         </div>
@@ -446,6 +469,7 @@ import { useRouter } from 'vue-router';
 import Swal from 'sweetalert2';
 import apiClient from '../../services/api';
 import { Modal } from 'bootstrap';
+import { getOrderStatusLabel, getReviewStatusLabel } from '../../constants/orderStatus';
 
 const router = useRouter();
 
@@ -513,7 +537,29 @@ const loadOrders = async (page = 0) => {
         params,
       });
       const data = response.data.content || response.data;
-      orders.value = (Array.isArray(data) ? data : []).map(o => ({ ...o, selected: false, isTempImport: false }));
+      const mainOrders = (Array.isArray(data) ? data : []).map(o => ({ ...o, selected: false, isTempImport: false }));
+
+      // In "Tất cả", show pending import orders on first page so admin can see and process them quickly.
+      if (!filterStatus.value && page === 0) {
+        const pendingParams = { page: 0, size: 50 };
+        if (searchKeyword.value?.trim()) pendingParams.keyword = searchKeyword.value.trim();
+
+        const pendingResponse = await apiClient.get('/orders/imports/pending', { params: pendingParams });
+        const pendingData = pendingResponse.data.content || pendingResponse.data;
+        const pendingOrders = (Array.isArray(pendingData) ? pendingData : []).map(o => ({
+          ...o,
+          selected: false,
+          isTempImport: true,
+        }));
+
+        orders.value = [...pendingOrders, ...mainOrders].sort((a, b) => {
+          const timeA = a?.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const timeB = b?.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return timeB - timeA;
+        });
+      } else {
+        orders.value = mainOrders;
+      }
       currentPage.value = response.data.number || 0;
       totalPages.value = response.data.totalPages || 1;
     }
@@ -926,6 +972,39 @@ const approveOrder = async (order) => {
   }
 };
 
+const rejectOrder = async (order) => {
+  if (order?.status !== 'PENDING_APPROVAL') return;
+  if (!order?.isTempImport) {
+    await Swal.fire('Không hỗ trợ', 'Chỉ có thể từ chối đơn import đang chờ duyệt.', 'info');
+    return;
+  }
+
+  const result = await Swal.fire({
+    title: 'Từ chối đơn hàng?',
+    html: `
+      <p>Đơn <strong>${order.orderNumber}</strong> sẽ bị từ chối và không chuyển sang bước báo giá.</p>
+      <p class="text-muted small">Bạn vẫn có thể import lại dữ liệu nếu cần.</p>
+    `,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Từ chối đơn',
+    confirmButtonColor: '#dc3545',
+    cancelButtonText: 'Hủy',
+  });
+
+  if (!result.isConfirmed) return;
+
+  try {
+    await apiClient.put(`/orders/imports/${order.id}/cancel`);
+    await Swal.fire('Đã từ chối', 'Đơn hàng chờ duyệt đã được từ chối.', 'success');
+    await loadOrders(currentPage.value);
+    bsModal?.hide();
+  } catch (error) {
+    console.error('Failed to reject order:', error);
+    Swal.fire('Lỗi', error.response?.data?.error || 'Không thể từ chối đơn hàng', 'error');
+  }
+};
+
 const submitQuoteFromModal = async () => {
   await submitQuote(selectedOrder.value);
 };
@@ -987,6 +1066,7 @@ const startProcessing = async (order) => {
 };
 
 const finishing = ref(false);
+const shipping = ref(false);
 
 const finishProcessing = async (order) => {
   const result = await Swal.fire({
@@ -1014,6 +1094,36 @@ const finishProcessing = async (order) => {
     Swal.fire('Lỗi', error.response?.data?.error || 'Không thể cập nhật trạng thái', 'error');
   } finally {
     finishing.value = false;
+  }
+};
+
+const markAsShipping = async (order) => {
+  const result = await Swal.fire({
+    title: 'Xác nhận bàn giao vận chuyển?',
+    html: `
+      <p>Đơn hàng <strong>${order.orderNumber}</strong> sẽ chuyển sang <strong>Đang giao hàng</strong>.</p>
+      <p class="text-muted small">Trạng thái này dùng khi đã bàn giao cho đơn vị vận chuyển.</p>
+    `,
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: '✅ Xác nhận',
+    confirmButtonColor: '#0d6efd',
+    cancelButtonText: 'Hủy',
+  });
+
+  if (!result.isConfirmed) return;
+
+  shipping.value = true;
+  try {
+    await apiClient.put(`/orders/${order.id}/ship`);
+    await Swal.fire('Thành công', `Đơn ${order.orderNumber} đã chuyển sang "Đang giao hàng"`, 'success');
+    await loadOrders(currentPage.value);
+    bsModal?.hide();
+  } catch (error) {
+    console.error('Failed to mark order as shipping:', error);
+    Swal.fire('Lỗi', error.response?.data?.error || 'Không thể chuyển trạng thái sang Đang giao hàng', 'error');
+  } finally {
+    shipping.value = false;
   }
 };
 
@@ -1054,8 +1164,7 @@ const isAllReviewed = (order) => {
 };
 
 const getReviewStatusText = (status) => {
-  const map = { PENDING_REVIEW: 'Chờ review', APPROVED: 'Đã duyệt', REJECTED: 'Từ chối', NEED_DISCUSSION: 'Cần trao đổi' };
-  return map[status] || status;
+  return getReviewStatusLabel(status);
 };
 
 const getReviewBadgeClass = (status) => {
@@ -1069,16 +1178,7 @@ const getItemRowClass = (item) => {
 };
 
 const getStatusText = (status) => {
-  const map = {
-    PENDING_APPROVAL: 'Chờ duyệt đơn',
-    PENDING_QUOTE: 'Chờ báo giá',
-    AWAITING_PAYMENT: 'Chờ thanh toán',
-    DEPOSITED: 'Đã cọc 💳',
-    PROCESSING: 'Đang gia công',
-    COMPLETED: 'Hoàn thành',
-    CANCELLED: 'Đã hủy',
-  };
-  return map[status] || status;
+  return getOrderStatusLabel(status, { DEPOSITED: 'Đã cọc 💳' });
 };
 
 const getStatusBadgeClass = (status) => {
@@ -1088,6 +1188,9 @@ const getStatusBadgeClass = (status) => {
     AWAITING_PAYMENT: 'badge bg-info text-dark',
     DEPOSITED: 'badge bg-success',
     PROCESSING: 'badge bg-primary',
+    AWAITING_REMAINING_PAYMENT: 'badge bg-warning text-dark',
+    AWAITING_DELIVERY: 'badge bg-info text-dark',
+    SHIPPING: 'badge bg-primary',
     COMPLETED: 'badge bg-success',
     CANCELLED: 'badge bg-danger',
   };

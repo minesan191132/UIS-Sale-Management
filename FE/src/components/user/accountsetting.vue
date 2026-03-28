@@ -52,7 +52,9 @@
                   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
                 </span>
                 <span class="nav-label">Thông Báo</span>
-                <span class="notif-dot" title="Có thông báo mới"></span>
+                <span v-if="unreadNotificationCount > 0" class="notif-dot" :title="`Có ${unreadNotificationCount} thông báo chưa đọc`">
+                  {{ unreadNotificationCount > 99 ? '99+' : unreadNotificationCount }}
+                </span>
               </a>
 
               <!-- Tài Khoản Của Tôi -->
@@ -152,7 +154,9 @@
             <AddressSection v-else-if="activeSection === 'address'" />
 
             <!-- Thông Báo Section -->
-            <NotificationsSection v-else-if="activeSection === 'notifications'" />
+            <NotificationsSection
+              v-else-if="activeSection === 'notifications'"
+              @unread-count-changed="handleUnreadCountChanged" />
 
             <!-- Lịch Sử Đơn Mua Section -->
             <OrderHistorySection v-else-if="activeSection === 'orders'" />
@@ -168,7 +172,8 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { getStoredUser, userAPI } from '../../services/api'
+import { useRoute } from 'vue-router'
+import { getStoredUser, userAPI, notificationsAPI } from '../../services/api'
 import Swal from 'sweetalert2'
 import Navbar from '../base/Navbar.vue'
 import Footer from '../base/Footer.vue'
@@ -181,6 +186,8 @@ const activeSection = ref('profile')
 const accountOpen = ref(true)
 const currentUser = ref(null)
 const isLoading = ref(false)
+const unreadNotificationCount = ref(0)
+const route = useRoute()
 
 const isAccountSection = computed(() =>
   ['profile', 'address', 'password'].includes(activeSection.value)
@@ -209,6 +216,19 @@ const form = ref({
 const onAvatarChange = (e) => {
   const file = e.target.files[0]
   if (file) avatarSrc.value = URL.createObjectURL(file)
+}
+
+const loadUnreadNotificationCount = async () => {
+  try {
+    const data = await notificationsAPI.getUnreadCount()
+    unreadNotificationCount.value = Number(data?.unreadCount || 0)
+  } catch {
+    unreadNotificationCount.value = 0
+  }
+}
+
+const handleUnreadCountChanged = (count) => {
+  unreadNotificationCount.value = Number(count || 0)
 }
 
 const loadUserProfile = async () => {
@@ -269,7 +289,15 @@ const saveProfile = async () => {
   }
 }
 
-onMounted(() => loadUserProfile())
+onMounted(async () => {
+  if (route.query.section === 'notifications') {
+    activeSection.value = 'notifications'
+  }
+  await Promise.all([
+    loadUserProfile(),
+    loadUnreadNotificationCount(),
+  ])
+})
 </script>
 
 
@@ -460,11 +488,17 @@ onMounted(() => loadUserProfile())
 /* Notification indicator dot */
 .notif-dot {
   margin-left: auto;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
   background: #ef4444;
-  border: 1.5px solid #fff;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  border: 1px solid #fff;
   flex-shrink: 0;
 }
 

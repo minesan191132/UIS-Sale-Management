@@ -3,12 +3,25 @@ package org.example.features.order.service;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.example.features.company.entity.Company;
+import org.example.features.company.entity.User;
 import org.example.features.company.repository.CompanyRepository;
 import org.example.features.company.repository.UserRepository;
 import org.example.features.order.dto.OrderItemDTO;
+import org.example.features.order.dto.OrderResponseDTO;
+import org.example.features.order.entity.ImportBatchStatus;
+import org.example.features.order.entity.ImportSourceType;
+import org.example.features.order.entity.ItemReviewStatus;
+import org.example.features.order.entity.Order;
+import org.example.features.order.entity.OrderImportBatch;
+import org.example.features.order.entity.OrderImportItem;
+import org.example.features.order.entity.OrderItem;
+import org.example.features.order.entity.OrderStatus;
+import org.example.features.order.entity.OrderType;
 import org.example.features.order.repository.OrderImportBatchRepository;
 import org.example.features.order.repository.OrderItemRepository;
 import org.example.features.order.repository.OrderRepository;
+import org.example.features.notification.service.UserNotificationService;
 import org.example.features.payment.service.PaymentService;
 import org.example.features.productadmin.AdminProductService;
 import org.example.features.warehouse.repository.DrawingMetaRepository;
@@ -26,28 +39,37 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class OrderServiceExcelImportTest {
 
     private OrderService orderService;
+    private OrderRepository orderRepository;
+    private OrderImportBatchRepository orderImportBatchRepository;
 
     @BeforeEach
     void setUp() {
+        orderRepository = mock(OrderRepository.class);
+        orderImportBatchRepository = mock(OrderImportBatchRepository.class);
         orderService = new OrderService(
-                mock(OrderRepository.class),
-            mock(OrderImportBatchRepository.class),
+                orderRepository,
+                orderImportBatchRepository,
                 mock(OrderItemRepository.class),
                 mock(UserRepository.class),
                 mock(CompanyRepository.class),
                 mock(PaymentService.class),
                 mock(QuotePricingService.class),
                 mock(DrawingMetaRepository.class),
-                mock(AdminProductService.class));
+                mock(AdminProductService.class),
+                mock(UserNotificationService.class));
     }
 
     @Test
@@ -188,6 +210,71 @@ class OrderServiceExcelImportTest {
 
         assertEquals(1, result.size());
         assertEquals("2026-11-27", result.get(0).getDeliveryDate());
+    }
+
+    @Test
+    void approveImportBatch_shouldAllowReimport_whenExistingOrderIsCancelled() {
+        Company company = new Company();
+        company.setId(10L);
+        company.setCompanyName("Test Company");
+
+        User owner = new User();
+        owner.setId(20L);
+        owner.setFullName("Test User");
+        owner.setCompany(company);
+
+        Order existingCancelledOrder = new Order();
+        existingCancelledOrder.setId(100L);
+        existingCancelledOrder.setOrderNumber("VNN-REIMPORT-001");
+        existingCancelledOrder.setCompany(company);
+        existingCancelledOrder.setUser(owner);
+        existingCancelledOrder.setStatus(OrderStatus.CANCELLED);
+        existingCancelledOrder.setOrderType(OrderType.CUSTOM_MANUFACTURING);
+
+        OrderItem oldItem = new OrderItem();
+        oldItem.setItemCode("OLD-ITEM");
+        oldItem.setItemName("Old Item");
+        oldItem.setQuantity(1);
+        oldItem.setReviewStatus(ItemReviewStatus.REJECTED);
+        existingCancelledOrder.addItem(oldItem);
+
+        OrderImportBatch batch = new OrderImportBatch();
+        batch.setId(999L);
+        batch.setImportCode("VNN-REIMPORT-001");
+        batch.setCompany(company);
+        batch.setUser(owner);
+        batch.setSourceType(ImportSourceType.CUSTOMER);
+        batch.setStatus(ImportBatchStatus.PENDING_APPROVAL);
+
+        OrderImportItem importedItem = new OrderImportItem();
+        importedItem.setItemCode("NEW-ITEM");
+        importedItem.setDrawingNumber("DRW-001");
+        importedItem.setItemName("New Item");
+        importedItem.setSpecification("Spec-A");
+        importedItem.setMaterialType("S45C");
+        importedItem.setQuantity(5);
+        importedItem.setUnit("PCS");
+        importedItem.setNotes("Reimported");
+        importedItem.setDeliveryDate(LocalDate.of(2026, 4, 10));
+        batch.addItem(importedItem);
+
+        when(orderImportBatchRepository.findById(999L)).thenReturn(Optional.of(batch));
+        when(orderRepository.findByOrderNumber("VNN-REIMPORT-001")).thenReturn(Optional.of(existingCancelledOrder));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderImportBatchRepository.save(any(OrderImportBatch.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        OrderResponseDTO result = orderService.approveImportBatch(999L);
+
+        assertEquals(OrderStatus.PENDING_QUOTE, result.getStatus());
+        assertEquals("VNN-REIMPORT-001", result.getOrderNumber());
+        assertEquals(1, existingCancelledOrder.getItems().size());
+        assertEquals("NEW-ITEM", existingCancelledOrder.getItems().get(0).getItemCode());
+        assertEquals(ItemReviewStatus.PENDING_REVIEW, existingCancelledOrder.getItems().get(0).getReviewStatus());
+        assertEquals(ImportBatchStatus.APPROVED, batch.getStatus());
+        assertEquals(existingCancelledOrder, batch.getApprovedOrder());
+
+        verify(orderRepository).save(existingCancelledOrder);
+        verify(orderImportBatchRepository).save(batch);
     }
 
     private List<OrderItemDTO> invokeParseExcelFile(MultipartFile file) throws Exception {

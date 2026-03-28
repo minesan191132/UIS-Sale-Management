@@ -28,6 +28,23 @@
       </button>
     </div>
 
+    <!-- Status Filter Tabs -->
+    <div class="order-tabs-wrap mb-4">
+      <div class="order-tabs">
+        <button
+          v-for="statusTab in currentStatusTabs"
+          :key="statusTab.key"
+          class="order-tab"
+          :class="{ active: activeStatus === statusTab.key }"
+          @click="changeStatus(statusTab.key)">
+          {{ statusTab.label }}
+          <span class="order-tab-count">
+            {{ getStatusCount(statusTab.key) > 99 ? '99+' : getStatusCount(statusTab.key) }}
+          </span>
+        </button>
+      </div>
+    </div>
+
     <!-- Skeleton Loading -->
     <div v-if="isLoading" class="row g-3">
       <div v-for="i in 3" :key="i" class="col-12">
@@ -88,7 +105,7 @@
                   </span>
                   <div v-if="order.status === 'PENDING_APPROVAL'" class="alert alert-warning mt-2 mb-0 py-2 px-3 small pending-approval-banner">
                     <i class="bi bi-hourglass-split me-1"></i>
-                    Đơn đang chờ admin duyệt. Sau khi duyệt, hệ thống sẽ chuyển sang bước báo giá.
+                    Đơn đang chờ được duyệt. Sau khi duyệt, hệ thống sẽ chuyển sang bước báo giá.
                   </div>
                 </div>
 
@@ -375,10 +392,15 @@
 
 <script setup>
 import { ref, computed, onMounted, nextTick } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import Swal from 'sweetalert2'
 import apiClient from '../../services/api'
 import { Modal } from 'bootstrap'
 import PaymentQR from './PaymentQR.vue'
+import { getOrderStatusLabel } from '../../constants/orderStatus'
+
+const route = useRoute()
+const router = useRouter()
 
 const orders = ref([])
 const isLoading = ref(false)
@@ -389,7 +411,11 @@ const detailModalRef = ref(null)
 const paymentModalRef = ref(null)
 const selectedPaymentOrderId = ref(null)
 const activeOrderType = ref('CUSTOM_MANUFACTURING')
-const activeStatus = ref('ALL')
+const getDefaultStatusForType = (type) =>
+  type === 'CUSTOM_MANUFACTURING' ? 'PENDING_APPROVAL' : 'AWAITING_PAYMENT'
+
+const activeStatus = ref(getDefaultStatusForType(activeOrderType.value))
+const statusCounts = ref({})
 let bsModal = null
 let bsPaymentModal = null
 
@@ -399,25 +425,187 @@ const typeTabs = [
   { key: 'READY_MADE',           label: 'Sản phẩm phôi',   icon: '🛒' },
 ]
 
+const manufacturingStatusTabs = [
+  { key: 'PENDING_APPROVAL', label: 'Chờ duyệt đơn' },
+  { key: 'PENDING_QUOTE', label: 'Chờ báo giá' },
+  { key: 'AWAITING_PAYMENT', label: 'Chờ thanh toán' },
+  { key: 'DEPOSITED', label: 'Đã cọc' },
+  { key: 'PROCESSING', label: 'Đang gia công' },
+  { key: 'AWAITING_REMAINING_PAYMENT', label: 'Chờ TT đợt 2' },
+  { key: 'AWAITING_DELIVERY', label: 'Chờ giao hàng' },
+  { key: 'SHIPPING', label: 'Đang giao' },
+  { key: 'COMPLETED', label: 'Hoàn thành' },
+  { key: 'CANCELLED', label: 'Đã hủy' },
+  { key: 'ALL', label: 'Tất cả' },
+]
+
+const productStatusTabs = [
+  { key: 'AWAITING_PAYMENT', label: 'Chờ thanh toán' },
+  { key: 'AWAITING_DELIVERY', label: 'Chờ giao hàng' },
+  { key: 'SHIPPING', label: 'Đang giao' },
+  { key: 'COMPLETED', label: 'Đã nhận hàng' },
+  { key: 'CANCELLED', label: 'Đã hủy' },
+  { key: 'ALL', label: 'Tất cả' },
+]
+
 
 
 const currentStatusTabs = computed(() =>
   activeOrderType.value === 'READY_MADE' ? productStatusTabs : manufacturingStatusTabs
 )
 
-onMounted(() => {
-  loadOrders()
+const getStatusCount = (statusKey) => {
+  return Number(statusCounts.value?.[statusKey] || 0)
+}
+
+const createZeroCounts = (tabs) => {
+  const base = {}
+  for (const tab of tabs) {
+    base[tab.key] = 0
+  }
+  return base
+}
+
+const extractTotalCount = (data) => {
+  const directTotal = Number(data?.totalElements)
+  if (Number.isFinite(directTotal) && directTotal >= 0) {
+    return directTotal
+  }
+
+  const nestedTotal = Number(data?.page?.totalElements)
+  if (Number.isFinite(nestedTotal) && nestedTotal >= 0) {
+    return nestedTotal
+  }
+
+  const numberOfElements = Number(data?.numberOfElements)
+  if (Number.isFinite(numberOfElements) && numberOfElements >= 0) {
+    return numberOfElements
+  }
+
+  if (Array.isArray(data?.content)) {
+    return data.content.length
+  }
+
+  if (Array.isArray(data)) {
+    return data.length
+  }
+
+  return 0
+}
+
+const clearOrderIdQuery = async () => {
+  if (!route.query?.orderId) return
+  const nextQuery = { ...route.query }
+  delete nextQuery.orderId
+  await router.replace({ path: route.path, query: nextQuery })
+}
+
+const openOrderFromQueryIfPresent = async () => {
+  const orderId = Number(route.query?.orderId || 0)
+  if (!Number.isFinite(orderId) || orderId <= 0) return
+
+  try {
+    const base = await apiClient.get(`/orders/${orderId}`)
+    const order = base.data || {}
+    const targetType = order.orderType || activeOrderType.value
+
+    activeOrderType.value = targetType
+    activeStatus.value = 'ALL'
+
+    await Promise.all([
+      loadOrders(0),
+      loadStatusCounts(targetType),
+    ])
+
+    await openDetailModal({ id: orderId, isTempImport: false })
+  } catch (error) {
+    console.warn('Failed to open order from notification deeplink:', error)
+    await Swal.fire('Không thể mở đơn hàng', 'Đơn hàng có thể đã bị xóa hoặc bạn không có quyền truy cập.', 'warning')
+  } finally {
+    await clearOrderIdQuery()
+  }
+}
+
+onMounted(async () => {
+  await Promise.all([
+    loadOrders(),
+    loadStatusCounts(activeOrderType.value),
+  ])
+  await openOrderFromQueryIfPresent()
 })
 
 const changeOrderType = (key) => {
   activeOrderType.value = key
-  activeStatus.value = 'ALL'
-  loadOrders(0)
+  activeStatus.value = getDefaultStatusForType(key)
+  Promise.all([
+    loadOrders(0),
+    loadStatusCounts(key),
+  ])
 }
 
 const changeStatus = (key) => {
   activeStatus.value = key
   loadOrders(0)
+}
+
+const loadStatusCounts = async (orderType) => {
+  const safeType = orderType || activeOrderType.value
+  const tabs = safeType === 'READY_MADE' ? productStatusTabs : manufacturingStatusTabs
+  const counts = createZeroCounts(tabs)
+
+  try {
+    if (safeType === 'CUSTOM_MANUFACTURING') {
+      const importResponse = await apiClient.get('/orders/imports/my')
+      const pendingApprovalCount = Array.isArray(importResponse.data) ? importResponse.data.length : 0
+      counts.PENDING_APPROVAL = pendingApprovalCount
+
+      const statusKeys = manufacturingStatusTabs
+        .map(s => s.key)
+        .filter(key => key !== 'ALL' && key !== 'PENDING_APPROVAL')
+
+      const responses = await Promise.allSettled(
+        statusKeys.map(status =>
+          apiClient.get('/orders/my', {
+            params: { page: 0, size: 1, orderType: safeType, status },
+          }),
+        ),
+      )
+
+      statusKeys.forEach((status, idx) => {
+        const result = responses[idx]
+        if (result?.status === 'fulfilled') {
+          counts[status] = extractTotalCount(result.value?.data)
+        }
+      })
+
+      counts.ALL = Object.values(counts).reduce((sum, count) => sum + Number(count || 0), 0)
+    } else {
+      const statusKeys = productStatusTabs
+        .map(s => s.key)
+        .filter(key => key !== 'ALL')
+
+      const responses = await Promise.allSettled(
+        statusKeys.map(status =>
+          apiClient.get('/orders/my', {
+            params: { page: 0, size: 1, orderType: safeType, status },
+          }),
+        ),
+      )
+
+      statusKeys.forEach((status, idx) => {
+        const result = responses[idx]
+        if (result?.status === 'fulfilled') {
+          counts[status] = extractTotalCount(result.value?.data)
+        }
+      })
+
+      counts.ALL = Object.values(counts).reduce((sum, count) => sum + Number(count || 0), 0)
+    }
+  } catch (error) {
+    console.warn('Failed to load status counts:', error)
+  }
+
+  statusCounts.value = counts
 }
 
 const loadOrders = async (page = 0) => {
@@ -499,7 +687,10 @@ const openPaymentModal = async (order) => {
 
 const onPaymentConfirmed = (paymentInfo) => {
   // Reload danh sách để cập nhật trạng thái
-  loadOrders()
+  Promise.all([
+    loadOrders(),
+    loadStatusCounts(activeOrderType.value),
+  ])
   Swal.fire({
     icon: 'success',
     title: 'Đã nhận tiền cọc!',
@@ -538,6 +729,7 @@ const cancelOrder = async (order) => {
     }
 
     await loadOrders(currentPage.value)
+    await loadStatusCounts(activeOrderType.value)
     Swal.fire({
       icon: 'success',
       title: 'Đã hủy đơn hàng',
@@ -556,30 +748,22 @@ const showPaymentQR = (order) => {
   openPaymentModal(order)
 }
 
+const readyMadeStatusLabelOverrides = {
+  DEPOSITED: 'Đã thanh toán ✔',
+  PROCESSING: 'Đang chuẩn bị',
+  COMPLETED: 'Đã nhận được hàng',
+}
+
+const customStatusLabelOverrides = {
+  DEPOSITED: 'Đã cọc ✔',
+}
+
 const getStatusText = (status, orderType) => {
   if (orderType === 'READY_MADE') {
-    const readyMadeMap = {
-      AWAITING_PAYMENT: 'Chờ thanh toán',
-      DEPOSITED: 'Đã thanh toán ✔',
-      PROCESSING: 'Đang chuẩn bị',
-      COMPLETED: 'Đã nhận được hàng',
-      CANCELLED: 'Đã hủy'
-    }
-    return readyMadeMap[status] || status
+    return getOrderStatusLabel(status, readyMadeStatusLabelOverrides)
   }
-  
-  // CUSTOM_MANUFACTURING
-  const customMap = {
-    PENDING_APPROVAL: 'Chờ duyệt đơn',
-    PENDING_QUOTE: 'Chờ báo giá',
-    AWAITING_PAYMENT: 'Chờ thanh toán',
-    DEPOSITED: 'Đã cọc ✔',
-    PROCESSING: 'Đang gia công',
-    AWAITING_REMAINING_PAYMENT: 'Chờ thanh toán đợt 2',
-    COMPLETED: 'Hoàn thành',
-    CANCELLED: 'Đã hủy'
-  }
-  return customMap[status] || status
+
+  return getOrderStatusLabel(status, customStatusLabelOverrides)
 }
 
 const getStatusBadgeClass = (status) => {
@@ -869,5 +1053,26 @@ const openRemainingPaymentModal = (order) => {
   background: #3b82f6;
   color: white;
   border-color: #3b82f6;
+}
+
+.order-tab-count {
+  margin-left: 6px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  background: rgba(15, 23, 42, 0.1);
+  color: currentColor;
+}
+
+.order-tab.active .order-tab-count {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
 }
 </style>

@@ -304,6 +304,37 @@ export const paymentAPI = {
   },
 };
 
+// ==================== NOTIFICATION APIs ====================
+
+export const notificationsAPI = {
+  getMy: async () => {
+    const response = await apiClient.get('/notifications/my');
+    return response.data;
+  },
+
+  getUnreadCount: async () => {
+    const response = await apiClient.get('/notifications/my/unread-count');
+    return response.data;
+  },
+
+  markRead: async (id) => {
+    const response = await apiClient.put(`/notifications/${id}/read`);
+    return response.data;
+  },
+
+  markAllRead: async () => {
+    const response = await apiClient.put('/notifications/read-all');
+    return response.data;
+  },
+
+  cleanupOld: async (days = 90) => {
+    const response = await apiClient.delete('/notifications/cleanup-old', {
+      params: { days },
+    });
+    return response.data;
+  },
+};
+
 // ==================== PRODUCT ADMIN APIs ====================
 
 export const productAdminAPI = {

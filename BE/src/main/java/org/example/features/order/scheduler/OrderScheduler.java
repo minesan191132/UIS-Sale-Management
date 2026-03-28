@@ -3,6 +3,8 @@ package org.example.features.order.scheduler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.features.auth.service.EmailService;
+import org.example.features.notification.entity.NotificationType;
+import org.example.features.notification.service.UserNotificationService;
 import org.example.features.order.entity.Order;
 import org.example.features.order.entity.OrderStatus;
 import org.example.features.order.entity.OrderType;
@@ -13,6 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 /**
@@ -23,8 +27,12 @@ import java.util.List;
 @Slf4j
 public class OrderScheduler {
 
+    private static final long AUTO_COMPLETE_AFTER_DAYS = 3;
+    private static final int READ_NOTIFICATION_RETENTION_DAYS = 90;
+
     private final OrderRepository orderRepository;
     private final EmailService emailService;
+    private final UserNotificationService userNotificationService;
 
     /**
      * Runs every day at 01:00 AM.
@@ -52,6 +60,14 @@ public class OrderScheduler {
                 order.setStatus(OrderStatus.AWAITING_REMAINING_PAYMENT);
                 orderRepository.save(order);
 
+                userNotificationService.pushOrderNotification(
+                    order,
+                    NotificationType.ORDER,
+                    "Vui lòng thanh toán đợt 2",
+                    "Đơn " + order.getOrderNumber()
+                        + " đã đến mốc thanh toán phần còn lại. Vui lòng hoàn tất để chuẩn bị giao hàng.",
+                    "order-status-" + order.getId() + "-AWAITING_REMAINING_PAYMENT");
+
                 // Calculate remaining 30%
                 BigDecimal remaining = BigDecimal.ZERO;
                 if (order.getTotalPrice() != null && order.getDepositAmount() != null) {
@@ -73,6 +89,103 @@ public class OrderScheduler {
                 log.error("Failed to process payment reminder for order {}: {}",
                         order.getOrderNumber(), e.getMessage());
             }
+        }
+    }
+
+    /**
+     * Runs every day at 09:00 AM.
+     * D+1 and D+2 reminders in account notifications for SHIPPING orders.
+     */
+    @Scheduled(cron = "0 0 9 * * ?")
+    @Transactional
+    public void remindShippingReceiptConfirmation() {
+        LocalDateTime upperBound = LocalDateTime.now().minusDays(1);
+        List<Order> shippingOrders = orderRepository
+            .findByStatusAndShippedAtIsNotNullAndShippedAtLessThanEqual(OrderStatus.SHIPPING, upperBound);
+
+        if (shippingOrders.isEmpty()) {
+            log.info("No SHIPPING orders eligible for D+1/D+2 reminder.");
+            return;
+        }
+
+        LocalDate today = LocalDate.now();
+        for (Order order : shippingOrders) {
+            try {
+                if (order.getShippedAt() == null) {
+                    continue;
+                }
+
+                long daysSinceShipped = ChronoUnit.DAYS.between(order.getShippedAt().toLocalDate(), today);
+                if (daysSinceShipped < 1 || daysSinceShipped > 2) {
+                    continue;
+                }
+
+                String title = daysSinceShipped == 1
+                        ? "Nhắc xác nhận đã nhận hàng (D+1)"
+                        : "Nhắc xác nhận đã nhận hàng (D+2)";
+
+                String body = "Đơn " + order.getOrderNumber()
+                        + " đang ở trạng thái giao hàng. Vui lòng xác nhận đã nhận để hoàn tất đơn.";
+
+                String notificationKey = "order-shipping-reminder-" + order.getId() + "-d" + daysSinceShipped;
+                userNotificationService.pushOrderNotification(order, NotificationType.ORDER, title, body, notificationKey);
+            } catch (Exception e) {
+                log.error("Failed to create shipping reminder for order {}: {}",
+                        order.getOrderNumber(), e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Runs every day at 02:00 AM.
+     * Fallback auto-complete: SHIPPING orders older than 3 days are marked COMPLETED
+     * when customer does not click "Đã nhận hàng".
+     */
+    @Scheduled(cron = "0 0 2 * * ?")
+    @Transactional
+    public void autoCompleteShippingOrders() {
+        LocalDateTime threshold = LocalDateTime.now().minusDays(AUTO_COMPLETE_AFTER_DAYS);
+        List<Order> orders = orderRepository
+            .findByStatusAndShippedAtIsNotNullAndShippedAtLessThanEqual(OrderStatus.SHIPPING, threshold);
+
+        if (orders.isEmpty()) {
+            log.info("No SHIPPING orders eligible for auto-complete.");
+            return;
+        }
+
+        for (Order order : orders) {
+            try {
+                order.setStatus(OrderStatus.COMPLETED);
+                order.setCompletedAt(LocalDateTime.now());
+                orderRepository.save(order);
+
+                userNotificationService.pushOrderNotification(
+                    order,
+                    NotificationType.ORDER,
+                    "Đơn hàng tự động hoàn thành",
+                    "Đơn " + order.getOrderNumber()
+                        + " đã được hệ thống tự động xác nhận hoàn thành sau 3 ngày giao hàng.",
+                    "order-auto-completed-" + order.getId());
+
+                log.info("Order {} auto-completed after {} days in SHIPPING.",
+                        order.getOrderNumber(), AUTO_COMPLETE_AFTER_DAYS);
+            } catch (Exception e) {
+                log.error("Failed to auto-complete order {}: {}", order.getOrderNumber(), e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Runs every day at 03:00 AM.
+     * Cleanup old read notifications to keep per-account notification list lightweight.
+     */
+    @Scheduled(cron = "0 0 3 * * ?")
+    @Transactional
+    public void cleanupOldReadNotifications() {
+        long deleted = userNotificationService.cleanupOldReadNotifications(READ_NOTIFICATION_RETENTION_DAYS);
+        if (deleted > 0) {
+            log.info("Cleaned up {} read notifications older than {} days.",
+                    deleted, READ_NOTIFICATION_RETENTION_DAYS);
         }
     }
 }

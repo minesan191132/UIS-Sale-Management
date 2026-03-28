@@ -2,6 +2,8 @@ package org.example.features.payment.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.features.notification.entity.NotificationType;
+import org.example.features.notification.service.UserNotificationService;
 import org.example.features.order.entity.Order;
 import org.example.features.order.entity.OrderItem;
 import org.example.features.order.entity.OrderStatus;
@@ -41,6 +43,7 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
     private final AdminProductService adminProductService;
+    private final UserNotificationService userNotificationService;
 
     @Value("${sepay.bank.account}")
     private String bankAccount;
@@ -212,6 +215,14 @@ public class PaymentService {
             // Thanh toán đợt 1: AWAITING_PAYMENT -> DEPOSITED
             order.setStatus(OrderStatus.DEPOSITED);
             order.setPaidAt(LocalDateTime.now());
+
+            userNotificationService.pushOrderNotification(
+                    order,
+                    NotificationType.ORDER,
+                    "Đã nhận tiền cọc",
+                    "Cảm ơn bạn đã cọc trước cho đơn " + order.getOrderNumber() + ". Đơn hàng sẽ sớm được xử lý.",
+                    "order-status-" + order.getId() + "-DEPOSITED");
+
             log.info("✅ Deposit confirmed for order {}: amount={}", order.getOrderNumber(), webhook.getTransferAmount());
         } else {
             // Thanh toán đợt 2: Cộng dồn vào deposit_amount
@@ -226,6 +237,14 @@ public class PaymentService {
                 order.getDepositAmount().compareTo(order.getTotalPrice()) >= 0) {
                 order.setStatus(OrderStatus.AWAITING_DELIVERY);
                 order.setPaidAt(LocalDateTime.now());
+
+                userNotificationService.pushOrderNotification(
+                        order,
+                        NotificationType.ORDER,
+                        "Đơn hàng chờ giao",
+                        "Đơn " + order.getOrderNumber() + " đã thanh toán đầy đủ và đang chờ giao hàng.",
+                        "order-status-" + order.getId() + "-AWAITING_DELIVERY");
+
                 log.info("✅ Full 2nd payment confirmed → AWAITING_DELIVERY: order={}, total={}/{}",
                     order.getOrderNumber(), order.getDepositAmount(), order.getTotalPrice());
             } else {

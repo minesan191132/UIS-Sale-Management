@@ -312,6 +312,7 @@ import { ref, onMounted, nextTick } from 'vue'
 import Swal from 'sweetalert2'
 import apiClient from '../../services/api'
 import { Modal } from 'bootstrap'
+import { getOrderStatusLabel } from '../../constants/orderStatus'
 
 const orders = ref([])
 const isLoading = ref(false)
@@ -528,16 +529,11 @@ const completeOrder = async (order) => {
 
 // Formatters
 const getStatusText = (status) => {
-  const map = {
-    AWAITING_PAYMENT: 'Chờ thanh toán',
-    DEPOSITED:        'Đã thanh toán',
-    PROCESSING:       'Đang chuẩn bị',
-    AWAITING_DELIVERY: 'Chờ giao hàng',
-    SHIPPING:         'Đang giao hàng',
-    COMPLETED:        'Đã giao hàng',
-    CANCELLED:        'Đã hủy',
-  }
-  return map[status] || status
+  return getOrderStatusLabel(status, {
+    DEPOSITED: 'Đã thanh toán',
+    PROCESSING: 'Đang chuẩn bị',
+    COMPLETED: 'Đã giao hàng',
+  })
 }
 
 const getStatusBadgeClass = (status) => {

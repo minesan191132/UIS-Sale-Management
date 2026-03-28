@@ -103,4 +103,12 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
                 @Param("orderType") OrderType orderType,
                 @Param("status") OrderStatus status,
                 @Param("targetDate") LocalDate targetDate);
+
+        /**
+         * Find shipping orders that were handed to carrier before or at a given timestamp.
+         * Used by cron auto-complete fallback when customer does not confirm receipt.
+         */
+        List<Order> findByStatusAndShippedAtLessThanEqual(OrderStatus status, LocalDateTime shippedAt);
+
+        List<Order> findByStatusAndShippedAtIsNotNullAndShippedAtLessThanEqual(OrderStatus status, LocalDateTime shippedAt);
 }

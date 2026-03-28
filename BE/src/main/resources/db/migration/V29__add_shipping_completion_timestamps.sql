@@ -1,0 +1,3 @@
+ALTER TABLE orders
+    ADD COLUMN shipped_at TIMESTAMP NULL,
+    ADD COLUMN completed_at TIMESTAMP NULL;
