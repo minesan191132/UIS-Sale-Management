@@ -2,6 +2,7 @@ package org.example.features.order.controller;
 
 import org.example.config.security.CustomUserDetails;
 import org.example.features.auth.service.EmailService;
+import org.example.features.complaint.service.OrderComplaintService;
 import org.example.features.order.service.OrderService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,8 +28,9 @@ class OrderControllerImportValidationTest {
     @BeforeEach
     void setUp() {
         orderService = mock(OrderService.class);
+        OrderComplaintService orderComplaintService = mock(OrderComplaintService.class);
         EmailService emailService = mock(EmailService.class);
-        orderController = new OrderController(orderService, emailService);
+        orderController = new OrderController(orderService, orderComplaintService, emailService);
     }
 
     @Test

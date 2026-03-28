@@ -86,16 +86,16 @@ public class UserNotificationService {
     }
 
     @Transactional
-    public void pushOrderNotification(Order order,
-                                      NotificationType type,
-                                      String title,
-                                      String body,
-                                      String notificationKey) {
-        if (order == null || order.getUser() == null) {
+    public void pushNotificationToUser(Long userId,
+                                       Order order,
+                                       NotificationType type,
+                                       String title,
+                                       String body,
+                                       String notificationKey) {
+        if (userId == null) {
             return;
         }
 
-        Long userId = order.getUser().getId();
         if (notificationKey != null && !notificationKey.isBlank()
                 && userNotificationRepository.existsByUserIdAndNotificationKey(userId, notificationKey)) {
             return;
@@ -117,7 +117,22 @@ public class UserNotificationService {
 
         userNotificationRepository.save(notification);
         log.info("Created user notification for user {} / order {} / key {}",
-                userId, order.getOrderNumber(), notificationKey);
+                userId,
+                order != null ? order.getOrderNumber() : null,
+                notificationKey);
+    }
+
+    @Transactional
+    public void pushOrderNotification(Order order,
+                                      NotificationType type,
+                                      String title,
+                                      String body,
+                                      String notificationKey) {
+        if (order == null || order.getUser() == null) {
+            return;
+        }
+
+        pushNotificationToUser(order.getUser().getId(), order, type, title, body, notificationKey);
     }
 
     private UserNotificationResponseDTO toDTO(UserNotification notification) {

@@ -69,6 +69,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/auth/**",
                                 "/api/contact/**",
+                            "/uploads/**",
                                 "/api/payments/sepay/webhook", // SePay gọi từ server ngoài, không có JWT
                                 "/api/payments/dev/**",       // Dev simulation endpoints
                                 "/swagger-ui/**",
@@ -91,6 +92,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/orders/admin-import").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/orders/imports/*/cancel").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/api/orders/*/cancel").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/orders/*/confirm-received").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/orders/*/complaint/my").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/orders/*/complaint/my").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/api/orders/**").hasRole("ADMIN") // Admin order updates
                         .requestMatchers("/api/orders/my", "/api/orders/upload").authenticated() // Customer order
                                                                                                  // access
