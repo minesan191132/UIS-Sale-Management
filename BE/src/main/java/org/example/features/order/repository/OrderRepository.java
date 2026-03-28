@@ -111,4 +111,49 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
         List<Order> findByStatusAndShippedAtLessThanEqual(OrderStatus status, LocalDateTime shippedAt);
 
         List<Order> findByStatusAndShippedAtIsNotNullAndShippedAtLessThanEqual(OrderStatus status, LocalDateTime shippedAt);
+        // ==================== STATS QUERIES ====================
+
+        /**
+         * Count orders by status (for action-item KPIs like PENDING_QUOTE, AWAITING_PAYMENT)
+         */
+        long countByStatus(OrderStatus status);
+
+        /**
+         * Count total orders by orderType in a date range [since, until).
+         */
+        @Query("SELECT COUNT(o) FROM Order o WHERE o.orderType = :orderType AND o.createdAt >= :since AND o.createdAt < :until")
+        long countOrdersByOrderType(@Param("orderType") OrderType orderType,
+                                    @Param("since") LocalDateTime since,
+                                    @Param("until") LocalDateTime until);
+
+        /**
+         * Sum revenue for orders with status IN includedStatuses (e.g. only COMPLETED).
+         * Uses a list param so the caller controls which statuses count.
+         */
+        @Query("SELECT COALESCE(SUM(o.totalPrice), 0) FROM Order o WHERE o.orderType = :orderType AND o.status IN :includedStatuses AND o.createdAt >= :since AND o.createdAt < :until")
+        java.math.BigDecimal sumActualRevenueByOrderType(
+                @Param("orderType") OrderType orderType,
+                @Param("includedStatuses") java.util.List<OrderStatus> includedStatuses,
+                @Param("since") LocalDateTime since,
+                @Param("until") LocalDateTime until);
+        /**
+         * Sum revenue per month in [since, until) for the line chart.
+         * Returns Object[] rows: [year(int), month(int), sum(BigDecimal)]
+         */
+        @Query("""
+            SELECT YEAR(o.createdAt), MONTH(o.createdAt), COALESCE(SUM(o.totalPrice), 0)
+            FROM Order o
+            WHERE o.orderType = :orderType
+              AND o.status IN :includedStatuses
+              AND o.createdAt >= :since
+              AND o.createdAt < :until
+            GROUP BY YEAR(o.createdAt), MONTH(o.createdAt)
+            ORDER BY YEAR(o.createdAt), MONTH(o.createdAt)
+            """)
+        java.util.List<Object[]> monthlyRevenueByOrderType(
+                @Param("orderType") OrderType orderType,
+                @Param("includedStatuses") java.util.List<OrderStatus> includedStatuses,
+                @Param("since") LocalDateTime since,
+                @Param("until") LocalDateTime until);
+
 }
