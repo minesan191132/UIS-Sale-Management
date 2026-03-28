@@ -303,6 +303,34 @@ export const ordersAPI = {
     const response = await apiClient.post('/orders/from-cart', data);
     return response.data;
   },
+
+  /**
+   * Customer confirms they have received the shipment
+   */
+  confirmReceived: async (orderId) => {
+    const response = await apiClient.put(`/orders/${orderId}/confirm-received`);
+    return response.data;
+  },
+
+  /**
+   * Get current user's complaint for one order
+   */
+  getMyComplaint: async (orderId) => {
+    const response = await apiClient.get(`/orders/${orderId}/complaint/my`);
+    return response.data;
+  },
+
+  /**
+   * Create or update complaint (multipart)
+   */
+  upsertMyComplaint: async (orderId, formData) => {
+    const response = await apiClient.post(`/orders/${orderId}/complaint/my`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
 };
 
 // ==================== PAYMENT API ====================

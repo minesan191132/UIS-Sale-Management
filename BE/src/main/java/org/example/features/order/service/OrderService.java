@@ -1315,6 +1315,37 @@ public class OrderService {
     }
 
     /**
+     * Customer: Confirm item receipt for SHIPPING order.
+     * SHIPPING -> COMPLETED immediately.
+     */
+    @Transactional
+    public OrderResponseDTO confirmReceivedByCustomer(Long orderId, Long userId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy đơn hàng"));
+
+        if (order.getUser() == null || !order.getUser().getId().equals(userId)) {
+            throw new SecurityException("Bạn không có quyền xác nhận đơn hàng này");
+        }
+
+        if (order.getStatus() != OrderStatus.SHIPPING) {
+            throw new IllegalStateException(
+                    "Chỉ có thể xác nhận đã nhận khi đơn đang ở trạng thái ĐANG GIAO. Trạng thái hiện tại: " + order.getStatus());
+        }
+
+        order.setStatus(OrderStatus.COMPLETED);
+        if (order.getShippedAt() == null) {
+            order.setShippedAt(LocalDateTime.now());
+        }
+        order.setCompletedAt(LocalDateTime.now());
+
+        Order saved = orderRepository.save(order);
+        notifyOrderStatusTransition(saved, OrderStatus.SHIPPING, OrderStatus.COMPLETED);
+
+        log.info("Order {} confirmed received by customer {}", saved.getOrderNumber(), userId);
+        return mapToDTO(saved);
+    }
+
+    /**
      * Map Order entity to DTO
      */
     private OrderResponseDTO mapImportBatchToDTO(OrderImportBatch batch) {

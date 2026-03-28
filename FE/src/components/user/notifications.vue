@@ -65,6 +65,12 @@
             <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
             <line x1="1" y1="10" x2="23" y2="10"/>
           </svg>
+          <svg v-else-if="notif.type === 'complaint'" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
           <svg v-else-if="notif.type === 'system'" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
             fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="3"/>
@@ -137,6 +143,7 @@ const normalizeType = (type) => {
   const value = String(type).toLowerCase()
   if (value === 'order') return 'order'
   if (value === 'payment') return 'payment'
+  if (value === 'complaint') return 'complaint'
   return 'system'
 }
 
@@ -381,6 +388,11 @@ onMounted(loadNotifications)
 .icon-payment {
   background: #f0fdf4;
   color: #16a34a;
+}
+
+.icon-complaint {
+  background: #fef2f2;
+  color: #dc2626;
 }
 
 .icon-system {

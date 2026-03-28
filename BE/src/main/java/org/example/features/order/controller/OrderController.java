@@ -5,6 +5,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.config.security.CustomUserDetails;
 import org.example.features.auth.service.EmailService;
+import org.example.features.complaint.dto.OrderComplaintResponseDTO;
+import org.example.features.complaint.service.OrderComplaintService;
 import org.example.features.order.dto.DelayDeliveryRequestDTO;
 import org.example.features.order.dto.ItemReviewRequestDTO;
 import org.example.features.order.dto.OrderResponseDTO;
@@ -18,6 +20,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -39,6 +42,7 @@ import java.util.Map;
 public class OrderController {
 
     private final OrderService orderService;
+    private final OrderComplaintService orderComplaintService;
     private final EmailService emailService;
 
     /**
@@ -354,6 +358,87 @@ public class OrderController {
             log.error("Error cancelling order", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Failed to cancel order"));
+        }
+    }
+
+    /**
+     * Customer: Confirm received item for shipping order.
+     * PUT /api/orders/{id}/confirm-received
+     */
+    @PutMapping("/{id}/confirm-received")
+    public ResponseEntity<?> confirmReceivedByCustomer(
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        try {
+            OrderResponseDTO order = orderService.confirmReceivedByCustomer(id, userDetails.getUserId());
+            return ResponseEntity.ok(order);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error confirming received for order {}", id, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to confirm order receipt"));
+        }
+    }
+
+    /**
+     * Customer: Get my complaint for one order.
+     * GET /api/orders/{id}/complaint/my
+     */
+    @GetMapping("/{id}/complaint/my")
+    public ResponseEntity<?> getMyComplaint(
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        try {
+            OrderComplaintResponseDTO complaint = orderComplaintService
+                    .getMyComplaintByOrder(id, userDetails.getUserId());
+            return ResponseEntity.ok(complaint);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error fetching complaint for order {}", id, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to fetch complaint"));
+        }
+    }
+
+    /**
+     * Customer: Create or update complaint for a SHIPPING order.
+     * POST /api/orders/{id}/complaint/my
+     */
+    @PostMapping(value = "/{id}/complaint/my", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> upsertMyComplaint(
+            @PathVariable Long id,
+            @RequestParam String description,
+            @RequestParam String missingItems,
+            @RequestParam(required = false) List<Long> keepImageIds,
+            @RequestParam(name = "images", required = false) List<MultipartFile> images,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        try {
+            OrderComplaintResponseDTO complaint = orderComplaintService.upsertMyComplaint(
+                    id,
+                    userDetails.getUserId(),
+                    description,
+                    missingItems,
+                    keepImageIds,
+                    images);
+            return ResponseEntity.ok(complaint);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error upserting complaint for order {}", id, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to save complaint"));
         }
     }
 

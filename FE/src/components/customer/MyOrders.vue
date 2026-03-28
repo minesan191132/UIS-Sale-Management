@@ -201,6 +201,23 @@
                     >
                       <i class="bi bi-check-circle me-1"></i>Đã cọc ✔
                     </button>
+
+                    <button
+                      v-if="order.status === 'SHIPPING'"
+                      @click="confirmReceivedOrder(order)"
+                      class="btn btn-sm btn-success"
+                    >
+                      <i class="bi bi-check2-circle me-1"></i>Đã nhận được hàng
+                    </button>
+
+                    <button
+                      v-if="order.status === 'SHIPPING'"
+                      @click="openComplaintModal(order)"
+                      class="btn btn-sm btn-outline-danger"
+                    >
+                      <i class="bi bi-exclamation-triangle me-1"></i>
+                      {{ hasComplaintForOrder(order.id) ? 'Sửa khiếu nại' : 'Khiếu nại thiếu hàng' }}
+                    </button>
                   </div>
                 </div>
               </div>
@@ -387,6 +404,140 @@
       </div>
     </Teleport>
 
+    <!-- ===== Complaint Modal ===== -->
+    <Teleport to="body">
+      <div class="modal fade" id="complaintModal" tabindex="-1" ref="complaintModalRef">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+          <div class="modal-content border-0 shadow-lg" v-if="complaintOrder">
+            <div class="modal-header bg-danger text-white">
+              <h5 class="modal-title">
+                <i class="bi bi-exclamation-octagon me-2"></i>
+                {{ hasComplaintForOrder(complaintOrder.id) ? 'Sửa khiếu nại thiếu hàng' : 'Khiếu nại thiếu hàng' }}
+              </h5>
+              <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+              <div class="alert alert-warning py-2 small mb-3">
+                <i class="bi bi-info-circle me-1"></i>
+                Bạn chỉ có thể gửi khiếu nại khi đơn đang ở trạng thái ĐANG GIAO.
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label fw-semibold">Mô tả khiếu nại</label>
+                <textarea
+                  v-model="complaintDescription"
+                  class="form-control"
+                  rows="3"
+                  placeholder="Ví dụ: Thiếu 2 sản phẩm mã XYZ trong kiện hàng..."
+                ></textarea>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label fw-semibold">Chi tiết số lượng thiếu theo từng sản phẩm</label>
+                <div class="table-responsive border rounded">
+                  <table class="table table-sm mb-0 align-middle">
+                    <thead class="table-light">
+                      <tr>
+                        <th>Sản phẩm</th>
+                        <th class="text-center" style="width: 120px;">Đặt</th>
+                        <th style="width: 180px;">Thiếu</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="item in complaintOrder.items || []" :key="`complaint-item-${item.id}`">
+                        <td>
+                          <div class="fw-semibold">{{ item.itemName || item.itemCode || 'Sản phẩm' }}</div>
+                          <small class="text-muted">{{ item.itemCode || '---' }}</small>
+                        </td>
+                        <td class="text-center">{{ item.quantity || 0 }}</td>
+                        <td>
+                          <input
+                            v-model.number="complaintMissingByItem[item.id]"
+                            type="number"
+                            min="0"
+                            :max="item.quantity || 0"
+                            class="form-control form-control-sm"
+                          />
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label fw-semibold">Ảnh minh chứng</label>
+
+                <div v-if="complaintExistingImages.length > 0" class="mb-2">
+                  <div class="small fw-semibold mb-1">Ảnh đã lưu</div>
+                  <div class="d-flex flex-wrap gap-2">
+                    <div
+                      v-for="img in complaintExistingImages"
+                      :key="`existing-img-${img.id}`"
+                      class="complaint-image-tag"
+                      :class="{ removed: complaintRemovedImageIds.includes(img.id) }"
+                    >
+                      <span>{{ img.originalFilename || `Ảnh #${img.id}` }}</span>
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-link text-danger p-0"
+                        @click="toggleKeepExistingComplaintImage(img.id)"
+                      >
+                        {{ complaintRemovedImageIds.includes(img.id) ? 'Giữ lại' : 'Bỏ ảnh' }}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  class="form-control"
+                  @change="onComplaintImagesSelected"
+                />
+                <small class="text-muted">Tối đa 5 ảnh, mỗi ảnh tối đa 5MB.</small>
+
+                <div v-if="complaintNewImages.length > 0" class="mt-2">
+                  <div class="small fw-semibold mb-1">Ảnh mới sẽ tải lên</div>
+                  <div class="d-flex flex-wrap gap-2">
+                    <div
+                      v-for="(file, idx) in complaintNewImages"
+                      :key="`new-img-${idx}`"
+                      class="complaint-image-tag"
+                    >
+                      <span>{{ file.name }}</span>
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-link text-danger p-0"
+                        @click="removeNewComplaintImage(idx)"
+                      >
+                        Xóa
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+              <button
+                type="button"
+                class="btn btn-danger"
+                :disabled="isSavingComplaint"
+                @click="submitComplaint"
+              >
+                <span v-if="isSavingComplaint" class="spinner-border spinner-border-sm me-2"></span>
+                {{ hasComplaintForOrder(complaintOrder.id) ? 'Cập nhật khiếu nại' : 'Gửi khiếu nại' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
   </div>
 </template>
 
@@ -394,7 +545,7 @@
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Swal from 'sweetalert2'
-import apiClient from '../../services/api'
+import apiClient, { ordersAPI } from '../../services/api'
 import { Modal } from 'bootstrap'
 import PaymentQR from './PaymentQR.vue'
 import { getOrderStatusLabel } from '../../constants/orderStatus'
@@ -409,6 +560,7 @@ const totalPages = ref(0)
 const selectedOrder = ref(null)
 const detailModalRef = ref(null)
 const paymentModalRef = ref(null)
+const complaintModalRef = ref(null)
 const selectedPaymentOrderId = ref(null)
 const activeOrderType = ref('CUSTOM_MANUFACTURING')
 const getDefaultStatusForType = (type) =>
@@ -416,8 +568,17 @@ const getDefaultStatusForType = (type) =>
 
 const activeStatus = ref(getDefaultStatusForType(activeOrderType.value))
 const statusCounts = ref({})
+const complaintOrder = ref(null)
+const complaintDescription = ref('')
+const complaintMissingByItem = ref({})
+const complaintExistingImages = ref([])
+const complaintRemovedImageIds = ref([])
+const complaintNewImages = ref([])
+const complaintExistsByOrderId = ref({})
+const isSavingComplaint = ref(false)
 let bsModal = null
 let bsPaymentModal = null
+let bsComplaintModal = null
 
 // ── Type tabs (main level) ──
 const typeTabs = [
@@ -705,6 +866,199 @@ const canCancelOrder = (order) => {
   return order.status === 'PENDING_APPROVAL'
     || order.status === 'PENDING_QUOTE'
     || order.status === 'AWAITING_PAYMENT'
+}
+
+const hasComplaintForOrder = (orderId) => {
+  return !!complaintExistsByOrderId.value[orderId]
+}
+
+const confirmReceivedOrder = async (order) => {
+  if (!order?.id) return
+
+  const result = await Swal.fire({
+    title: 'Xác nhận đã nhận hàng?',
+    text: `Bạn xác nhận đã nhận đủ hàng cho đơn ${order.orderNumber}?`,
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonColor: '#16a34a',
+    cancelButtonColor: '#64748b',
+    confirmButtonText: 'Đã nhận đủ',
+    cancelButtonText: 'Để sau',
+  })
+
+  if (!result.isConfirmed) return
+
+  try {
+    await ordersAPI.confirmReceived(order.id)
+    await Promise.all([
+      loadOrders(currentPage.value),
+      loadStatusCounts(activeOrderType.value),
+    ])
+    await Swal.fire({
+      icon: 'success',
+      title: 'Đã xác nhận nhận hàng',
+      text: `Đơn ${order.orderNumber} đã được chuyển sang hoàn thành.`,
+      timer: 2200,
+      showConfirmButton: false,
+    })
+  } catch (error) {
+    const msg = error.response?.data?.error || 'Không thể xác nhận nhận hàng'
+    Swal.fire('Lỗi', msg, 'error')
+  }
+}
+
+const openComplaintModal = async (order) => {
+  if (!order?.id) return
+
+  if (order.status !== 'SHIPPING') {
+    await Swal.fire('Không hợp lệ', 'Chỉ có thể khiếu nại khi đơn đang giao hàng.', 'warning')
+    return
+  }
+
+  try {
+    const [detailResponse, complaintData] = await Promise.all([
+      apiClient.get(`/orders/${order.id}`),
+      ordersAPI.getMyComplaint(order.id),
+    ])
+
+    complaintOrder.value = detailResponse.data || order
+    const existingComplaint = complaintData || null
+
+    complaintExistsByOrderId.value = {
+      ...complaintExistsByOrderId.value,
+      [order.id]: !!existingComplaint,
+    }
+
+    complaintDescription.value = existingComplaint?.description || ''
+    complaintExistingImages.value = Array.isArray(existingComplaint?.images) ? existingComplaint.images : []
+    complaintRemovedImageIds.value = []
+    complaintNewImages.value = []
+
+    const missingMap = {}
+    ;(complaintOrder.value?.items || []).forEach((item) => {
+      missingMap[item.id] = 0
+    })
+    ;(existingComplaint?.missingItems || []).forEach((item) => {
+      if (item?.orderItemId != null) {
+        missingMap[item.orderItemId] = Number(item.missingQuantity || 0)
+      }
+    })
+    complaintMissingByItem.value = missingMap
+
+    await nextTick()
+    if (!bsComplaintModal && complaintModalRef.value) {
+      bsComplaintModal = new Modal(complaintModalRef.value)
+    }
+    bsComplaintModal?.show()
+  } catch (error) {
+    const msg = error.response?.data?.error || 'Không thể mở form khiếu nại'
+    Swal.fire('Lỗi', msg, 'error')
+  }
+}
+
+const toggleKeepExistingComplaintImage = (imageId) => {
+  const current = complaintRemovedImageIds.value || []
+  if (current.includes(imageId)) {
+    complaintRemovedImageIds.value = current.filter((id) => id !== imageId)
+    return
+  }
+  complaintRemovedImageIds.value = [...current, imageId]
+}
+
+const removeNewComplaintImage = (index) => {
+  complaintNewImages.value = complaintNewImages.value.filter((_, idx) => idx !== index)
+}
+
+const onComplaintImagesSelected = (event) => {
+  const files = Array.from(event.target?.files || [])
+  if (files.length === 0) return
+
+  const keptExisting = complaintExistingImages.value
+    .filter((img) => !complaintRemovedImageIds.value.includes(img.id))
+    .length
+  const currentNew = complaintNewImages.value.length
+  const availableSlots = Math.max(0, 5 - keptExisting - currentNew)
+
+  if (availableSlots <= 0) {
+    Swal.fire('Giới hạn ảnh', 'Bạn chỉ có thể lưu tối đa 5 ảnh cho mỗi khiếu nại.', 'warning')
+    event.target.value = ''
+    return
+  }
+
+  const accepted = files.slice(0, availableSlots)
+  complaintNewImages.value = [...complaintNewImages.value, ...accepted]
+
+  if (accepted.length < files.length) {
+    Swal.fire('Giới hạn ảnh', `Chỉ nhận thêm ${availableSlots} ảnh.`, 'info')
+  }
+
+  event.target.value = ''
+}
+
+const submitComplaint = async () => {
+  if (!complaintOrder.value?.id) return
+
+  const normalizedDescription = (complaintDescription.value || '').trim()
+  if (!normalizedDescription) {
+    Swal.fire('Thiếu thông tin', 'Vui lòng nhập mô tả khiếu nại.', 'warning')
+    return
+  }
+
+  const missingItems = (complaintOrder.value.items || [])
+    .map((item) => ({
+      orderItemId: item.id,
+      missingQuantity: Number(complaintMissingByItem.value[item.id] || 0),
+    }))
+    .filter((item) => item.missingQuantity > 0)
+
+  if (missingItems.length === 0) {
+    Swal.fire('Thiếu dữ liệu', 'Vui lòng nhập số lượng thiếu cho ít nhất 1 sản phẩm.', 'warning')
+    return
+  }
+
+  const keepImageIds = complaintExistingImages.value
+    .filter((img) => !complaintRemovedImageIds.value.includes(img.id))
+    .map((img) => img.id)
+  const totalImages = keepImageIds.length + complaintNewImages.value.length
+  if (totalImages < 1) {
+    Swal.fire('Thiếu ảnh minh chứng', 'Khiếu nại cần tối thiểu 1 ảnh minh chứng.', 'warning')
+    return
+  }
+
+  const formData = new FormData()
+  formData.append('description', normalizedDescription)
+  formData.append('missingItems', JSON.stringify(missingItems))
+  keepImageIds.forEach((id) => formData.append('keepImageIds', String(id)))
+  complaintNewImages.value.forEach((file) => formData.append('images', file))
+
+  const wasExistingComplaint = hasComplaintForOrder(complaintOrder.value.id)
+  isSavingComplaint.value = true
+  try {
+    await ordersAPI.upsertMyComplaint(complaintOrder.value.id, formData)
+
+    complaintExistsByOrderId.value = {
+      ...complaintExistsByOrderId.value,
+      [complaintOrder.value.id]: true,
+    }
+
+    bsComplaintModal?.hide()
+    await Promise.all([
+      loadOrders(currentPage.value),
+      loadStatusCounts(activeOrderType.value),
+    ])
+    await Swal.fire({
+      icon: 'success',
+      title: wasExistingComplaint ? 'Đã cập nhật khiếu nại' : 'Đã gửi khiếu nại',
+      text: 'Hệ thống đã ghi nhận khiếu nại của bạn.',
+      timer: 2200,
+      showConfirmButton: false,
+    })
+  } catch (error) {
+    const msg = error.response?.data?.error || 'Không thể gửi khiếu nại'
+    Swal.fire('Lỗi', msg, 'error')
+  } finally {
+    isSavingComplaint.value = false
+  }
 }
 
 const cancelOrder = async (order) => {
@@ -1074,5 +1428,21 @@ const openRemainingPaymentModal = (order) => {
 .order-tab.active .order-tab-count {
   background: rgba(255, 255, 255, 0.22);
   color: #fff;
+}
+
+.complaint-image-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  font-size: 0.8rem;
+}
+
+.complaint-image-tag.removed {
+  opacity: 0.6;
+  text-decoration: line-through;
 }
 </style>
