@@ -6,6 +6,11 @@ package org.example.features.order.entity;
  */
 public enum OrderStatus {
     /**
+     * Order imported from Excel, waiting for admin approval before quote review
+     */
+    PENDING_APPROVAL,
+
+    /**
      * Order created, waiting for admin to provide quote
      */
     PENDING_QUOTE,

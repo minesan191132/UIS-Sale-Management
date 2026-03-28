@@ -65,7 +65,7 @@
     <!-- Orders List -->
     <div v-else class="stagger-list">
       <div class="row g-3">
-        <div v-for="(order, index) in orders" :key="order.id" class="col-12 slide-up" :style="{ animationDelay: `${index * 0.1}s` }">
+        <div v-for="(order, index) in orders" :key="`${order.isTempImport ? 'imp' : 'ord'}-${order.id}`" class="col-12 slide-up" :style="{ animationDelay: `${index * 0.1}s` }">
           <div class="card shadow-sm border-0 hover-card">
             <div class="card-body">
               <div class="row align-items-center">
@@ -86,6 +86,10 @@
                   <span :class="getStatusBadgeClass(order.status)">
                     {{ getStatusText(order.status, order.orderType) }}
                   </span>
+                  <div v-if="order.status === 'PENDING_APPROVAL'" class="alert alert-warning mt-2 mb-0 py-2 px-3 small pending-approval-banner">
+                    <i class="bi bi-hourglass-split me-1"></i>
+                    Đơn đang chờ admin duyệt. Sau khi duyệt, hệ thống sẽ chuyển sang bước báo giá.
+                  </div>
                 </div>
 
                 <!-- Pricing & Actions -->
@@ -134,6 +138,13 @@
                   <div class="d-flex gap-2 justify-content-md-end flex-wrap mt-2">
                     <button @click="openDetailModal(order)" class="btn btn-outline-primary btn-sm">
                       <i class="bi bi-eye me-1"></i>Xem chi tiết
+                    </button>
+
+                    <button
+                      v-if="canCancelOrder(order)"
+                      @click="cancelOrder(order)"
+                      class="btn btn-outline-danger btn-sm">
+                      <i class="bi bi-x-circle me-1"></i>Hủy đơn
                     </button>
 
                     <!-- Payment Button - READY_MADE (100% payment) -->
@@ -241,6 +252,11 @@
               </div>
             </div>
 
+            <div v-if="selectedOrder.status === 'PENDING_APPROVAL'" class="alert alert-warning py-2 px-3 small mb-3 pending-approval-banner">
+              <i class="bi bi-hourglass-split me-1"></i>
+              Đơn đang chờ admin duyệt. Bạn có thể theo dõi trạng thái tại đây.
+            </div>
+
             <!-- Items Table - scrollable, same format as admin -->
             <h6 class="mb-3 mt-2">Danh sách vật tư ({{ selectedOrder.items?.length || 0 }} items)</h6>
             <div class="table-responsive" style="max-height: 450px; overflow-y: auto;">
@@ -311,6 +327,12 @@
 
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Dóng</button>
+            <button
+              v-if="canCancelOrder(selectedOrder)"
+              @click="cancelOrder(selectedOrder); bsModal?.hide()"
+              class="btn btn-outline-danger">
+              <i class="bi bi-x-circle me-1"></i>Hủy đơn hàng
+            </button>
             <button 
               v-if="selectedOrder.status === 'AWAITING_PAYMENT' || selectedOrder.status === 'DEPOSITED'" 
               @click="openPaymentModal(selectedOrder); bsModal?.hide()" 
@@ -401,10 +423,28 @@ const changeStatus = (key) => {
 const loadOrders = async (page = 0) => {
   isLoading.value = true
   try {
+    if (activeOrderType.value === 'CUSTOM_MANUFACTURING' && activeStatus.value === 'PENDING_APPROVAL') {
+      const importResponse = await apiClient.get('/orders/imports/my')
+      orders.value = (importResponse.data || []).map(o => ({ ...o, isTempImport: true }))
+      currentPage.value = 0
+      totalPages.value = 1
+      return
+    }
+
     const params = { page, size: 10, orderType: activeOrderType.value }
     if (activeStatus.value !== 'ALL') params.status = activeStatus.value
+
     const response = await apiClient.get('/orders/my', { params })
-    orders.value = response.data.content || response.data
+    let merged = response.data.content || response.data
+
+    if (activeOrderType.value === 'CUSTOM_MANUFACTURING' && activeStatus.value === 'ALL' && page === 0) {
+      const importResponse = await apiClient.get('/orders/imports/my')
+      const pendingImports = (importResponse.data || []).map(o => ({ ...o, isTempImport: true }))
+      merged = [...pendingImports, ...(Array.isArray(merged) ? merged : [])]
+        .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+    }
+
+    orders.value = Array.isArray(merged) ? merged.map(o => ({ ...o, isTempImport: !!o.isTempImport })) : []
     currentPage.value = response.data.number || 0
     totalPages.value = response.data.totalPages || 1
   } catch (error) {
@@ -417,8 +457,9 @@ const loadOrders = async (page = 0) => {
 
 const openDetailModal = async (order) => {
   try {
-    const response = await apiClient.get(`/orders/${order.id}`)
-    selectedOrder.value = response.data
+    const detailUrl = order?.isTempImport ? `/orders/imports/${order.id}` : `/orders/${order.id}`
+    const response = await apiClient.get(detailUrl)
+    selectedOrder.value = { ...response.data, isTempImport: !!order?.isTempImport }
     await nextTick()
 
     if (!bsModal && detailModalRef.value) {
@@ -468,6 +509,48 @@ const onPaymentConfirmed = (paymentInfo) => {
   })
 }
 
+const canCancelOrder = (order) => {
+  if (!order) return false
+  return order.status === 'PENDING_APPROVAL'
+    || order.status === 'PENDING_QUOTE'
+    || order.status === 'AWAITING_PAYMENT'
+}
+
+const cancelOrder = async (order) => {
+  const result = await Swal.fire({
+    title: 'Hủy đơn hàng?',
+    text: `Bạn có chắc muốn hủy đơn ${order.orderNumber}? Hành động này không thể hoàn tác.`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#dc2626',
+    cancelButtonColor: '#64748b',
+    confirmButtonText: 'Hủy đơn',
+    cancelButtonText: 'Giữ lại',
+  })
+
+  if (!result.isConfirmed) return
+
+  try {
+    if (order?.isTempImport) {
+      await apiClient.put(`/orders/imports/${order.id}/cancel`)
+    } else {
+      await apiClient.put(`/orders/${order.id}/cancel`)
+    }
+
+    await loadOrders(currentPage.value)
+    Swal.fire({
+      icon: 'success',
+      title: 'Đã hủy đơn hàng',
+      text: `Đơn ${order.orderNumber} đã được hủy.`,
+      timer: 2200,
+      showConfirmButton: false,
+    })
+  } catch (error) {
+    const msg = error.response?.data?.error || 'Không thể hủy đơn hàng'
+    Swal.fire('Lỗi', msg, 'error')
+  }
+}
+
 // Giữ lại để tương thích nhưng redirect sang openPaymentModal
 const showPaymentQR = (order) => {
   openPaymentModal(order)
@@ -487,6 +570,7 @@ const getStatusText = (status, orderType) => {
   
   // CUSTOM_MANUFACTURING
   const customMap = {
+    PENDING_APPROVAL: 'Chờ duyệt đơn',
     PENDING_QUOTE: 'Chờ báo giá',
     AWAITING_PAYMENT: 'Chờ thanh toán',
     DEPOSITED: 'Đã cọc ✔',
@@ -500,6 +584,7 @@ const getStatusText = (status, orderType) => {
 
 const getStatusBadgeClass = (status) => {
   const classMap = {
+    PENDING_APPROVAL: 'badge bg-warning text-dark',
     PENDING_QUOTE: 'badge bg-warning text-dark',
     AWAITING_PAYMENT: 'badge bg-info text-dark',
     DEPOSITED: 'badge bg-success',
@@ -623,6 +708,11 @@ const openRemainingPaymentModal = (order) => {
   transform: translate(-50%, -50%) scale(0);
   opacity: 0;
   transition: transform 0.4s ease, opacity 0.4s ease;
+}
+
+.pending-approval-banner {
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  background: linear-gradient(90deg, rgba(255, 243, 205, 0.95), rgba(255, 251, 235, 0.95));
 }
 
 .btn-glow:hover::after {

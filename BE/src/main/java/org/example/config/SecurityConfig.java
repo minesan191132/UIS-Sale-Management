@@ -89,6 +89,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/orders", "/api/orders/*/quote", "/api/orders/*/status")
                         .hasRole("ADMIN") // Admin order views
                         .requestMatchers(HttpMethod.POST, "/api/orders/admin-import").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/orders/imports/*/cancel").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/orders/*/cancel").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/api/orders/**").hasRole("ADMIN") // Admin order updates
                         .requestMatchers("/api/orders/my", "/api/orders/upload").authenticated() // Customer order
                                                                                                  // access

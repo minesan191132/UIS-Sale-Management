@@ -16,6 +16,7 @@
               <label class="small fw-bold text-muted mb-1">Trạng thái</label>
               <select class="form-select form-select-sm" v-model="filterStatus" @change="loadOrders(0)">
                 <option value="">Tất cả</option>
+                <option value="PENDING_APPROVAL">Chờ duyệt đơn</option>
                 <option value="PENDING_QUOTE">Chờ báo giá</option>
                 <option value="AWAITING_PAYMENT">Chờ thanh toán</option>
                 <option value="DEPOSITED">Đã cọc</option>
@@ -78,7 +79,7 @@
             <th style="width: 160px;">Thao tác</th>
           </tr>
         </thead>
-        <tbody v-for="order in orders" :key="order.id">
+        <tbody v-for="order in orders" :key="`${order.isTempImport ? 'imp' : 'ord'}-${order.id}`">
           <tr @click="toggleDetails(order.id)" class="cursor-pointer"
             :class="{ 'table-active-row': expandedOrderId === order.id }">
             <td class="text-center">
@@ -110,6 +111,10 @@
               <div class="btn-group btn-group-sm">
                 <button @click="openReviewModal(order)" class="btn btn-outline-primary" title="Xem & Review">
                   <i class="bi bi-eye"></i>
+                </button>
+                <button v-if="order.status === 'PENDING_APPROVAL'"
+                  @click="approveOrder(order)" class="btn btn-outline-warning" title="Duyệt đơn">
+                  <i class="bi bi-check2-circle"></i>
                 </button>
                 <button v-if="order.status === 'PENDING_QUOTE' && isAllReviewed(order)"
                   @click="submitQuote(order)" class="btn btn-outline-success" title="Gửi báo giá">
@@ -417,6 +422,12 @@
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
             <button
+              v-if="selectedOrder.status === 'PENDING_APPROVAL'"
+              @click="approveOrder(selectedOrder)"
+              class="btn btn-warning text-white">
+              <i class="bi bi-check2-circle me-1"></i>Duyệt Đơn
+            </button>
+            <button
               v-if="selectedOrder.status === 'PENDING_QUOTE' && isAllReviewed(selectedOrder)"
               @click="submitQuoteFromModal()"
               class="btn btn-success">
@@ -482,19 +493,30 @@ const loadCompaniesForImport = async () => {
 const loadOrders = async (page = 0) => {
   isLoading.value = true;
   try {
-    const params = { page, size: 15, orderType: 'CUSTOM_MANUFACTURING' };
-    if (searchKeyword.value?.trim()) params.keyword = searchKeyword.value.trim();
-    if (filterStatus.value) params.status = filterStatus.value;
-    if (dateFrom.value) params.dateFrom = dateFrom.value;
-    if (dateTo.value) params.dateTo = dateTo.value;
+    if (filterStatus.value === 'PENDING_APPROVAL') {
+      const params = { page, size: 15 };
+      if (searchKeyword.value?.trim()) params.keyword = searchKeyword.value.trim();
 
-    const response = await apiClient.get('/orders', {
-      params,
-    });
-    const data = response.data.content || response.data;
-    orders.value = (Array.isArray(data) ? data : []).map(o => ({ ...o, selected: false }));
-    currentPage.value = response.data.number || 0;
-    totalPages.value = response.data.totalPages || 1;
+      const response = await apiClient.get('/orders/imports/pending', { params });
+      const data = response.data.content || response.data;
+      orders.value = (Array.isArray(data) ? data : []).map(o => ({ ...o, selected: false, isTempImport: true }));
+      currentPage.value = response.data.number || 0;
+      totalPages.value = response.data.totalPages || 1;
+    } else {
+      const params = { page, size: 15, orderType: 'CUSTOM_MANUFACTURING' };
+      if (searchKeyword.value?.trim()) params.keyword = searchKeyword.value.trim();
+      if (filterStatus.value) params.status = filterStatus.value;
+      if (dateFrom.value) params.dateFrom = dateFrom.value;
+      if (dateTo.value) params.dateTo = dateTo.value;
+
+      const response = await apiClient.get('/orders', {
+        params,
+      });
+      const data = response.data.content || response.data;
+      orders.value = (Array.isArray(data) ? data : []).map(o => ({ ...o, selected: false, isTempImport: false }));
+      currentPage.value = response.data.number || 0;
+      totalPages.value = response.data.totalPages || 1;
+    }
 
     if (expandedOrderId.value && !orders.value.some(o => o.id === expandedOrderId.value)) {
       expandedOrderId.value = null;
@@ -601,7 +623,7 @@ const submitAdminImport = async (companyId, file) => {
     expandedOrderId.value = null;
     orderDetail.value = null;
     await loadOrders(0);
-    Swal.fire('Thành công', 'Import Excel thành công', 'success');
+    Swal.fire('Thành công', 'Import vào bảng tạm thành công. Đơn đang chờ duyệt.', 'success');
   } catch (error) {
     console.error('Failed to import order by admin:', error);
     Swal.fire('Lỗi', error.response?.data?.error || 'Không thể import đơn hàng', 'error');
@@ -621,7 +643,9 @@ const toggleDetails = async (id) => {
   expandedOrderId.value = id;
   detailLoading.value = true;
   try {
-    const response = await apiClient.get(`/orders/${id}`);
+    const row = orders.value.find(o => o.id === id);
+    const detailUrl = row?.isTempImport ? `/orders/imports/${id}` : `/orders/${id}`;
+    const response = await apiClient.get(detailUrl);
     orderDetail.value = response.data;
 
     if (!canSelectShipmentItems(response.data)) {
@@ -726,8 +750,9 @@ const calculatedTotal = computed(() => {
 
 const openReviewModal = async (order) => {
   try {
-    const response = await apiClient.get(`/orders/${order.id}`);
-    selectedOrder.value = response.data;
+    const detailUrl = order?.isTempImport ? `/orders/imports/${order.id}` : `/orders/${order.id}`;
+    const response = await apiClient.get(detailUrl);
+    selectedOrder.value = { ...response.data, isTempImport: !!order?.isTempImport };
     initializeReviewDrafts(selectedOrder.value.items || []);
     await preloadDefaultPricesForDrafts(selectedOrder.value.items || []);
     await nextTick();
@@ -865,6 +890,39 @@ const sendReview = async (itemId, reviewStatus, unitPrice, adminNote) => {
   } catch (error) {
     console.error('Failed to review item:', error);
     Swal.fire('Lỗi', error.response?.data?.error || 'Không thể review sản phẩm', 'error');
+  }
+};
+
+const approveOrder = async (order) => {
+  const result = await Swal.fire({
+    title: 'Duyệt đơn hàng?',
+    html: `
+      <p>Đơn <strong>${order.orderNumber}</strong> sẽ chuyển sang <strong>Chờ báo giá</strong>.</p>
+      <p class="text-muted small">Sau khi duyệt, admin có thể review item và gửi báo giá.</p>
+    `,
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: '✅ Duyệt đơn',
+    confirmButtonColor: '#f59e0b',
+    cancelButtonText: 'Hủy',
+  });
+
+  if (!result.isConfirmed) return;
+
+  try {
+    if (order?.isTempImport) {
+      await apiClient.post(`/orders/imports/${order.id}/approve`);
+    } else {
+      await apiClient.put(`/orders/${order.id}/status`, null, {
+        params: { status: 'PENDING_QUOTE' },
+      });
+    }
+    Swal.fire('Thành công', 'Đơn hàng đã chuyển sang trạng thái Chờ báo giá', 'success');
+    loadOrders(currentPage.value);
+    bsModal?.hide();
+  } catch (error) {
+    console.error('Failed to approve order:', error);
+    Swal.fire('Lỗi', error.response?.data?.error || 'Không thể duyệt đơn hàng', 'error');
   }
 };
 
@@ -1011,12 +1069,28 @@ const getItemRowClass = (item) => {
 };
 
 const getStatusText = (status) => {
-  const map = { PENDING_QUOTE: 'Chờ báo giá', AWAITING_PAYMENT: 'Chờ thanh toán', DEPOSITED: 'Đã cọc 💳', PROCESSING: 'Đang gia công', COMPLETED: 'Hoàn thành', CANCELLED: 'Đã hủy' };
+  const map = {
+    PENDING_APPROVAL: 'Chờ duyệt đơn',
+    PENDING_QUOTE: 'Chờ báo giá',
+    AWAITING_PAYMENT: 'Chờ thanh toán',
+    DEPOSITED: 'Đã cọc 💳',
+    PROCESSING: 'Đang gia công',
+    COMPLETED: 'Hoàn thành',
+    CANCELLED: 'Đã hủy',
+  };
   return map[status] || status;
 };
 
 const getStatusBadgeClass = (status) => {
-  const map = { PENDING_QUOTE: 'badge bg-warning text-dark', AWAITING_PAYMENT: 'badge bg-info text-dark', DEPOSITED: 'badge bg-success', PROCESSING: 'badge bg-primary', COMPLETED: 'badge bg-success', CANCELLED: 'badge bg-danger' };
+  const map = {
+    PENDING_APPROVAL: 'badge bg-warning text-dark',
+    PENDING_QUOTE: 'badge bg-warning text-dark',
+    AWAITING_PAYMENT: 'badge bg-info text-dark',
+    DEPOSITED: 'badge bg-success',
+    PROCESSING: 'badge bg-primary',
+    COMPLETED: 'badge bg-success',
+    CANCELLED: 'badge bg-danger',
+  };
   return map[status] || 'badge bg-secondary';
 };
 
