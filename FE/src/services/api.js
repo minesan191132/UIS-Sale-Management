@@ -280,6 +280,19 @@ export const contactAPI = {
   },
 };
 
+// ==================== ADMIN STATS API ====================
+
+export const statsAPI = {
+  getDashboard: async (period = 'THIS_MONTH') => {
+    const response = await apiClient.get('/admin/stats/dashboard', { params: { period } });
+    return response.data;
+  },
+  getMonthlyRevenue: async (year) => {
+    const response = await apiClient.get('/admin/stats/monthly-revenue', { params: { year } });
+    return response.data;
+  },
+};
+
 // ==================== ORDERS API ====================
 
 export const ordersAPI = {

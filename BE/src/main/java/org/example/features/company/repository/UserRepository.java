@@ -1,6 +1,7 @@
 package org.example.features.company.repository;
 
 import org.example.features.company.entity.User;
+import org.example.features.company.entity.UserRole;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -29,4 +30,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * Find all users in a company
      */
     List<User> findByCompanyId(Long companyId);
+
+    /**
+     * Count users by role (used for stats dashboard)
+     */
+    long countByRole(UserRole role);
 }
