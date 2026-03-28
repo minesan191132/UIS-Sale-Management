@@ -412,6 +412,7 @@ import Swal from 'sweetalert2'
 import apiClient from '../../services/api'
 import PaymentQR from '../customer/PaymentQR.vue'
 import { Modal } from 'bootstrap'
+import { getOrderStatusLabel } from '../../constants/orderStatus'
 
 const isLoading = ref(true)
 const isCancelling = ref(false)
@@ -492,31 +493,23 @@ const currentStatusIndex = computed(() => {
   return step ? step.index : -1
 })
 
+const readyMadeStatusLabelOverrides = {
+  AWAITING_DELIVERY: 'Chờ giao hàng ✔',
+  COMPLETED: 'Đã nhận hàng ✔',
+}
+
+const manufacturingStatusLabelOverrides = {
+  DEPOSITED: 'Đã cọc ✔',
+  AWAITING_REMAINING_PAYMENT: '⚠️ Chờ thanh toán đợt 2',
+}
+
 // ── Status label + badge helpers ──
 const statusText = (status, orderType) => {
   if (orderType === 'READY_MADE') {
-    const map = {
-      AWAITING_PAYMENT:  'Chờ thanh toán',
-      AWAITING_DELIVERY: 'Chờ giao hàng ✔',
-      SHIPPING:          'Đang giao hàng',
-      COMPLETED:         'Đã nhận hàng ✔',
-      CANCELLED:         'Đã hủy',
-    }
-    return map[status] || status
+    return getOrderStatusLabel(status, readyMadeStatusLabelOverrides)
   }
-  const map = {
-    PENDING_APPROVAL:           'Chờ duyệt đơn',
-    PENDING_QUOTE:              'Chờ báo giá',
-    AWAITING_PAYMENT:           'Chờ thanh toán',
-    DEPOSITED:                  'Đã cọc ✔',
-    PROCESSING:                 'Đang gia công',
-    AWAITING_REMAINING_PAYMENT: '⚠️ Chờ thanh toán đợt 2',
-    AWAITING_DELIVERY:          'Chờ giao hàng',
-    SHIPPING:                   'Đang giao hàng',
-    COMPLETED:                  'Hoàn thành',
-    CANCELLED:                  'Đã hủy',
-  }
-  return map[status] || status
+
+  return getOrderStatusLabel(status, manufacturingStatusLabelOverrides)
 }
 
 const statusBadgeClass = (status) => {

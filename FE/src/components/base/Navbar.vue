@@ -96,12 +96,26 @@
   
   <script setup>
   import { ref, onMounted } from 'vue';
-  import { getStoredUser, logout, isAuthenticated } from '../../services/api';
+  import { getStoredUser, logout, isAuthenticated, notificationsAPI } from '../../services/api';
   import { Dropdown } from 'bootstrap';
   import { cartItemCount } from '../../store/cart.js';
   
   const user = ref(null);
+  const unreadNotificationCount = ref(0);
   let dropdownInstance = null;
+
+  const loadUnreadNotificationCount = async () => {
+    if (!user.value || user.value.role !== 'CUSTOMER') {
+      unreadNotificationCount.value = 0;
+      return;
+    }
+    try {
+      const data = await notificationsAPI.getUnreadCount();
+      unreadNotificationCount.value = Number(data?.unreadCount || 0);
+    } catch (e) {
+      unreadNotificationCount.value = 0;
+    }
+  };
 
   const toggleDropdown = () => {
     const el = document.getElementById('userDropdown');
@@ -118,6 +132,7 @@
   onMounted(() => {
     if (isAuthenticated()) {
       user.value = getStoredUser();
+      loadUnreadNotificationCount();
     }
   });
   </script>

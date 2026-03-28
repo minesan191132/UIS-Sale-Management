@@ -60,6 +60,12 @@ public class Order {
     @Column(name = "paid_at")
     private LocalDateTime paidAt;
 
+    @Column(name = "shipped_at")
+    private LocalDateTime shippedAt;
+
+    @Column(name = "completed_at")
+    private LocalDateTime completedAt;
+
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 

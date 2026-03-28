@@ -26,6 +26,8 @@ public class OrderResponseDTO {
     private BigDecimal depositAmount;
     private String paymentQrUrl;
     private LocalDateTime paidAt;
+    private LocalDateTime shippedAt;
+    private LocalDateTime completedAt;
     private String notes;
     private LocalDate deliveryDate;
     private LocalDateTime createdAt;

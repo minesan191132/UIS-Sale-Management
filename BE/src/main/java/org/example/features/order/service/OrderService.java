@@ -25,6 +25,8 @@ import org.example.features.order.entity.OrderType;
 import org.example.features.order.repository.OrderImportBatchRepository;
 import org.example.features.order.repository.OrderItemRepository;
 import org.example.features.order.repository.OrderRepository;
+import org.example.features.notification.entity.NotificationType;
+import org.example.features.notification.service.UserNotificationService;
 import org.example.features.payment.service.PaymentService;
 import org.example.features.productadmin.AdminProductService;
 import org.example.features.warehouse.entity.DrawingMeta;
@@ -110,6 +112,7 @@ public class OrderService {
     private final QuotePricingService quotePricingService;
     private final DrawingMetaRepository drawingMetaRepository;
     private final AdminProductService adminProductService;
+    private final UserNotificationService userNotificationService;
 
     private static Map<String, List<String>> buildExcelHeaderAliases() {
         Map<String, List<String>> aliases = new LinkedHashMap<>();
@@ -240,6 +243,13 @@ public class OrderService {
         batch.setApprovedOrder(order);
         orderImportBatchRepository.save(batch);
 
+        userNotificationService.pushOrderNotification(
+            order,
+            NotificationType.ORDER,
+            "Đơn hàng đã được duyệt",
+            "Đơn " + order.getOrderNumber() + " đã được admin duyệt, đang chờ báo giá.",
+            "order-status-" + order.getId() + "-PENDING_QUOTE");
+
         log.info("Approved import batch {} -> order {}", batch.getImportCode(), order.getOrderNumber());
         return mapToDTO(order);
     }
@@ -352,6 +362,23 @@ public class OrderService {
                 .findFirst()
                 .orElseGet(this::generateOrderNumber);
 
+        Optional<Order> existingOrderOpt = orderRepository.findByOrderNumber(importCode);
+        if (existingOrderOpt.isPresent()) {
+            Order existingOrder = existingOrderOpt.get();
+            Long existingCompanyId = existingOrder.getCompany() != null ? existingOrder.getCompany().getId() : null;
+
+            if (existingCompanyId == null || !existingCompanyId.equals(company.getId())) {
+                throw new IllegalArgumentException("Mã đơn hàng đã tồn tại ở công ty khác: " + importCode);
+            }
+
+                if (!isAllowedStatusForReimport(existingOrder.getStatus())) {
+                throw new IllegalArgumentException(
+                    "Mã đơn hàng (VNN NO) đã tồn tại và đang ở trạng thái "
+                        + existingOrder.getStatus()
+                        + ". Chỉ cho phép import lại khi đơn đang CHỜ BÁO GIÁ, CHỜ DUYỆT hoặc ĐÃ HỦY.");
+            }
+        }
+
         OrderImportBatch batch = orderImportBatchRepository
                 .findByImportCodeAndCompanyIdAndStatus(importCode, company.getId(), ImportBatchStatus.PENDING_APPROVAL)
                 .orElseGet(OrderImportBatch::new);
@@ -404,8 +431,11 @@ public class OrderService {
                 throw new IllegalStateException("Mã đơn hàng đã tồn tại ở công ty khác: " + orderNumber);
             }
 
-            if (existingOrder.getStatus() != OrderStatus.PENDING_QUOTE) {
-                throw new IllegalStateException("Chỉ có thể cập nhật đơn hiện có khi đang ở trạng thái CHỜ BÁO GIÁ");
+            if (!isAllowedStatusForReimport(existingOrder.getStatus())) {
+                throw new IllegalStateException(
+                        "Không thể duyệt import cho mã đơn " + orderNumber
+                                + " vì đơn hiện tại đang ở trạng thái " + existingOrder.getStatus()
+                                + ". Chỉ cho phép khi đang CHỜ BÁO GIÁ, CHỜ DUYỆT hoặc ĐÃ HỦY.");
             }
 
             existingOrder.getItems().clear();
@@ -891,6 +921,9 @@ public class OrderService {
 
         order.setStatus(OrderStatus.CANCELLED);
         Order saved = orderRepository.save(order);
+
+        notifyOrderStatusTransition(saved, currentStatus, OrderStatus.CANCELLED);
+
         log.info("Order {} cancelled by user {}", saved.getOrderNumber(), requestingUserId);
         return mapToDTO(saved);
     }
@@ -998,6 +1031,9 @@ public class OrderService {
         }
 
         Order savedOrder = orderRepository.save(order);
+
+        notifyOrderStatusTransition(savedOrder, OrderStatus.PENDING_QUOTE, OrderStatus.AWAITING_PAYMENT);
+
         log.info("Quote set for order: {} — Total: {}", savedOrder.getOrderNumber(), totalPrice);
 
         return mapToDTO(savedOrder);
@@ -1021,10 +1057,14 @@ public class OrderService {
                             + order.getStatus());
         }
 
+        OrderStatus previousStatus = order.getStatus();
         order.setStatus(OrderStatus.PROCESSING);
         order.setPaidAt(java.time.LocalDateTime.now());
 
         Order savedOrder = orderRepository.save(order);
+
+        notifyOrderStatusTransition(savedOrder, previousStatus, OrderStatus.PROCESSING);
+
         log.info("Payment confirmed / Processing started for order: {}", savedOrder.getOrderNumber());
 
         /*
@@ -1072,6 +1112,9 @@ public class OrderService {
         order.setStatus(OrderStatus.AWAITING_REMAINING_PAYMENT);
 
         Order saved = orderRepository.save(order);
+
+        notifyOrderStatusTransition(saved, OrderStatus.PROCESSING, OrderStatus.AWAITING_REMAINING_PAYMENT);
+
         log.info("Order {} → AWAITING_REMAINING_PAYMENT, remaining={}", saved.getOrderNumber(), remaining);
         return mapToDTO(saved);
     }
@@ -1095,10 +1138,74 @@ public class OrderService {
         }
 
         order.setStatus(newStatus);
+        if (newStatus == OrderStatus.SHIPPING) {
+            order.setShippedAt(LocalDateTime.now());
+            order.setCompletedAt(null);
+        } else if (newStatus == OrderStatus.COMPLETED) {
+            if (order.getShippedAt() == null) {
+                order.setShippedAt(LocalDateTime.now());
+            }
+            order.setCompletedAt(LocalDateTime.now());
+        }
         Order savedOrder = orderRepository.save(order);
+
+        notifyOrderStatusTransition(savedOrder, currentStatus, newStatus);
 
         log.info("Order {} status updated to {}", savedOrder.getOrderNumber(), newStatus);
         return mapToDTO(savedOrder);
+    }
+
+    private void notifyOrderStatusTransition(Order order, OrderStatus from, OrderStatus to) {
+        if (order == null || from == null || to == null || from == to) {
+            return;
+        }
+
+        String title;
+        String body;
+        switch (to) {
+            case PENDING_QUOTE -> {
+                title = "Đơn hàng đã được duyệt";
+                body = "Đơn " + order.getOrderNumber() + " đã được duyệt và đang chờ báo giá.";
+            }
+            case AWAITING_PAYMENT -> {
+                title = "Đã có báo giá cho đơn hàng";
+                body = "Đơn " + order.getOrderNumber() + " đã có báo giá. Vui lòng thanh toán tiền cọc để bắt đầu xử lý.";
+            }
+            case DEPOSITED -> {
+                title = "Đã nhận tiền cọc";
+                body = "Cảm ơn bạn đã cọc trước cho đơn " + order.getOrderNumber() + ". Đơn hàng sẽ sớm được đưa vào xử lý.";
+            }
+            case PROCESSING -> {
+                title = "Đơn hàng đang được xử lý";
+                body = "Đơn " + order.getOrderNumber() + " đang trong quá trình gia công/xử lý.";
+            }
+            case AWAITING_REMAINING_PAYMENT -> {
+                title = "Vui lòng thanh toán đợt 2";
+                body = "Đơn " + order.getOrderNumber() + " đã hoàn tất gia công. Vui lòng thanh toán phần còn lại để giao hàng.";
+            }
+            case AWAITING_DELIVERY -> {
+                title = "Đơn hàng chờ giao";
+                body = "Đơn " + order.getOrderNumber() + " đã thanh toán đầy đủ và đang chờ giao hàng.";
+            }
+            case SHIPPING -> {
+                title = "Đơn hàng đang giao";
+                body = "Đơn " + order.getOrderNumber() + " đã được bàn giao cho đơn vị vận chuyển.";
+            }
+            case COMPLETED -> {
+                title = "Đơn hàng đã hoàn thành";
+                body = "Đơn " + order.getOrderNumber() + " đã được xác nhận hoàn thành. Cảm ơn bạn đã tin tưởng.";
+            }
+            case CANCELLED -> {
+                title = "Đơn hàng đã hủy";
+                body = "Đơn " + order.getOrderNumber() + " đã được hủy.";
+            }
+            default -> {
+                return;
+            }
+        }
+
+        String notificationKey = "order-status-" + order.getId() + "-" + to.name();
+        userNotificationService.pushOrderNotification(order, NotificationType.ORDER, title, body, notificationKey);
     }
 
     private boolean isValidTransition(OrderStatus from, OrderStatus to) {
@@ -1117,6 +1224,12 @@ public class OrderService {
             case COMPLETED, CANCELLED -> EnumSet.noneOf(OrderStatus.class);
         };
         return allowedTargets.contains(to);
+    }
+
+    private boolean isAllowedStatusForReimport(OrderStatus status) {
+        return status == OrderStatus.PENDING_QUOTE
+                || status == OrderStatus.PENDING_APPROVAL
+                || status == OrderStatus.CANCELLED;
     }
 
     /**
@@ -1163,7 +1276,12 @@ public class OrderService {
         }
 
         order.setStatus(OrderStatus.SHIPPING);
+        order.setShippedAt(LocalDateTime.now());
+        order.setCompletedAt(null);
         Order saved = orderRepository.save(order);
+
+        notifyOrderStatusTransition(saved, OrderStatus.AWAITING_DELIVERY, OrderStatus.SHIPPING);
+
         log.info("Order {} is now SHIPPING", saved.getOrderNumber());
         return mapToDTO(saved);
     }
@@ -1176,13 +1294,22 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy đơn hàng"));
 
-        if (order.getStatus() != OrderStatus.SHIPPING && order.getStatus() != OrderStatus.AWAITING_DELIVERY) {
+        OrderStatus currentStatus = order.getStatus();
+
+        if (currentStatus != OrderStatus.SHIPPING && currentStatus != OrderStatus.AWAITING_DELIVERY) {
             throw new IllegalStateException(
                     "Chỉ có thể hoàn thành khi đơn đang giao hoặc chờ giao. Trạng thái hiện tại: " + order.getStatus());
         }
 
         order.setStatus(OrderStatus.COMPLETED);
+        if (order.getShippedAt() == null && currentStatus == OrderStatus.AWAITING_DELIVERY) {
+            order.setShippedAt(LocalDateTime.now());
+        }
+        order.setCompletedAt(LocalDateTime.now());
         Order saved = orderRepository.save(order);
+
+        notifyOrderStatusTransition(saved, currentStatus, OrderStatus.COMPLETED);
+
         log.info("Order {} COMPLETED", saved.getOrderNumber());
         return mapToDTO(saved);
     }
@@ -1243,6 +1370,8 @@ public class OrderService {
         dto.setDepositAmount(order.getDepositAmount());
         dto.setPaymentQrUrl(order.getPaymentQrUrl());
         dto.setPaidAt(order.getPaidAt());
+        dto.setShippedAt(order.getShippedAt());
+        dto.setCompletedAt(order.getCompletedAt());
         dto.setNotes(order.getNotes());
         dto.setDeliveryDate(order.getDeliveryDate());
         dto.setCreatedAt(order.getCreatedAt());

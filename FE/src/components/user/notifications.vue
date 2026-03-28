@@ -107,6 +107,11 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { notificationsAPI } from '../../services/api'
+
+const emit = defineEmits(['unread-count-changed'])
+const router = useRouter()
 
 const isLoading = ref(true)
 const activeTab = ref('all')
@@ -119,49 +124,6 @@ const tabs = [
 
 const notifications = ref([])
 
-const mockNotifications = [
-  {
-    id: 1,
-    type: 'order',
-    title: 'Đơn hàng #DH-2025-001 đã được báo giá',
-    body: 'Admin đã xem xét và báo giá cho đơn hàng của bạn. Vui lòng xem chi tiết và tiến hành thanh toán cọc.',
-    time: '2 giờ trước',
-    read: false,
-  },
-  {
-    id: 2,
-    type: 'payment',
-    title: 'Xác nhận thanh toán cọc thành công',
-    body: 'Hệ thống đã ghi nhận khoản đặt cọc 60% cho đơn hàng #DH-2025-001. Đơn hàng của bạn đang được xử lý.',
-    time: '1 ngày trước',
-    read: false,
-  },
-  {
-    id: 3,
-    type: 'order',
-    title: 'Đơn hàng #DH-2025-002 đang được gia công',
-    body: 'Đơn hàng của bạn đã chuyển sang trạng thái gia công. Thời gian dự kiến hoàn thành: 7-10 ngày làm việc.',
-    time: '3 ngày trước',
-    read: true,
-  },
-  {
-    id: 4,
-    type: 'system',
-    title: 'Cập nhật thông tin tài khoản',
-    body: 'Hồ sơ tài khoản của bạn đã được cập nhật thành công.',
-    time: '1 tuần trước',
-    read: true,
-  },
-  {
-    id: 5,
-    type: 'order',
-    title: 'Đơn hàng #DH-2025-003 hoàn thành',
-    body: 'Đơn hàng của bạn đã hoàn tất gia công và sẵn sàng bàn giao. Vui lòng liên hệ để sắp xếp lịch nhận hàng.',
-    time: '2 tuần trước',
-    read: true,
-  },
-]
-
 const unreadCount = computed(() => notifications.value.filter(n => !n.read).length)
 
 const filteredNotifications = computed(() => {
@@ -170,20 +132,92 @@ const filteredNotifications = computed(() => {
   return notifications.value
 })
 
-const markRead = (notif) => {
-  notif.read = true
+const normalizeType = (type) => {
+  if (!type) return 'system'
+  const value = String(type).toLowerCase()
+  if (value === 'order') return 'order'
+  if (value === 'payment') return 'payment'
+  return 'system'
 }
 
-const markAllRead = () => {
-  notifications.value.forEach(n => (n.read = true))
+const formatRelativeTime = (dateTime) => {
+  if (!dateTime) return 'Vừa xong'
+  const date = new Date(dateTime)
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffMinutes = Math.max(1, Math.floor(diffMs / (1000 * 60)))
+
+  if (diffMinutes < 60) return `${diffMinutes} phút trước`
+  const diffHours = Math.floor(diffMinutes / 60)
+  if (diffHours < 24) return `${diffHours} giờ trước`
+  const diffDays = Math.floor(diffHours / 24)
+  if (diffDays < 7) return `${diffDays} ngày trước`
+  const diffWeeks = Math.floor(diffDays / 7)
+  if (diffWeeks < 5) return `${diffWeeks} tuần trước`
+  return date.toLocaleDateString('vi-VN')
 }
 
-onMounted(() => {
-  setTimeout(() => {
-    notifications.value = mockNotifications
+const mapNotification = (item) => {
+  return {
+    id: item.id,
+    orderId: item.orderId,
+    type: normalizeType(item.type),
+    title: item.title,
+    body: item.body,
+    time: formatRelativeTime(item.createdAt),
+    read: !!item.read,
+    createdAt: item.createdAt,
+  }
+}
+
+const loadNotifications = async () => {
+  isLoading.value = true
+  try {
+    const data = await notificationsAPI.getMy()
+    const rows = Array.isArray(data?.notifications) ? data.notifications : []
+    notifications.value = rows.map(mapNotification)
+      .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+    emit('unread-count-changed', Number(data?.unreadCount || 0))
+  } catch (e) {
+    console.error('Failed to load notifications:', e)
+    notifications.value = []
+    emit('unread-count-changed', 0)
+  } finally {
     isLoading.value = false
-  }, 800)
-})
+  }
+}
+
+const markRead = async (notif) => {
+  if (!notif) return
+  try {
+    if (!notif.read) {
+      await notificationsAPI.markRead(notif.id)
+      notif.read = true
+      emit('unread-count-changed', unreadCount.value)
+    }
+
+    if (notif.orderId) {
+      await router.push({
+        path: '/my-orders',
+        query: { orderId: String(notif.orderId) },
+      })
+    }
+  } catch (e) {
+    console.error('Failed to mark notification as read:', e)
+  }
+}
+
+const markAllRead = async () => {
+  try {
+    await notificationsAPI.markAllRead()
+    notifications.value.forEach(n => (n.read = true))
+    emit('unread-count-changed', 0)
+  } catch (e) {
+    console.error('Failed to mark all notifications as read:', e)
+  }
+}
+
+onMounted(loadNotifications)
 </script>
 
 <style scoped>
