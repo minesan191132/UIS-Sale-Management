@@ -135,6 +135,122 @@ public class OrderController {
     }
 
     /**
+     * Admin: Get pending import batches (staging table)
+     * GET /api/orders/imports/pending
+     */
+    @GetMapping("/imports/pending")
+    public ResponseEntity<?> getPendingImportBatches(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "15") int size,
+            @RequestParam(required = false) String keyword,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        try {
+            if (!"ADMIN".equals(userDetails.getRole())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Unauthorized"));
+            }
+
+            Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+            Page<OrderResponseDTO> batches = orderService.getPendingImportBatches(pageable, keyword);
+            return ResponseEntity.ok(batches);
+        } catch (Exception e) {
+            log.error("Error fetching pending import batches", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to fetch pending import batches"));
+        }
+    }
+
+    /**
+     * Customer: Get my pending import batches
+     * GET /api/orders/imports/my
+     */
+    @GetMapping("/imports/my")
+    public ResponseEntity<?> getMyPendingImportBatches(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        try {
+            List<OrderResponseDTO> batches = orderService.getMyPendingImportBatches(userDetails.getUserId());
+            return ResponseEntity.ok(batches);
+        } catch (Exception e) {
+            log.error("Error fetching my pending import batches", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to fetch pending imports"));
+        }
+    }
+
+    /**
+     * Get import batch detail by ID (admin or owner)
+     * GET /api/orders/imports/{id}
+     */
+    @GetMapping("/imports/{id}")
+    public ResponseEntity<?> getImportBatchById(
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        try {
+            boolean isAdmin = "ADMIN".equals(userDetails.getRole());
+            OrderResponseDTO batch = orderService.getImportBatchById(id, userDetails.getUserId(), isAdmin);
+            return ResponseEntity.ok(batch);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error fetching import batch", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to fetch import batch"));
+        }
+    }
+
+    /**
+     * Admin: Approve import batch to create/update order in main table
+     * POST /api/orders/imports/{id}/approve
+     */
+    @PostMapping("/imports/{id}/approve")
+    public ResponseEntity<?> approveImportBatch(
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        try {
+            if (!"ADMIN".equals(userDetails.getRole())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Unauthorized"));
+            }
+
+            OrderResponseDTO order = orderService.approveImportBatch(id);
+            return ResponseEntity.ok(order);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error approving import batch", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to approve import batch"));
+        }
+    }
+
+    /**
+     * Customer/Admin: Cancel pending import batch before approval
+     * PUT /api/orders/imports/{id}/cancel
+     */
+    @PutMapping("/imports/{id}/cancel")
+    public ResponseEntity<?> cancelImportBatch(
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        try {
+            boolean isAdmin = "ADMIN".equals(userDetails.getRole());
+            orderService.cancelImportBatch(id, userDetails.getUserId(), isAdmin);
+            return ResponseEntity.ok(Map.of("message", "Đã hủy đơn import chờ duyệt"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error cancelling import batch", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to cancel import batch"));
+        }
+    }
+
+    /**
      * Customer: Get my orders
      * GET /api/orders/my
      */

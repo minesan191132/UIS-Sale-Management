@@ -14,10 +14,15 @@ import org.example.features.order.dto.OrderItemDTO;
 import org.example.features.order.dto.OrderResponseDTO;
 import org.example.features.order.dto.QuoteRequestDTO;
 import org.example.features.order.entity.ItemReviewStatus;
+import org.example.features.order.entity.ImportBatchStatus;
+import org.example.features.order.entity.ImportSourceType;
 import org.example.features.order.entity.Order;
+import org.example.features.order.entity.OrderImportBatch;
+import org.example.features.order.entity.OrderImportItem;
 import org.example.features.order.entity.OrderItem;
 import org.example.features.order.entity.OrderStatus;
 import org.example.features.order.entity.OrderType;
+import org.example.features.order.repository.OrderImportBatchRepository;
 import org.example.features.order.repository.OrderItemRepository;
 import org.example.features.order.repository.OrderRepository;
 import org.example.features.payment.service.PaymentService;
@@ -97,6 +102,7 @@ public class OrderService {
         FIELD_DELIVERY_DATE, "Delivery Date");
 
     private final OrderRepository orderRepository;
+    private final OrderImportBatchRepository orderImportBatchRepository;
     private final OrderItemRepository orderItemRepository;
     private final UserRepository userRepository;
     private final CompanyRepository companyRepository;
@@ -142,10 +148,15 @@ public class OrderService {
                 throw new IllegalArgumentException("No valid items found in Excel file");
             }
 
-            Order savedOrder = createOrUpdateOrderFromParsedItems(items, user, company, true, false);
-            log.info("Order import completed successfully: {}", savedOrder.getOrderNumber());
+            OrderImportBatch batch = createOrUpdateImportBatchFromParsedItems(
+                    items,
+                    user,
+                    company,
+                    ImportSourceType.CUSTOMER,
+                    file.getOriginalFilename());
+            log.info("Order import staging completed successfully: {}", batch.getImportCode());
 
-            return mapToDTO(savedOrder);
+            return mapImportBatchToDTO(batch);
 
         } catch (IOException e) {
             log.error("Error reading Excel file", e);
@@ -176,13 +187,79 @@ public class OrderService {
                 throw new IllegalArgumentException("No valid items found in Excel file");
             }
 
-            Order savedOrder = createOrUpdateOrderFromParsedItems(items, companyUser, company, false, true);
-            log.info("Admin imported order successfully: {}", savedOrder.getOrderNumber());
-            return mapToDTO(savedOrder);
+            OrderImportBatch batch = createOrUpdateImportBatchFromParsedItems(
+                    items,
+                    companyUser,
+                    company,
+                    ImportSourceType.ADMIN,
+                    file.getOriginalFilename());
+            log.info("Admin imported order to staging successfully: {}", batch.getImportCode());
+            return mapImportBatchToDTO(batch);
         } catch (IOException e) {
             log.error("Error reading Excel file", e);
             throw new RuntimeException("Failed to read Excel file: " + e.getMessage());
         }
+    }
+
+    public Page<OrderResponseDTO> getPendingImportBatches(Pageable pageable, String keyword) {
+        return orderImportBatchRepository
+                .searchByStatus(ImportBatchStatus.PENDING_APPROVAL, keyword, pageable)
+                .map(this::mapImportBatchToDTO);
+    }
+
+    public List<OrderResponseDTO> getMyPendingImportBatches(Long userId) {
+        return orderImportBatchRepository
+                .findByUserIdAndStatusOrderByCreatedAtDesc(userId, ImportBatchStatus.PENDING_APPROVAL)
+                .stream()
+                .map(this::mapImportBatchToDTO)
+                .toList();
+    }
+
+    public OrderResponseDTO getImportBatchById(Long batchId, Long requestingUserId, boolean isAdmin) {
+        OrderImportBatch batch = orderImportBatchRepository.findById(batchId)
+                .orElseThrow(() -> new IllegalArgumentException("Import batch not found"));
+
+        if (!isAdmin && (batch.getUser() == null || !batch.getUser().getId().equals(requestingUserId))) {
+            throw new SecurityException("Unauthorized access to import batch");
+        }
+
+        return mapImportBatchToDTO(batch);
+    }
+
+    @Transactional
+    public OrderResponseDTO approveImportBatch(Long batchId) {
+        OrderImportBatch batch = orderImportBatchRepository.findById(batchId)
+                .orElseThrow(() -> new IllegalArgumentException("Import batch not found"));
+
+        if (batch.getStatus() != ImportBatchStatus.PENDING_APPROVAL) {
+            throw new IllegalStateException("Chỉ có thể duyệt batch đang ở trạng thái CHỜ DUYỆT");
+        }
+
+        Order order = createOrUpdateOrderFromApprovedBatch(batch);
+        batch.setStatus(ImportBatchStatus.APPROVED);
+        batch.setApprovedOrder(order);
+        orderImportBatchRepository.save(batch);
+
+        log.info("Approved import batch {} -> order {}", batch.getImportCode(), order.getOrderNumber());
+        return mapToDTO(order);
+    }
+
+    @Transactional
+    public void cancelImportBatch(Long batchId, Long requestingUserId, boolean isAdmin) {
+        OrderImportBatch batch = orderImportBatchRepository.findById(batchId)
+                .orElseThrow(() -> new IllegalArgumentException("Import batch not found"));
+
+        if (!isAdmin && (batch.getUser() == null || !batch.getUser().getId().equals(requestingUserId))) {
+            throw new SecurityException("Unauthorized access to import batch");
+        }
+
+        if (batch.getStatus() != ImportBatchStatus.PENDING_APPROVAL) {
+            throw new IllegalStateException("Chỉ có thể hủy import khi đang ở trạng thái CHỜ DUYỆT");
+        }
+
+        batch.setStatus(ImportBatchStatus.REJECTED);
+        orderImportBatchRepository.save(batch);
+        log.info("Import batch {} cancelled by user {}", batch.getImportCode(), requestingUserId);
     }
 
     /**
@@ -263,66 +340,37 @@ public class OrderService {
         return mapToDTO(saved);
     }
 
-    private Order createOrUpdateOrderFromParsedItems(
+    private OrderImportBatch createOrUpdateImportBatchFromParsedItems(
             List<OrderItemDTO> items,
             User owner,
             Company company,
-            boolean allowCustomerUpdatePendingQuote,
-            boolean replaceIfDuplicateVnn) {
-        String vnnNo = items.stream()
+            ImportSourceType sourceType,
+            String originalFilename) {
+        String importCode = items.stream()
                 .map(OrderItemDTO::getUnit)
                 .filter(u -> u != null && !u.isBlank())
                 .findFirst()
-                .orElse(null);
+                .orElseGet(this::generateOrderNumber);
 
-        Order order;
-        if (vnnNo != null && !vnnNo.isBlank()) {
-            var existing = orderRepository.findByOrderNumber(vnnNo);
-            if (existing.isPresent()) {
-                Order existingOrder = existing.get();
+        OrderImportBatch batch = orderImportBatchRepository
+                .findByImportCodeAndCompanyIdAndStatus(importCode, company.getId(), ImportBatchStatus.PENDING_APPROVAL)
+                .orElseGet(OrderImportBatch::new);
 
-                if (allowCustomerUpdatePendingQuote) {
-                    Long existingCompanyId = existingOrder.getCompany() != null ? existingOrder.getCompany().getId() : null;
-                    if (existingCompanyId == null || !existingCompanyId.equals(company.getId())) {
-                        throw new IllegalArgumentException("Không có quyền cập nhật đơn hàng này");
-                    }
-                    if (existingOrder.getStatus() != OrderStatus.PENDING_QUOTE) {
-                        throw new IllegalArgumentException(
-                                "Chỉ có thể import cập nhật khi đơn hàng đang ở trạng thái CHỜ BÁO GIÁ");
-                    }
-
-                    existingOrder.getItems().clear();
-                    order = existingOrder;
-                    log.info("Updated existing pending-quote order by VNN_NO: {}", vnnNo);
-                } else if (replaceIfDuplicateVnn) {
-                    orderRepository.delete(existingOrder);
-                    orderRepository.flush();
-                    order = new Order();
-                    log.info("Replaced existing order by VNN_NO: {}", vnnNo);
-                } else {
-                    throw new IllegalArgumentException("Mã đơn hàng (VNN NO) đã tồn tại: " + vnnNo);
-                }
-            } else {
-                order = new Order();
-            }
-            order.setOrderNumber(vnnNo);
-        } else {
-            order = new Order();
-            order.setOrderNumber(generateOrderNumber());
+        if (batch.getId() != null) {
+            batch.getItems().clear();
+            log.info("Updated existing pending import batch by VNN_NO: {}", importCode);
         }
 
-        order.setUser(owner);
-        order.setCompany(company);
-        order.setStatus(OrderStatus.PENDING_QUOTE);
-        order.setOrderType(OrderType.CUSTOM_MANUFACTURING);
-        order.setTotalPrice(null);
-        order.setDepositAmount(null);
-        order.setPaymentQrUrl(null);
-        order.setPaidAt(null);
-        order.setNotes(null);
+        batch.setImportCode(importCode);
+        batch.setUser(owner);
+        batch.setCompany(company);
+        batch.setStatus(ImportBatchStatus.PENDING_APPROVAL);
+        batch.setSourceType(sourceType);
+        batch.setOriginalFilename(originalFilename);
+        batch.setApprovedOrder(null);
 
         for (OrderItemDTO itemDTO : items) {
-            OrderItem item = new OrderItem();
+            OrderImportItem item = new OrderImportItem();
             item.setItemCode(itemDTO.getItemCode());
             item.setDrawingNumber(itemDTO.getDrawingNumber());
             item.setItemName(itemDTO.getItemName());
@@ -337,6 +385,59 @@ public class OrderService {
                         item::setDeliveryDate,
                         () -> log.warn("Cannot parse delivery date: {}", itemDTO.getDeliveryDate()));
             }
+
+            batch.addItem(item);
+        }
+
+        return orderImportBatchRepository.save(batch);
+    }
+
+    private Order createOrUpdateOrderFromApprovedBatch(OrderImportBatch batch) {
+        String orderNumber = batch.getImportCode();
+
+        Order order;
+        Optional<Order> existing = orderRepository.findByOrderNumber(orderNumber);
+        if (existing.isPresent()) {
+            Order existingOrder = existing.get();
+            Long existingCompanyId = existingOrder.getCompany() != null ? existingOrder.getCompany().getId() : null;
+            if (existingCompanyId == null || !existingCompanyId.equals(batch.getCompany().getId())) {
+                throw new IllegalStateException("Mã đơn hàng đã tồn tại ở công ty khác: " + orderNumber);
+            }
+
+            if (existingOrder.getStatus() != OrderStatus.PENDING_QUOTE) {
+                throw new IllegalStateException("Chỉ có thể cập nhật đơn hiện có khi đang ở trạng thái CHỜ BÁO GIÁ");
+            }
+
+            existingOrder.getItems().clear();
+            order = existingOrder;
+            log.info("Replace items for existing order {} from approved import batch", orderNumber);
+        } else {
+            order = new Order();
+            order.setOrderNumber(orderNumber);
+        }
+
+        order.setUser(batch.getUser());
+        order.setCompany(batch.getCompany());
+        order.setStatus(OrderStatus.PENDING_QUOTE);
+        order.setOrderType(OrderType.CUSTOM_MANUFACTURING);
+        order.setTotalPrice(null);
+        order.setDepositAmount(null);
+        order.setPaymentQrUrl(null);
+        order.setPaidAt(null);
+        order.setNotes(null);
+
+        for (OrderImportItem importedItem : batch.getItems()) {
+            OrderItem item = new OrderItem();
+            item.setItemCode(importedItem.getItemCode());
+            item.setDrawingNumber(importedItem.getDrawingNumber());
+            item.setItemName(importedItem.getItemName());
+            item.setSpecification(importedItem.getSpecification());
+            item.setMaterialType(importedItem.getMaterialType());
+            item.setQuantity(importedItem.getQuantity());
+            item.setUnit(importedItem.getUnit());
+            item.setNotes(importedItem.getNotes());
+            item.setDeliveryDate(importedItem.getDeliveryDate());
+            item.setReviewStatus(ItemReviewStatus.PENDING_REVIEW);
             order.addItem(item);
         }
 
@@ -768,7 +869,7 @@ public class OrderService {
     }
 
     /**
-     * User: Cancel a manufacturing order (only PENDING_QUOTE or AWAITING_PAYMENT)
+     * User: Cancel order before deposit is paid
      */
     @Transactional
     public OrderResponseDTO cancelOrder(Long orderId, Long requestingUserId) {
@@ -779,14 +880,13 @@ public class OrderService {
             throw new SecurityException("Unauthorized access to order");
         }
 
-        if (order.getOrderType() != OrderType.CUSTOM_MANUFACTURING) {
-            throw new IllegalStateException("Chỉ có thể hủy đơn hàng gia công");
-        }
-
         OrderStatus currentStatus = order.getStatus();
-        if (currentStatus != OrderStatus.PENDING_QUOTE && currentStatus != OrderStatus.AWAITING_PAYMENT) {
+        if (currentStatus != OrderStatus.PENDING_APPROVAL
+                && currentStatus != OrderStatus.PENDING_QUOTE
+                && currentStatus != OrderStatus.AWAITING_PAYMENT) {
             throw new IllegalStateException(
-                    "Chỉ có thể hủy đơn khi đang ở trạng thái Chờ báo giá hoặc Chờ thanh toán. Trạng thái hiện tại: " + currentStatus);
+                    "Chỉ có thể hủy đơn trước khi cọc (Chờ duyệt, Chờ báo giá hoặc Chờ thanh toán). Trạng thái hiện tại: "
+                            + currentStatus);
         }
 
         order.setStatus(OrderStatus.CANCELLED);
@@ -1003,6 +1103,7 @@ public class OrderService {
 
     private boolean isValidTransition(OrderStatus from, OrderStatus to) {
         Set<OrderStatus> allowedTargets = switch (from) {
+            case PENDING_APPROVAL -> EnumSet.of(OrderStatus.PENDING_QUOTE, OrderStatus.CANCELLED);
             case PENDING_QUOTE -> EnumSet.of(OrderStatus.AWAITING_PAYMENT, OrderStatus.CANCELLED);
             case AWAITING_PAYMENT -> EnumSet.of(OrderStatus.DEPOSITED, OrderStatus.PROCESSING,
                     OrderStatus.AWAITING_DELIVERY, OrderStatus.CANCELLED);
@@ -1089,6 +1190,45 @@ public class OrderService {
     /**
      * Map Order entity to DTO
      */
+    private OrderResponseDTO mapImportBatchToDTO(OrderImportBatch batch) {
+        OrderResponseDTO dto = new OrderResponseDTO();
+        dto.setId(batch.getId());
+        dto.setOrderNumber(batch.getImportCode());
+        dto.setUserId(batch.getUser() != null ? batch.getUser().getId() : null);
+        dto.setUserName(batch.getUser() != null ? batch.getUser().getFullName() : null);
+        dto.setCompanyId(batch.getCompany() != null ? batch.getCompany().getId() : null);
+        dto.setCompanyName(batch.getCompany() != null ? batch.getCompany().getCompanyName() : null);
+        dto.setStatus(OrderStatus.PENDING_APPROVAL);
+        dto.setOrderType(OrderType.CUSTOM_MANUFACTURING);
+        dto.setTotalPrice(null);
+        dto.setDepositAmount(null);
+        dto.setPaymentQrUrl(null);
+        dto.setPaidAt(null);
+        dto.setNotes("Đơn import đang chờ admin duyệt");
+        dto.setDeliveryDate(null);
+        dto.setCreatedAt(batch.getCreatedAt());
+        dto.setUpdatedAt(batch.getUpdatedAt());
+
+        List<OrderItemDTO> itemDTOs = batch.getItems().stream().map(item -> {
+            OrderItemDTO itemDTO = new OrderItemDTO();
+            itemDTO.setId(item.getId());
+            itemDTO.setItemCode(item.getItemCode());
+            itemDTO.setDrawingNumber(item.getDrawingNumber());
+            itemDTO.setItemName(item.getItemName());
+            itemDTO.setSpecification(item.getSpecification());
+            itemDTO.setMaterial(item.getMaterialType());
+            itemDTO.setQuantity(item.getQuantity());
+            itemDTO.setUnit(item.getUnit());
+            itemDTO.setNotes(item.getNotes());
+            itemDTO.setReviewStatus(ItemReviewStatus.PENDING_REVIEW.name());
+            itemDTO.setDeliveryDate(item.getDeliveryDate() != null ? item.getDeliveryDate().toString() : null);
+            return itemDTO;
+        }).toList();
+        dto.setItems(itemDTOs);
+
+        return dto;
+    }
+
     private OrderResponseDTO mapToDTO(Order order) {
         OrderResponseDTO dto = new OrderResponseDTO();
         dto.setId(order.getId());

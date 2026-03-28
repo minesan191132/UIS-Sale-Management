@@ -437,6 +437,7 @@ const typeTabs = [
 // ── Status sub-tabs per type ──
 const manufacturingStatusTabs = [
   { key: 'ALL',                        label: 'Tất cả' },
+  { key: 'PENDING_APPROVAL',           label: 'Chờ duyệt đơn' },
   { key: 'PENDING_QUOTE',              label: 'Chờ báo giá' },
   { key: 'AWAITING_PAYMENT',           label: 'Chờ thanh toán' },
   { key: 'DEPOSITED',                  label: 'Đã cọc' },
@@ -463,14 +464,15 @@ const currentStatusTabs = computed(() =>
 
 // ── Timeline definitions ──
 const manufacturingTimeline = [
-  { key: 'PENDING_QUOTE',              label: 'Chờ báo giá',        index: 0 },
-  { key: 'AWAITING_PAYMENT',           label: 'Chờ thanh toán',     index: 1 },
-  { key: 'DEPOSITED',                  label: 'Đã cọc',             index: 2 },
-  { key: 'PROCESSING',                 label: 'Đang gia công',      index: 3 },
-  { key: 'AWAITING_REMAINING_PAYMENT', label: 'Chờ TT đợt 2',      index: 4 },
-  { key: 'AWAITING_DELIVERY',          label: 'Chờ giao hàng',      index: 5 },
-  { key: 'SHIPPING',                   label: 'Đang giao',          index: 6 },
-  { key: 'COMPLETED',                  label: 'Hoàn thành',         index: 7 },
+  { key: 'PENDING_APPROVAL',           label: 'Chờ duyệt đơn',      index: 0 },
+  { key: 'PENDING_QUOTE',              label: 'Chờ báo giá',        index: 1 },
+  { key: 'AWAITING_PAYMENT',           label: 'Chờ thanh toán',     index: 2 },
+  { key: 'DEPOSITED',                  label: 'Đã cọc',             index: 3 },
+  { key: 'PROCESSING',                 label: 'Đang gia công',      index: 4 },
+  { key: 'AWAITING_REMAINING_PAYMENT', label: 'Chờ TT đợt 2',       index: 5 },
+  { key: 'AWAITING_DELIVERY',          label: 'Chờ giao hàng',      index: 6 },
+  { key: 'SHIPPING',                   label: 'Đang giao',          index: 7 },
+  { key: 'COMPLETED',                  label: 'Hoàn thành',         index: 8 },
 ]
 
 const productTimeline = [
@@ -503,6 +505,7 @@ const statusText = (status, orderType) => {
     return map[status] || status
   }
   const map = {
+    PENDING_APPROVAL:           'Chờ duyệt đơn',
     PENDING_QUOTE:              'Chờ báo giá',
     AWAITING_PAYMENT:           'Chờ thanh toán',
     DEPOSITED:                  'Đã cọc ✔',
@@ -518,6 +521,7 @@ const statusText = (status, orderType) => {
 
 const statusBadgeClass = (status) => {
   const map = {
+    PENDING_APPROVAL:           'badge-warning',
     PENDING_QUOTE:              'badge-warning',
     AWAITING_PAYMENT:           'badge-info',
     DEPOSITED:                  'badge-success',
@@ -542,8 +546,9 @@ const payBtnLabel = (order) => {
 // ── Cancel order ──
 const canCancelOrder = (order) => {
   if (!order) return false
-  return order.orderType === 'CUSTOM_MANUFACTURING' &&
-    (order.status === 'PENDING_QUOTE' || order.status === 'AWAITING_PAYMENT')
+  return order.status === 'PENDING_APPROVAL'
+    || order.status === 'PENDING_QUOTE'
+    || order.status === 'AWAITING_PAYMENT'
 }
 
 const cancelOrder = async (order) => {

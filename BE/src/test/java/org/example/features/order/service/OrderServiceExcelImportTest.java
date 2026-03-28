@@ -6,6 +6,7 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.example.features.company.repository.CompanyRepository;
 import org.example.features.company.repository.UserRepository;
 import org.example.features.order.dto.OrderItemDTO;
+import org.example.features.order.repository.OrderImportBatchRepository;
 import org.example.features.order.repository.OrderItemRepository;
 import org.example.features.order.repository.OrderRepository;
 import org.example.features.payment.service.PaymentService;
@@ -39,6 +40,7 @@ class OrderServiceExcelImportTest {
     void setUp() {
         orderService = new OrderService(
                 mock(OrderRepository.class),
+            mock(OrderImportBatchRepository.class),
                 mock(OrderItemRepository.class),
                 mock(UserRepository.class),
                 mock(CompanyRepository.class),
