@@ -331,6 +331,30 @@ export const ordersAPI = {
     });
     return response.data;
   },
+
+  /**
+   * Get order lifecycle history events
+   */
+  getOrderHistory: async (orderId) => {
+    const response = await apiClient.get(`/orders/${orderId}/history`);
+    return response.data;
+  },
+
+  /**
+   * Get all revisions of one order
+   */
+  getOrderRevisions: async (orderId) => {
+    const response = await apiClient.get(`/orders/${orderId}/revisions`);
+    return response.data;
+  },
+
+  /**
+   * Get one revision snapshot
+   */
+  getOrderRevisionSnapshot: async (orderId, revisionNo) => {
+    const response = await apiClient.get(`/orders/${orderId}/revisions/${revisionNo}`);
+    return response.data;
+  },
 };
 
 // ==================== PAYMENT API ====================

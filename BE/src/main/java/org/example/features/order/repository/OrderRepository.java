@@ -27,6 +27,9 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
          */
         Optional<Order> findByOrderNumber(String orderNumber);
 
+        @Query("SELECT o FROM Order o WHERE LOWER(o.orderNumber) = LOWER(:orderNumber)")
+        Optional<Order> findByOrderNumberIgnoreCase(@Param("orderNumber") String orderNumber);
+
         /**
          * Find orders by user ID
          */
