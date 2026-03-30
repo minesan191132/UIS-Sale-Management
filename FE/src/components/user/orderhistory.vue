@@ -548,6 +548,19 @@ const cancelOrder = async (order) => {
   const result = await Swal.fire({
     title: 'Hủy đơn hàng?',
     text: `Bạn có chắc muốn hủy đơn ${order.orderNumber}? Hành động này không thể hoàn tác.`,
+    input: 'textarea',
+    inputLabel: 'Lý do hủy',
+    inputPlaceholder: 'Vui lòng nhập lý do hủy đơn hàng',
+    inputAttributes: {
+      'aria-label': 'Lý do hủy đơn hàng',
+      maxlength: '500',
+    },
+    inputValidator: (value) => {
+      if (!value || !value.trim()) {
+        return 'Vui lòng nhập lý do hủy đơn hàng'
+      }
+      return null
+    },
     icon: 'warning',
     showCancelButton: true,
     confirmButtonColor: '#dc2626',
@@ -557,9 +570,11 @@ const cancelOrder = async (order) => {
   })
   if (!result.isConfirmed) return
 
+  const cancelReason = (result.value || '').trim()
+
   isCancelling.value = true
   try {
-    await apiClient.put(`/orders/${order.id}/cancel`)
+    await apiClient.put(`/orders/${order.id}/cancel`, { reason: cancelReason })
     showDetailModal.value = false
     await loadOrders(currentPage.value)
     Swal.fire({ icon: 'success', title: 'Đã hủy đơn hàng', text: `Đơn ${order.orderNumber} đã được hủy.`, timer: 2500, showConfirmButton: false })

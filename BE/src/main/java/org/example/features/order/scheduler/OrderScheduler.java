@@ -6,9 +6,11 @@ import org.example.features.auth.service.EmailService;
 import org.example.features.notification.entity.NotificationType;
 import org.example.features.notification.service.UserNotificationService;
 import org.example.features.order.entity.Order;
+import org.example.features.order.entity.OrderEventType;
 import org.example.features.order.entity.OrderStatus;
 import org.example.features.order.entity.OrderType;
 import org.example.features.order.repository.OrderRepository;
+import org.example.features.order.service.OrderAuditService;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +35,7 @@ public class OrderScheduler {
     private final OrderRepository orderRepository;
     private final EmailService emailService;
     private final UserNotificationService userNotificationService;
+    private final OrderAuditService orderAuditService;
 
     /**
      * Runs every day at 01:00 AM.
@@ -59,6 +62,14 @@ public class OrderScheduler {
             try {
                 order.setStatus(OrderStatus.AWAITING_REMAINING_PAYMENT);
                 orderRepository.save(order);
+                orderAuditService.recordStatusEvent(
+                    order,
+                    OrderEventType.STATUS_CHANGED,
+                    OrderStatus.PROCESSING,
+                    OrderStatus.AWAITING_REMAINING_PAYMENT,
+                    null,
+                    "SYSTEM",
+                    "Scheduler nhắc thanh toán đợt 2");
 
                 userNotificationService.pushOrderNotification(
                     order,
@@ -158,6 +169,14 @@ public class OrderScheduler {
                 order.setStatus(OrderStatus.COMPLETED);
                 order.setCompletedAt(LocalDateTime.now());
                 orderRepository.save(order);
+                orderAuditService.recordStatusEvent(
+                    order,
+                    OrderEventType.AUTO_COMPLETED,
+                    OrderStatus.SHIPPING,
+                    OrderStatus.COMPLETED,
+                    null,
+                    "SYSTEM",
+                    "Tự động hoàn thành sau 3 ngày giao hàng");
 
                 userNotificationService.pushOrderNotification(
                     order,

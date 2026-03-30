@@ -7,8 +7,11 @@ import org.example.config.security.CustomUserDetails;
 import org.example.features.auth.service.EmailService;
 import org.example.features.complaint.dto.OrderComplaintResponseDTO;
 import org.example.features.complaint.service.OrderComplaintService;
+import org.example.features.order.dto.CancelOrderRequestDTO;
 import org.example.features.order.dto.DelayDeliveryRequestDTO;
 import org.example.features.order.dto.ItemReviewRequestDTO;
+import org.example.features.order.dto.OrderHistoryEventDTO;
+import org.example.features.order.dto.OrderRevisionSummaryDTO;
 import org.example.features.order.dto.OrderResponseDTO;
 import org.example.features.order.dto.QuoteRequestDTO;
 import org.example.features.order.entity.OrderStatus;
@@ -236,10 +239,11 @@ public class OrderController {
     @PutMapping("/imports/{id}/cancel")
     public ResponseEntity<?> cancelImportBatch(
             @PathVariable Long id,
+            @RequestBody(required = false) CancelOrderRequestDTO request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         try {
             boolean isAdmin = "ADMIN".equals(userDetails.getRole());
-            orderService.cancelImportBatch(id, userDetails.getUserId(), isAdmin);
+            orderService.cancelImportBatch(id, userDetails.getUserId(), isAdmin, request != null ? request.getReason() : null);
             return ResponseEntity.ok(Map.of("message", "Đã hủy đơn import chờ duyệt"));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
@@ -338,15 +342,88 @@ public class OrderController {
     }
 
     /**
+     * Get order event history (admin or owner)
+     * GET /api/orders/{id}/history
+     */
+    @GetMapping("/{id}/history")
+    public ResponseEntity<?> getOrderHistory(
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        try {
+            boolean isAdmin = "ADMIN".equals(userDetails.getRole());
+            List<OrderHistoryEventDTO> history = orderService.getOrderHistory(id, userDetails.getUserId(), isAdmin);
+            return ResponseEntity.ok(history);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error fetching order history {}", id, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to fetch order history"));
+        }
+    }
+
+    /**
+     * Get order revisions (admin or owner)
+     * GET /api/orders/{id}/revisions
+     */
+    @GetMapping("/{id}/revisions")
+    public ResponseEntity<?> getOrderRevisions(
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        try {
+            boolean isAdmin = "ADMIN".equals(userDetails.getRole());
+            List<OrderRevisionSummaryDTO> revisions = orderService.getOrderRevisions(id, userDetails.getUserId(), isAdmin);
+            return ResponseEntity.ok(revisions);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error fetching order revisions {}", id, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to fetch order revisions"));
+        }
+    }
+
+    /**
+     * Get one revision snapshot (admin or owner)
+     * GET /api/orders/{id}/revisions/{revisionNo}
+     */
+    @GetMapping("/{id}/revisions/{revisionNo}")
+    public ResponseEntity<?> getOrderRevisionSnapshot(
+            @PathVariable Long id,
+            @PathVariable Integer revisionNo,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        try {
+            boolean isAdmin = "ADMIN".equals(userDetails.getRole());
+            OrderResponseDTO snapshot = orderService.getOrderRevisionSnapshot(id, revisionNo, userDetails.getUserId(), isAdmin);
+            return ResponseEntity.ok(snapshot);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error fetching order revision snapshot {} rev {}", id, revisionNo, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to fetch revision snapshot"));
+        }
+    }
+
+    /**
      * Customer: Cancel a manufacturing order
      * PUT /api/orders/{id}/cancel
      */
     @PutMapping("/{id}/cancel")
     public ResponseEntity<?> cancelOrder(
             @PathVariable Long id,
+            @RequestBody(required = false) CancelOrderRequestDTO request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         try {
-            OrderResponseDTO order = orderService.cancelOrder(id, userDetails.getUserId());
+            OrderResponseDTO order = orderService.cancelOrder(id, userDetails.getUserId(), request != null ? request.getReason() : null);
             return ResponseEntity.ok(order);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));

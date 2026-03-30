@@ -69,7 +69,8 @@ class OrderServiceExcelImportTest {
                 mock(QuotePricingService.class),
                 mock(DrawingMetaRepository.class),
                 mock(AdminProductService.class),
-                mock(UserNotificationService.class));
+                mock(UserNotificationService.class),
+                mock(OrderAuditService.class));
     }
 
     @Test

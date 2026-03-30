@@ -303,6 +303,41 @@
               </div>
             </div>
 
+            <div class="mb-3">
+              <h6 class="fw-bold mb-2">Lịch sử đơn hàng</h6>
+              <div v-if="isLoadingOrderHistory" class="small text-muted">
+                <span class="spinner-border spinner-border-sm me-2"></span>
+                Đang tải lịch sử đơn hàng...
+              </div>
+              <div v-else-if="orderHistoryEvents.length === 0" class="small text-muted border rounded py-2 px-3 bg-light">
+                Chưa có bản ghi lịch sử cho đơn hàng này.
+              </div>
+              <div v-else class="admin-order-history-list">
+                <div
+                  v-for="event in orderHistoryEvents"
+                  :key="`admin-history-${event.id}`"
+                  class="admin-order-history-item"
+                >
+                  <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
+                    <div class="fw-semibold small">{{ getHistoryEventTitle(event) }}</div>
+                    <small class="text-muted">{{ formatDate(event.createdAt) }}</small>
+                  </div>
+                  <div class="small text-muted">
+                    Người thao tác: {{ getHistoryActorText(event) }}
+                    <span v-if="event.revisionNo"> • Revision dữ liệu #{{ event.revisionNo }}</span>
+                    <span v-if="getCancelSequence(event) !== null"> • Lần hủy #{{ getCancelSequence(event) }}</span>
+                  </div>
+                  <div v-if="event.note" class="small mt-1">{{ getHistoryNoteText(event) }}</div>
+                </div>
+              </div>
+              <div v-if="orderRevisionSummaries.length > 0" class="small text-muted mt-2">
+                Tổng số revision: {{ orderRevisionSummaries.length }}.
+              </div>
+              <div class="small text-muted mt-1">
+                Tổng số lần hủy: {{ totalCancelAttempts }}.
+              </div>
+            </div>
+
             <!-- Items Table -->
             <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
               <div class="small text-muted">
@@ -490,6 +525,9 @@ const importing = ref(false);
 const companiesForImport = ref([]);
 const reviewDrafts = ref({});
 const reviewDensity = ref('comfortable');
+const orderHistoryEvents = ref([]);
+const orderRevisionSummaries = ref([]);
+const isLoadingOrderHistory = ref(false);
 let bsModal = null;
 
 // Item-level selection (across all orders)
@@ -807,10 +845,131 @@ const openReviewModal = async (order) => {
       bsModal = new Modal(reviewModalRef.value);
     }
     bsModal?.show();
+    loadOrderHistory(selectedOrder.value);
   } catch (error) {
     console.error('Failed to load order detail:', error);
     Swal.fire('Lỗi', 'Không thể tải chi tiết đơn hàng', 'error');
   }
+};
+
+const loadOrderHistory = async (order) => {
+  if (!order?.id || order?.isTempImport) {
+    orderHistoryEvents.value = [];
+    orderRevisionSummaries.value = [];
+    return;
+  }
+
+  isLoadingOrderHistory.value = true;
+  try {
+    const [history, revisions] = await Promise.all([
+      apiClient.get(`/orders/${order.id}/history`),
+      apiClient.get(`/orders/${order.id}/revisions`),
+    ]);
+
+    orderHistoryEvents.value = Array.isArray(history.data) ? history.data : [];
+    orderRevisionSummaries.value = Array.isArray(revisions.data) ? revisions.data : [];
+  } catch (error) {
+    console.warn('Failed to load admin order history:', error);
+    orderHistoryEvents.value = [];
+    orderRevisionSummaries.value = [];
+  } finally {
+    isLoadingOrderHistory.value = false;
+  }
+};
+
+const isCancelEventType = (eventType) => {
+  return eventType === 'ORDER_CANCELLED' || eventType === 'IMPORT_REJECTED';
+};
+
+const historyEventMetaById = computed(() => {
+  const source = Array.isArray(orderHistoryEvents.value) ? [...orderHistoryEvents.value] : [];
+  source.sort((a, b) => {
+    const ta = a?.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const tb = b?.createdAt ? new Date(b.createdAt).getTime() : 0;
+    if (ta !== tb) return ta - tb;
+    return Number(a?.id || 0) - Number(b?.id || 0);
+  });
+
+  let cancelCount = 0;
+  const result = {};
+
+  for (const event of source) {
+    const eventId = event?.id;
+    if (!eventId) continue;
+
+    const eventType = event?.eventType;
+    const isCancelEvent = isCancelEventType(eventType);
+
+    if (isCancelEvent) cancelCount += 1;
+
+    result[eventId] = {
+      cancelNo: isCancelEvent ? cancelCount : null,
+    };
+  }
+
+  return result;
+});
+
+const getHistoryMeta = (event) => {
+  if (!event?.id) return {};
+  return historyEventMetaById.value[event.id] || {};
+};
+
+const getCancelSequence = (event) => {
+  const value = getHistoryMeta(event).cancelNo;
+  return Number.isFinite(value) ? value : null;
+};
+
+const totalCancelAttempts = computed(() => {
+  return (orderHistoryEvents.value || []).filter((event) => isCancelEventType(event?.eventType)).length;
+});
+
+const getHistoryNoteText = (event) => {
+  const note = event?.note ? String(event.note).trim() : '';
+  if (!note) return '';
+  if (event?.eventType === 'ORDER_CANCELLED') {
+    return `Lý do hủy: ${note}`;
+  }
+  return note;
+};
+
+const getHistoryEventTitle = (event) => {
+  if (!event) return 'Cập nhật đơn hàng';
+
+  const fromStatus = event.fromStatus ? getOrderStatusLabel(event.fromStatus) : null;
+  const toStatus = event.toStatus ? getOrderStatusLabel(event.toStatus) : null;
+
+  switch (event.eventType) {
+    case 'IMPORT_APPROVED':
+      return 'Đã duyệt import dữ liệu đơn';
+    case 'IMPORT_REJECTED':
+      return 'Import chờ duyệt đã bị hủy';
+    case 'ORDER_CANCELLED':
+      return 'Đơn hàng đã bị hủy';
+    case 'CUSTOMER_CONFIRMED_RECEIVED':
+      return 'Khách hàng xác nhận đã nhận hàng';
+    case 'QUOTE_SET':
+      return 'Đã gửi báo giá';
+    case 'PAYMENT_CONFIRMED':
+      return 'Đã xác nhận thanh toán';
+    case 'AUTO_COMPLETED':
+      return 'Hệ thống tự động hoàn thành đơn';
+    default:
+      if (fromStatus && toStatus) {
+        return `Chuyển trạng thái: ${fromStatus} -> ${toStatus}`;
+      }
+      if (toStatus) {
+        return `Cập nhật trạng thái: ${toStatus}`;
+      }
+      return 'Cập nhật đơn hàng';
+  }
+};
+
+const getHistoryActorText = (event) => {
+  if (event?.actorName) return event.actorName;
+  if (event?.actorRole === 'ADMIN') return 'Admin';
+  if (event?.actorRole === 'CUSTOMER') return 'Khách hàng';
+  return 'Hệ thống';
 };
 
 const initializeReviewDrafts = (items, options = {}) => {
@@ -1405,5 +1564,22 @@ const formatWeight = (weight) => {
 }
 .date-group-clear:hover {
   background: #f8d7da;
+}
+
+.admin-order-history-list {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.admin-order-history-item {
+  padding: 10px 12px;
+  border-bottom: 1px dashed #e2e8f0;
+}
+
+.admin-order-history-item:last-child {
+  border-bottom: none;
 }
 </style>

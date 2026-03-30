@@ -10,13 +10,17 @@ import org.example.features.company.repository.UserRepository;
 import org.example.features.order.dto.CartOrderRequestDTO;
 import org.example.features.order.dto.DelayDeliveryRequestDTO;
 import org.example.features.order.dto.ItemReviewRequestDTO;
+import org.example.features.order.dto.OrderHistoryEventDTO;
 import org.example.features.order.dto.OrderItemDTO;
+import org.example.features.order.dto.OrderRevisionSummaryDTO;
 import org.example.features.order.dto.OrderResponseDTO;
 import org.example.features.order.dto.QuoteRequestDTO;
+import org.example.features.order.entity.OrderEventType;
 import org.example.features.order.entity.ItemReviewStatus;
 import org.example.features.order.entity.ImportBatchStatus;
 import org.example.features.order.entity.ImportSourceType;
 import org.example.features.order.entity.Order;
+import org.example.features.order.entity.OrderRevisionSource;
 import org.example.features.order.entity.OrderImportBatch;
 import org.example.features.order.entity.OrderImportItem;
 import org.example.features.order.entity.OrderItem;
@@ -113,6 +117,7 @@ public class OrderService {
     private final DrawingMetaRepository drawingMetaRepository;
     private final AdminProductService adminProductService;
     private final UserNotificationService userNotificationService;
+    private final OrderAuditService orderAuditService;
 
     private static Map<String, List<String>> buildExcelHeaderAliases() {
         Map<String, List<String>> aliases = new LinkedHashMap<>();
@@ -127,6 +132,28 @@ public class OrderService {
         aliases.put(FIELD_DELIVERY_DATE,
             List.of("希望納期", "出荷日", "納期", "delivery date", "delivery", "due date", "ngay xuat", "ngày xuất"));
         return Collections.unmodifiableMap(aliases);
+    }
+
+    private String normalizeImportCode(String rawCode) {
+        if (rawCode == null) {
+            return null;
+        }
+        return rawCode.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private String normalizeCancelReason(String reason, boolean required) {
+        if (reason == null || reason.isBlank()) {
+            if (required) {
+                throw new IllegalArgumentException("Vui lòng nhập lý do hủy đơn");
+            }
+            return null;
+        }
+
+        String trimmed = reason.trim();
+        if (trimmed.length() > 500) {
+            throw new IllegalArgumentException("Lý do hủy không được vượt quá 500 ký tự");
+        }
+        return trimmed;
     }
 
     /**
@@ -238,10 +265,31 @@ public class OrderService {
             throw new IllegalStateException("Chỉ có thể duyệt batch đang ở trạng thái CHỜ DUYỆT");
         }
 
+        String normalizedOrderCode = normalizeImportCode(batch.getImportCode());
+        OrderStatus previousStatus = orderRepository
+            .findByOrderNumberIgnoreCase(normalizedOrderCode)
+            .map(Order::getStatus)
+            .orElse(null);
+
         Order order = createOrUpdateOrderFromApprovedBatch(batch);
         batch.setStatus(ImportBatchStatus.APPROVED);
         batch.setApprovedOrder(order);
         orderImportBatchRepository.save(batch);
+
+        OrderResponseDTO dto = mapToDTO(order);
+        OrderRevisionSource revisionSource = batch.getSourceType() == ImportSourceType.ADMIN
+            ? OrderRevisionSource.ADMIN_IMPORT
+            : OrderRevisionSource.CUSTOMER_IMPORT;
+        orderAuditService.recordImportApprovedRevision(
+            order,
+            batch,
+            revisionSource,
+            dto,
+            previousStatus,
+            order.getStatus(),
+            null,
+            "ADMIN",
+            "Duyệt import batch " + batch.getImportCode());
 
         userNotificationService.pushOrderNotification(
             order,
@@ -251,13 +299,15 @@ public class OrderService {
             "order-status-" + order.getId() + "-PENDING_QUOTE");
 
         log.info("Approved import batch {} -> order {}", batch.getImportCode(), order.getOrderNumber());
-        return mapToDTO(order);
+        return dto;
     }
 
     @Transactional
-    public void cancelImportBatch(Long batchId, Long requestingUserId, boolean isAdmin) {
+    public void cancelImportBatch(Long batchId, Long requestingUserId, boolean isAdmin, String cancelReason) {
         OrderImportBatch batch = orderImportBatchRepository.findById(batchId)
                 .orElseThrow(() -> new IllegalArgumentException("Import batch not found"));
+
+        String normalizedCancelReason = normalizeCancelReason(cancelReason, !isAdmin);
 
         if (!isAdmin && (batch.getUser() == null || !batch.getUser().getId().equals(requestingUserId))) {
             throw new SecurityException("Unauthorized access to import batch");
@@ -269,6 +319,21 @@ public class OrderService {
 
         batch.setStatus(ImportBatchStatus.REJECTED);
         orderImportBatchRepository.save(batch);
+
+        String normalizedCode = normalizeImportCode(batch.getImportCode());
+        orderRepository.findByOrderNumberIgnoreCase(normalizedCode)
+            .filter(order -> order.getCompany() != null
+                && batch.getCompany() != null
+                && order.getCompany().getId().equals(batch.getCompany().getId()))
+            .ifPresent(order -> orderAuditService.recordStatusEvent(
+                order,
+                OrderEventType.IMPORT_REJECTED,
+                null,
+                null,
+                requestingUserId,
+                isAdmin ? "ADMIN" : "CUSTOMER",
+                normalizedCancelReason != null ? normalizedCancelReason : "Hủy import batch chờ duyệt: " + batch.getImportCode()));
+
         log.info("Import batch {} cancelled by user {}", batch.getImportCode(), requestingUserId);
     }
 
@@ -362,7 +427,12 @@ public class OrderService {
                 .findFirst()
                 .orElseGet(this::generateOrderNumber);
 
-        Optional<Order> existingOrderOpt = orderRepository.findByOrderNumber(importCode);
+        importCode = normalizeImportCode(importCode);
+        if (importCode == null || importCode.isBlank()) {
+            importCode = generateOrderNumber();
+        }
+
+        Optional<Order> existingOrderOpt = orderRepository.findByOrderNumberIgnoreCase(importCode);
         if (existingOrderOpt.isPresent()) {
             Order existingOrder = existingOrderOpt.get();
             Long existingCompanyId = existingOrder.getCompany() != null ? existingOrder.getCompany().getId() : null;
@@ -380,7 +450,7 @@ public class OrderService {
         }
 
         OrderImportBatch batch = orderImportBatchRepository
-                .findByImportCodeAndCompanyIdAndStatus(importCode, company.getId(), ImportBatchStatus.PENDING_APPROVAL)
+        .findByImportCodeIgnoreCaseAndCompanyIdAndStatus(importCode, company.getId(), ImportBatchStatus.PENDING_APPROVAL)
                 .orElseGet(OrderImportBatch::new);
 
         if (batch.getId() != null) {
@@ -420,10 +490,10 @@ public class OrderService {
     }
 
     private Order createOrUpdateOrderFromApprovedBatch(OrderImportBatch batch) {
-        String orderNumber = batch.getImportCode();
+        String orderNumber = normalizeImportCode(batch.getImportCode());
 
         Order order;
-        Optional<Order> existing = orderRepository.findByOrderNumber(orderNumber);
+        Optional<Order> existing = orderRepository.findByOrderNumberIgnoreCase(orderNumber);
         if (existing.isPresent()) {
             Order existingOrder = existing.get();
             Long existingCompanyId = existingOrder.getCompany() != null ? existingOrder.getCompany().getId() : null;
@@ -898,13 +968,48 @@ public class OrderService {
         return mapToDTO(order);
     }
 
+    public List<OrderHistoryEventDTO> getOrderHistory(Long orderId, Long requestingUserId, boolean isAdmin) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found"));
+
+        if (!isAdmin && !order.getUser().getId().equals(requestingUserId)) {
+            throw new SecurityException("Unauthorized access to order");
+        }
+
+        return orderAuditService.getOrderHistory(orderId);
+    }
+
+    public List<OrderRevisionSummaryDTO> getOrderRevisions(Long orderId, Long requestingUserId, boolean isAdmin) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found"));
+
+        if (!isAdmin && !order.getUser().getId().equals(requestingUserId)) {
+            throw new SecurityException("Unauthorized access to order");
+        }
+
+        return orderAuditService.getOrderRevisions(orderId);
+    }
+
+    public OrderResponseDTO getOrderRevisionSnapshot(Long orderId, Integer revisionNo, Long requestingUserId, boolean isAdmin) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found"));
+
+        if (!isAdmin && !order.getUser().getId().equals(requestingUserId)) {
+            throw new SecurityException("Unauthorized access to order");
+        }
+
+        return orderAuditService.getOrderRevisionSnapshot(orderId, revisionNo);
+    }
+
     /**
      * User: Cancel order before deposit is paid
      */
     @Transactional
-    public OrderResponseDTO cancelOrder(Long orderId, Long requestingUserId) {
+    public OrderResponseDTO cancelOrder(Long orderId, Long requestingUserId, String cancelReason) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found"));
+
+        String normalizedCancelReason = normalizeCancelReason(cancelReason, true);
 
         if (!order.getUser().getId().equals(requestingUserId)) {
             throw new SecurityException("Unauthorized access to order");
@@ -923,6 +1028,14 @@ public class OrderService {
         Order saved = orderRepository.save(order);
 
         notifyOrderStatusTransition(saved, currentStatus, OrderStatus.CANCELLED);
+        orderAuditService.recordStatusEvent(
+            saved,
+            OrderEventType.ORDER_CANCELLED,
+            currentStatus,
+            OrderStatus.CANCELLED,
+            requestingUserId,
+            "CUSTOMER",
+            normalizedCancelReason);
 
         log.info("Order {} cancelled by user {}", saved.getOrderNumber(), requestingUserId);
         return mapToDTO(saved);
@@ -1033,6 +1146,14 @@ public class OrderService {
         Order savedOrder = orderRepository.save(order);
 
         notifyOrderStatusTransition(savedOrder, OrderStatus.PENDING_QUOTE, OrderStatus.AWAITING_PAYMENT);
+        orderAuditService.recordStatusEvent(
+            savedOrder,
+            OrderEventType.QUOTE_SET,
+            OrderStatus.PENDING_QUOTE,
+            OrderStatus.AWAITING_PAYMENT,
+            null,
+            "ADMIN",
+            "Đã gửi báo giá cho đơn hàng");
 
         log.info("Quote set for order: {} — Total: {}", savedOrder.getOrderNumber(), totalPrice);
 
@@ -1064,6 +1185,14 @@ public class OrderService {
         Order savedOrder = orderRepository.save(order);
 
         notifyOrderStatusTransition(savedOrder, previousStatus, OrderStatus.PROCESSING);
+        orderAuditService.recordStatusEvent(
+            savedOrder,
+            OrderEventType.PAYMENT_CONFIRMED,
+            previousStatus,
+            OrderStatus.PROCESSING,
+            null,
+            "ADMIN",
+            "Đã xác nhận thanh toán và bắt đầu xử lý");
 
         log.info("Payment confirmed / Processing started for order: {}", savedOrder.getOrderNumber());
 
@@ -1114,6 +1243,14 @@ public class OrderService {
         Order saved = orderRepository.save(order);
 
         notifyOrderStatusTransition(saved, OrderStatus.PROCESSING, OrderStatus.AWAITING_REMAINING_PAYMENT);
+        orderAuditService.recordStatusEvent(
+            saved,
+            OrderEventType.STATUS_CHANGED,
+            OrderStatus.PROCESSING,
+            OrderStatus.AWAITING_REMAINING_PAYMENT,
+            null,
+            "ADMIN",
+            "Hoàn thành gia công, chờ thanh toán đợt 2");
 
         log.info("Order {} → AWAITING_REMAINING_PAYMENT, remaining={}", saved.getOrderNumber(), remaining);
         return mapToDTO(saved);
@@ -1150,6 +1287,14 @@ public class OrderService {
         Order savedOrder = orderRepository.save(order);
 
         notifyOrderStatusTransition(savedOrder, currentStatus, newStatus);
+        orderAuditService.recordStatusEvent(
+            savedOrder,
+            OrderEventType.STATUS_CHANGED,
+            currentStatus,
+            newStatus,
+            null,
+            "ADMIN",
+            "Admin cập nhật trạng thái đơn hàng");
 
         log.info("Order {} status updated to {}", savedOrder.getOrderNumber(), newStatus);
         return mapToDTO(savedOrder);
@@ -1281,6 +1426,14 @@ public class OrderService {
         Order saved = orderRepository.save(order);
 
         notifyOrderStatusTransition(saved, OrderStatus.AWAITING_DELIVERY, OrderStatus.SHIPPING);
+        orderAuditService.recordStatusEvent(
+            saved,
+            OrderEventType.STATUS_CHANGED,
+            OrderStatus.AWAITING_DELIVERY,
+            OrderStatus.SHIPPING,
+            null,
+            "ADMIN",
+            "Admin bàn giao đơn vị vận chuyển");
 
         log.info("Order {} is now SHIPPING", saved.getOrderNumber());
         return mapToDTO(saved);
@@ -1309,6 +1462,14 @@ public class OrderService {
         Order saved = orderRepository.save(order);
 
         notifyOrderStatusTransition(saved, currentStatus, OrderStatus.COMPLETED);
+        orderAuditService.recordStatusEvent(
+            saved,
+            OrderEventType.STATUS_CHANGED,
+            currentStatus,
+            OrderStatus.COMPLETED,
+            null,
+            "ADMIN",
+            "Admin xác nhận đơn hoàn thành");
 
         log.info("Order {} COMPLETED", saved.getOrderNumber());
         return mapToDTO(saved);
@@ -1340,6 +1501,14 @@ public class OrderService {
 
         Order saved = orderRepository.save(order);
         notifyOrderStatusTransition(saved, OrderStatus.SHIPPING, OrderStatus.COMPLETED);
+        orderAuditService.recordStatusEvent(
+            saved,
+            OrderEventType.CUSTOMER_CONFIRMED_RECEIVED,
+            OrderStatus.SHIPPING,
+            OrderStatus.COMPLETED,
+            userId,
+            "CUSTOMER",
+            "Khách hàng xác nhận đã nhận hàng");
 
         log.info("Order {} confirmed received by customer {}", saved.getOrderNumber(), userId);
         return mapToDTO(saved);

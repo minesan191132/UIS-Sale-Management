@@ -72,6 +72,9 @@ public class Order {
     @Column(name = "delivery_date")
     private LocalDate deliveryDate;
 
+    @Column(name = "current_revision_no", nullable = false)
+    private Integer currentRevisionNo = 1;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
