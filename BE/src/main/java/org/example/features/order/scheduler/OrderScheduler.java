@@ -11,6 +11,7 @@ import org.example.features.order.entity.OrderStatus;
 import org.example.features.order.entity.OrderType;
 import org.example.features.order.repository.OrderRepository;
 import org.example.features.order.service.OrderAuditService;
+import org.example.features.productadmin.AdminProductService;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,6 +37,66 @@ public class OrderScheduler {
     private final EmailService emailService;
     private final UserNotificationService userNotificationService;
     private final OrderAuditService orderAuditService;
+    private final AdminProductService adminProductService;
+
+    /**
+     * Runs every 1 minute.
+     * Finds orders in AWAITING_PAYMENT status older than 10 minutes,
+     * cancels them, restores stock, and notifies the user.
+     */
+    @Scheduled(fixedRate = 60000)
+    @Transactional
+    public void cancelExpiredOrders() {
+        LocalDateTime tenMinutesAgo = LocalDateTime.now().minusMinutes(10);
+        List<Order> expiredOrders = orderRepository.findExpiredOrders(tenMinutesAgo);
+
+        if (expiredOrders.isEmpty()) {
+            return; // Không in log để tránh spam console mỗi phút
+        }
+
+        log.info("Phát hiện {} đơn hàng quá hạn thanh toán 10 phút. Đang tiến hành hủy...", expiredOrders.size());
+
+        for (Order order : expiredOrders) {
+            try {
+                OrderStatus oldStatus = order.getStatus();
+                order.setStatus(OrderStatus.CANCELLED);
+
+                // 1. Trả lại tồn kho cho từng món trong đơn
+                for (org.example.features.order.entity.OrderItem item : order.getItems()) {
+                    if (item.getItemName() != null && item.getQuantity() != null && item.getQuantity() > 0) {
+                        adminProductService.restoreStock(item.getItemName(), item.getQuantity());
+                    }
+                }
+
+                // 2. Lưu trạng thái đơn hàng
+                orderRepository.save(order);
+
+                // 3. Ghi log lịch sử hệ thống
+                orderAuditService.recordStatusEvent(
+                        order,
+                        OrderEventType.STATUS_CHANGED, // Hoặc tạo thêm OrderEventType.AUTO_CANCELLED nếu có
+                        oldStatus,
+                        OrderStatus.CANCELLED,
+                        null,
+                        "SYSTEM",
+                        "Tự động hủy do quá hạn thanh toán 10 phút"
+                );
+
+                // 4. Gửi thông báo cho User
+                userNotificationService.pushOrderNotification(
+                        order,
+                        NotificationType.ORDER,
+                        "Đơn hàng đã bị hủy",
+                        "Đơn " + order.getOrderNumber() + " đã bị hủy tự động do quá thời gian thanh toán.",
+                        "order-auto-cancelled-" + order.getId()
+                );
+
+                log.info("Đã tự động hủy đơn hàng: {} và hoàn lại tồn kho.", order.getOrderNumber());
+            } catch (Exception e) {
+                log.error("Lỗi khi tự động hủy đơn hàng {}: {}", order.getOrderNumber(), e.getMessage());
+            }
+        }
+    }
 
     /**
      * Runs every day at 01:00 AM.

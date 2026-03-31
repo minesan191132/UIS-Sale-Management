@@ -159,4 +159,7 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
                 @Param("since") LocalDateTime since,
                 @Param("until") LocalDateTime until);
 
+    // Tìm các đơn hàng đang Chờ thanh toán và đã được tạo trước một mốc thời gian (ví dụ: 1 phút trước)
+    @Query("SELECT o FROM Order o WHERE o.status = 'AWAITING_PAYMENT' AND o.createdAt <= :cutoffTime")
+    List<Order> findExpiredOrders(@Param("cutoffTime") java.time.LocalDateTime cutoffTime);
 }
