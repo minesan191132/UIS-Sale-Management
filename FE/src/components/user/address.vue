@@ -148,6 +148,29 @@ const cancelForm = () => { showForm.value = false; editIndex.value = null; editI
 const saveAddress = async () => {
   isLoading.value = true
   try {
+    // --- ĐOẠN CHECK TRÙNG LẶP ---
+    const isDuplicate = addresses.value.some((addr, index) => {
+      // Bỏ qua chính nó nếu đang ở chế độ Cập nhật
+      if (editId.value !== null && index === editIndex.value) return false;
+
+      return addr.fullName.trim().toLowerCase() === form.value.fullName.trim().toLowerCase() &&
+             addr.phone.trim() === form.value.phone.trim() &&
+             addr.detail.trim().toLowerCase() === form.value.detail.trim().toLowerCase() &&
+             addr.ward === form.value.ward &&
+             addr.district === form.value.district &&
+             addr.province === form.value.province;
+    });
+
+    if (isDuplicate) {
+      Swal.fire({ 
+        icon: 'warning', 
+        title: 'Trùng lặp!', 
+        text: 'Địa chỉ này đã tồn tại trong danh sách của bạn.' 
+      });
+      isLoading.value = false;
+      return; // Dừng lại, không gọi API lưu nữa
+    }
+
     if (editId.value !== null) {
       const updated = await userAPI.updateAddress(editId.value, form.value)
       addresses.value[editIndex.value] = updated

@@ -1025,6 +1025,19 @@ public class OrderService {
         }
 
         order.setStatus(OrderStatus.CANCELLED);
+
+        // TRẢ LẠI TỒN KHO KHI KHÁCH TỰ HỦY
+        for (org.example.features.order.entity.OrderItem item : order.getItems()) {
+            if (item.getItemName() != null && item.getQuantity() != null && item.getQuantity() > 0) {
+                try {
+                    // Trả lại kho khi khách chủ động hủy đơn
+                    adminProductService.restoreStock(item.getItemName(), item.getQuantity());
+                } catch (Exception ex) {
+                    log.warn("Lỗi khi trả lại tồn kho cho món '{}': {}", item.getItemName(), ex.getMessage());
+                }
+            }
+        }
+
         Order saved = orderRepository.save(order);
 
         notifyOrderStatusTransition(saved, currentStatus, OrderStatus.CANCELLED);

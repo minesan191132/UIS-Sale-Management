@@ -164,4 +164,18 @@ public class AdminProductService {
 
         return r;
     }
+
+    @Transactional
+    public void restoreStock(String productName, int quantity) {
+        if (productName == null || productName.isBlank()) return;
+
+        AdminProduct product = adminProductRepository.findByNameIgnoreCase(productName.trim());
+        if (product != null) {
+            int current = product.getStockQuantity() != null ? product.getStockQuantity() : 0;
+            int newQty = current + quantity;
+            product.setStockQuantity(newQty);
+            adminProductRepository.save(product);
+            log.info("Hoàn lại kho: '{}' {} → {} (+{})", productName, current, newQty, quantity);
+        }
+    }
 }

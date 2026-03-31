@@ -36,6 +36,19 @@ onMounted(async () => {
       form.companyName = fullProfile.companyName || '';
       form.taxId = fullProfile.taxCode || fullProfile.taxId || '';
       form.invoiceEmail = fullProfile.companyEmail || form.orderEmail;
+
+      // --- LẤY ĐỊA CHỈ MẶC ĐỊNH ---
+      const addresses = await userAPI.getAddresses();
+      if (addresses && addresses.length > 0) {
+        // Ưu tiên tìm địa chỉ có isDefault = true, nếu không có thì lấy đại cái đầu tiên
+        const defaultAddr = addresses.find(a => a.isDefault) || addresses[0];
+        
+        // Ghi đè Tên, SĐT và Địa chỉ theo Sổ địa chỉ
+        form.name = defaultAddr.fullName;
+        form.phone = defaultAddr.phone;
+        form.address = `${defaultAddr.detail}, ${defaultAddr.ward}, ${defaultAddr.district}, ${defaultAddr.province}`;
+      }
+
     } catch (error) {
       console.error('Không thể lấy full thông tin user:', error);
     }
