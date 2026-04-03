@@ -10,27 +10,45 @@
         <h2 class="text-center mb-4 login-title">Login</h2>
         <hr class="mb-4">
 
-        <form @submit.prevent="handleLogin">
+        <form @submit.prevent="handleLogin" novalidate>
+          
           <div class="mb-3 text-start">
             <label for="email" class="form-label text-muted">Email</label>
             <input 
               type="email" 
               class="form-control" 
+              :class="{ 'is-invalid': errors.email }"
               id="email" 
               v-model="email"
-              required
             >
+            <span v-if="errors.email" class="text-danger small mt-1 d-block">
+              {{ errors.email }}
+            </span>
           </div>
 
           <div class="mb-3 text-start">
             <label for="password" class="form-label text-muted">Password</label>
-            <input 
-              type="password" 
-              class="form-control" 
-              id="password" 
-              v-model="password"
-              required
-            >
+            <div class="input-group">
+              <input 
+                :type="showPassword ? 'text' : 'password'" 
+                class="form-control" 
+                :class="{ 'is-invalid': errors.password }"
+                id="password" 
+                v-model="password"
+                autocomplete="new-password"
+              >
+              <button 
+                class="btn bg-white border border-start-0 text-secondary" 
+                type="button" 
+                @click="showPassword = !showPassword"
+                :style="{ borderColor: errors.password ? '#dc3545' : '#ced4da' }"
+              >
+                <i :class="showPassword ? 'bi bi-eye-slash' : 'bi bi-eye'"></i>
+              </button>
+            </div>
+            <span v-if="errors.password" class="text-danger small mt-1 d-block">
+              {{ errors.password }}
+            </span>
           </div>
 
           <div class="mb-4 text-start">
@@ -54,10 +72,12 @@
             </button>
           </div>
 
-          <div class="text-center text-secondary mt-4 footer-links">
-            <a href="#" class="text-decoration-none text-secondary">Forgot password?</a>
-            <span class="mx-2">|</span>
-            <router-link class="nav-link custom-link text-decoration-none text-secondary" to="/register">Register</router-link>
+          <div class="text-center text-secondary mt-4 footer-links d-flex flex-wrap justify-content-center">
+            <router-link class="text-decoration-none text-secondary custom-link" to="/forgot-password">Forgot password?</router-link>
+            <span class="mx-2 d-none d-sm-inline">|</span>
+            <router-link class="text-decoration-none text-secondary custom-link" to="/resend-verification">Gửi lại email</router-link>
+            <span class="mx-2 d-none d-sm-inline">|</span>
+            <router-link class="text-decoration-none text-secondary custom-link font-weight-bold" to="/register">Register</router-link>
           </div>
 
         </form>
@@ -67,21 +87,61 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, onMounted } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import Swal from 'sweetalert2';
 import { authAPI, saveAuthData } from '../../services/api';
+import { loadCart } from '../../store/cart.js';
 
 const router = useRouter();
+const route = useRoute();
 
 const email = ref('');
 const password = ref('');
 const rememberMe = ref(false);
 const isLoading = ref(false);
 
+const errors = ref({}); 
+const showPassword = ref(false);
+
+onMounted(() => {
+  if (route.query.verified === 'true') {
+    Swal.fire({
+      icon: 'success',
+      title: 'Kích hoạt thành công!',
+      text: 'Tài khoản của bạn đã được kích hoạt. Bạn có thể đăng nhập ngay bây giờ.',
+      timer: 3000
+    });
+    router.replace('/login');
+  } else if (route.query.error === 'server') {
+    Swal.fire({
+      icon: 'error',
+      title: 'Kích hoạt thất bại',
+      text: 'Có lỗi xảy ra trong quá trình xác thực.',
+    });
+    router.replace('/login');
+  }
+});
+
 const handleLogin = async () => {
-  if (!email.value || !password.value) {
-    Swal.fire('Lỗi', 'Vui lòng nhập đầy đủ thông tin', 'error');
+  errors.value = {};
+  let hasError = false;
+
+  if (!email.value) {
+    errors.value.email = 'Vui lòng nhập email';
+    hasError = true;
+  }
+  if (!password.value) {
+    errors.value.password = 'Vui lòng nhập mật khẩu';
+    hasError = true;
+  }
+
+  if (hasError) {
+    Swal.fire({
+      icon: 'error',
+      title: 'Đăng nhập thất bại',
+      text: 'Vui lòng điền đầy đủ thông tin vào các ô màu đỏ'
+    });
     return;
   }
 
@@ -90,8 +150,9 @@ const handleLogin = async () => {
   try {
     const response = await authAPI.login(email.value, password.value);
     
-    // Save token and user info
-    saveAuthData(response);
+    saveAuthData(response, rememberMe.value);
+
+    loadCart();
 
     Swal.fire({
       icon: 'success',
@@ -101,17 +162,21 @@ const handleLogin = async () => {
       showConfirmButton: false,
     });
 
-    // Redirect to admin dashboard
     setTimeout(() => {
       router.push('/admin/dashboard');
     }, 1500);
 
   } catch (error) {
-    console.error('Login error:', error);
+    errors.value = {};
+
+    if (error.response?.status === 400 && error.response?.data?.details) {
+      errors.value = error.response.data.details;
+    }
+
     Swal.fire({
       icon: 'error',
       title: 'Đăng nhập thất bại',
-      text: error.response?.data?.error || 'Email hoặc mật khẩu không đúng',
+      text: error.response?.data?.message || 'Không thể kết nối đến máy chủ',
     });
   } finally {
     isLoading.value = false;

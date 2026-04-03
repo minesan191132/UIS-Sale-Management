@@ -22,11 +22,7 @@
           <i class="bi bi-cart me-2"></i> Danh sách user
         </RouterLink>
       </li>
-      <li v-if="isAdmin">
-        <RouterLink to="/admin/orders" class="nav-link link-dark" active-class="active bg-primary text-white">
-          <i class="bi bi-clipboard-check me-2"></i> Quản lý đơn hàng
-        </RouterLink>
-      </li>
+
       <li>
         <a @click="toggleProcessingDropdown" class="nav-link link-dark" style="cursor: pointer;">
           <i class="bi bi-cart me-2"></i> Sản phẩm gia công
@@ -41,6 +37,11 @@
           <li class="my-1">
             <RouterLink to="/admin/invoice-management" class="nav-link link-dark py-2" active-class="active bg-primary text-white">
               <i class="bi bi-file-earmark-text me-2"></i> Quản lý xuất hoá đơn
+            </RouterLink>
+          </li>
+          <li class="my-1">
+            <RouterLink to="/admin/product-orders" class="nav-link link-dark py-2" active-class="active bg-primary text-white">
+              <i class="bi bi-cart-check me-2"></i> Quản lý đơn sản phẩm
             </RouterLink>
           </li>
           <li class="my-1">

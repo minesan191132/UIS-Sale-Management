@@ -24,4 +24,10 @@ public class OrderItemDTO {
     private BigDecimal unitPrice;
     private String adminNote;
     private BigDecimal totalItemPrice;
+
+    // Delivery
+    private String deliveryDate;
+
+    // Warehouse meta
+    private BigDecimal weight;
 }

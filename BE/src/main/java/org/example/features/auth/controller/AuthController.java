@@ -5,23 +5,27 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.config.security.CustomUserDetails;
 import org.example.features.auth.dto.AuthResponseDTO;
+import org.example.features.auth.dto.ForgotPasswordRequestDTO;
 import org.example.features.auth.dto.LoginDTO;
 import org.example.features.auth.dto.RegisterDTO;
+import org.example.features.auth.dto.ResendEmailDTO;
+import org.example.features.auth.dto.ResetPasswordDTO;
+import org.example.features.auth.dto.VerifyOtpDTO;
 import org.example.features.auth.service.AuthService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.net.URI;
 import java.util.Map;
 
 /**
  * Authentication Controller
- * Public endpoints for registration and login
+ * Public endpoints for registration, verification and login
  */
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin("*")
 @RequiredArgsConstructor
 @Slf4j
 public class AuthController {
@@ -34,17 +38,44 @@ public class AuthController {
      */
     @PostMapping("/register")
     public ResponseEntity<?> register(@Valid @RequestBody RegisterDTO dto) {
+        String message = authService.register(dto);
+        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("message", message));
+    }
+
+    /**
+     * Verify user token from email link
+     * GET /api/auth/verify/{token}
+     */
+    @GetMapping("/verify/{token}")
+    public ResponseEntity<?> verifyEmail(@PathVariable String token) {
+        String frontendLoginUrl = "http://localhost:5173";
         try {
-            AuthResponseDTO response = authService.register(dto);
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-        } catch (IllegalArgumentException e) {
-            log.warn("Registration failed: {}", e.getMessage());
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            boolean isVerified = authService.verifyToken(token);
+            if (isVerified) {
+                return ResponseEntity.status(HttpStatus.FOUND)
+                        .location(URI.create(frontendLoginUrl + "/login?verified=true"))
+                        .build();
+            } else {
+                return ResponseEntity.status(HttpStatus.FOUND)
+                        .location(URI.create(frontendLoginUrl + "/resend-verification?error=expired"))
+                        .build();
+            }
         } catch (Exception e) {
-            log.error("Registration error", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Registration failed: " + e.getMessage()));
+            log.error("Verification error", e);
+            return ResponseEntity.status(HttpStatus.FOUND)
+                    .location(URI.create(frontendLoginUrl + "/resend-verification?error=server"))
+                    .build();
         }
+    }
+
+    /**
+     * Resend verification email
+     * POST /api/auth/resend-verification
+     */
+    @PostMapping("/resend-verification")
+    public ResponseEntity<?> resendVerification(@Valid @RequestBody ResendEmailDTO dto) {
+        String message = authService.resendVerificationEmail(dto.getEmail());
+        return ResponseEntity.ok(Map.of("message", message));
     }
 
     /**
@@ -53,14 +84,8 @@ public class AuthController {
      */
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginDTO dto) {
-        try {
-            AuthResponseDTO response = authService.login(dto);
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            log.warn("Login failed for {}: {}", dto.getEmail(), e.getMessage());
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", "Invalid email or password"));
-        }
+        AuthResponseDTO response = authService.login(dto);
+        return ResponseEntity.ok(response);
     }
 
     /**
@@ -80,5 +105,35 @@ public class AuthController {
                 "fullName", userDetails.getFullName(),
                 "companyId", userDetails.getCompanyId(),
                 "role", userDetails.getRole()));
+    }
+
+    /**
+     * Step 1 - Forgot password: send OTP to email
+     * POST /api/auth/forgot-password
+     */
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(@Valid @RequestBody ForgotPasswordRequestDTO dto) {
+        String message = authService.forgotPassword(dto.getEmail());
+        return ResponseEntity.ok(Map.of("message", message));
+    }
+
+    /**
+     * Step 2 - Verify OTP: returns a one-time reset token
+     * POST /api/auth/forgot-password/verify
+     */
+    @PostMapping("/forgot-password/verify")
+    public ResponseEntity<?> verifyOtp(@Valid @RequestBody VerifyOtpDTO dto) {
+        String resetToken = authService.verifyOtp(dto.getEmail(), dto.getOtp());
+        return ResponseEntity.ok(Map.of("resetToken", resetToken));
+    }
+
+    /**
+     * Step 3 - Reset password using the one-time reset token
+     * POST /api/auth/reset-password
+     */
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@Valid @RequestBody ResetPasswordDTO dto) {
+        String message = authService.resetPassword(dto.getResetToken(), dto.getNewPassword());
+        return ResponseEntity.ok(Map.of("message", message));
     }
 }

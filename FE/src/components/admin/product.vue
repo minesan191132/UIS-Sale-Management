@@ -20,75 +20,317 @@
           <h5 class="fw-bold m-0">Danh sách sản phẩm</h5>
           <small class="text-muted">Quản lý và sửa thông tin sản phẩm</small>
         </div>
-        <button class="btn btn-primary btn-sm px-3 rounded-pill fw-bold">
+        <button class="btn btn-primary btn-sm px-3 rounded-pill fw-bold" @click="openAddModal">
           <i class="bi bi-plus-lg me-1"></i> Thêm sản phẩm mới
         </button>
       </div>
 
       <div class="row g-2 mb-4">
         <div class="col-md-4">
-          <input type="text" class="form-control form-control-sm bg-light border-0" placeholder="Tìm kiếm theo tên...">
+          <input type="text" class="form-control form-control-sm bg-light border-0"
+                 placeholder="Tìm kiếm theo tên hoặc SKU..." v-model="filter.keyword" @keyup.enter="searchProducts">
         </div>
         <div class="col-md-3">
-          <select class="form-select form-select-sm bg-light border-0">
-            <option selected>Tất cả danh mục</option>
-            <option>Linh kiện thép</option>
-            <option>Linh kiện nhôm</option>
+          <select class="form-select form-select-sm bg-light border-0" v-model="filter.status" @change="searchProducts">
+            <option value="">Tất cả trạng thái</option>
+            <option value="in_stock">Còn hàng</option>
+            <option value="low_stock">Sắp hết hàng</option>
+            <option value="out_of_stock">Hết hàng</option>
           </select>
         </div>
         <div class="col-md-3">
-          <select class="form-select form-select-sm bg-light border-0">
-            <option selected>Trạng thái</option>
-            <option>Còn hàng</option>
-            <option>Sắp hết hàng</option>
+          <select class="form-select form-select-sm bg-light border-0" v-model="filter.categoryId" @change="searchProducts">
+            <option :value="null">Tất cả danh mục</option>
+            <option :value="1">Phôi Sắt</option>
+            <option :value="2">Phôi Thép</option>
+            <option :value="3">Phôi Inox</option>
           </select>
         </div>
         <div class="col-md-2">
-          <button class="btn btn-primary btn-sm w-100 fw-bold">Tìm kiếm</button>
+          <button class="btn btn-primary btn-sm w-100 fw-bold" @click="searchProducts">Tìm kiếm</button>
         </div>
       </div>
 
-      <div class="product-list d-flex flex-column gap-3">
-        <div v-for="item in products" :key="item.id" class="product-item p-3 border rounded-4 bg-white shadow-sm hover-scale transition">
+      <div v-if="loading" class="text-center py-4">
+        <div class="spinner-border text-primary" role="status"></div>
+        <p class="mt-2 text-muted">Đang tải...</p>
+      </div>
+
+      <div v-else-if="error" class="alert alert-danger">{{ error }}</div>
+
+      <div v-else class="product-list d-flex flex-column gap-3">
+        <div v-if="products.length === 0" class="text-center text-muted py-5">
+          Không tìm thấy sản phẩm nào.
+        </div>
+        <div v-for="item in products" :key="item.id"
+             class="product-item p-3 border rounded-4 bg-white shadow-sm hover-scale transition">
           <div class="row align-items-center">
             <div class="col-md-1 text-center">
-              <div class="bg-light rounded-3 py-3 text-muted small border">HÌNH</div>
+              <img v-if="item.imageUrl" :src="item.imageUrl" alt="img"
+                   class="rounded-3 border" style="width:60px;height:60px;object-fit:cover"/>
+              <div v-else class="bg-light rounded-3 py-3 text-muted small border">HÌNH</div>
             </div>
             <div class="col-md-4">
               <h6 class="fw-bold mb-1">{{ item.name }}</h6>
-              <p class="small text-muted mb-0">Phân loại: <span class="fw-bold">{{ item.category }}</span></p>
-              <h5 class="fw-bold text-danger mt-1 mb-0">{{ item.price }}$ <small class="text-muted fs-6 fw-normal ms-2">Tồn kho: {{ item.stock }}</small></h5>
+              <p class="small text-muted mb-0">SKU: <span class="fw-bold">{{ item.sku || '—' }}</span></p>
+              <h5 class="fw-bold text-danger mt-1 mb-0">
+                {{ formatPrice(item.price) }}
+                <small class="text-muted fs-6 fw-normal ms-2">Tồn kho: {{ item.stockQuantity ?? 0 }}</small>
+              </h5>
             </div>
             <div class="col-md-3 text-center">
-              <span :class="item.stock > 10 ? 'bg-success text-white' : 'bg-warning text-dark'" class="badge px-4 py-2 rounded-pill fw-normal">
-                {{ item.stock > 10 ? 'Còn hàng' : 'Sắp hết hàng' }}
+              <span :class="statusClass(item.status)" class="badge px-4 py-2 rounded-pill fw-normal">
+                {{ item.status }}
               </span>
             </div>
             <div class="col-md-4 text-end d-flex gap-2 justify-content-end">
-              <button class="btn btn-light btn-sm border px-4 rounded-pill">Sửa</button>
-              <button class="btn btn-light btn-sm border px-4 rounded-pill">Xoá</button>
+              <button class="btn btn-light btn-sm border px-4 rounded-pill" @click="openEditModal(item)">Sửa</button>
+              <button class="btn btn-danger btn-sm border px-4 rounded-pill" @click="handleDelete(item)">Xoá</button>
             </div>
           </div>
         </div>
+      </div>
+
+      <div v-if="totalPages > 1" class="d-flex justify-content-center align-items-center gap-3 mt-4 pt-3 border-top">
+        <button class="btn btn-outline-primary px-4 fw-bold rounded-pill" :disabled="currentPage === 0" @click="changePage(currentPage - 1)">
+          <i class="bi bi-chevron-left me-1"></i> Trang trước
+        </button>
+        
+        <span class="badge bg-light text-dark border px-4 py-2 fs-6 rounded-pill shadow-sm">
+          Trang {{ currentPage + 1 }} / {{ totalPages }}
+        </span>
+        
+        <button class="btn btn-outline-primary px-4 fw-bold rounded-pill" :disabled="currentPage >= totalPages - 1" @click="changePage(currentPage + 1)">
+          Trang sau <i class="bi bi-chevron-right ms-1"></i>
+        </button>
+      </div>
+    </div>
+
+    <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
+      <div class="modal-box card shadow-lg p-4 rounded-4" style="max-width:540px;width:100%">
+        <h5 class="fw-bold mb-3">{{ editingId ? 'Sửa sản phẩm' : 'Thêm sản phẩm mới' }}</h5>
+        <form @submit.prevent="handleSave">
+          <div class="mb-2">
+            <label class="form-label small fw-bold">Tên sản phẩm *</label>
+            <input class="form-control form-control-sm" v-model="form.name" required />
+          </div>
+          <div class="row g-2 mb-2">
+            <div class="col">
+              <label class="form-label small fw-bold">SKU</label>
+              <input class="form-control form-control-sm" v-model="form.sku" />
+            </div>
+            <div class="col">
+              <label class="form-label small fw-bold">Giá (VNĐ)</label>
+              <input class="form-control form-control-sm" type="number" v-model="form.price" />
+            </div>
+          </div>
+          <div class="row g-2 mb-2">
+            <div class="col">
+              <label class="form-label small fw-bold">Tồn kho</label>
+              <input class="form-control form-control-sm" type="number" v-model="form.stockQuantity" />
+            </div>
+            <div class="col">
+              <label class="form-label small fw-bold">Danh mục</label>
+              <select class="form-select form-select-sm" v-model="form.categoryId">
+                <option :value="null">-- Chọn --</option>
+                <option :value="1">Phôi Sắt</option>
+                <option :value="2">Phôi Thép</option>
+                <option :value="3">Phôi Inox</option>
+              </select>
+            </div>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small fw-bold">URL Hình ảnh</label>
+            <input class="form-control form-control-sm" v-model="form.imageUrl" />
+          </div>
+          <div class="mb-2">
+            <label class="form-label small fw-bold">Mô tả</label>
+            <textarea class="form-control form-control-sm" rows="2" v-model="form.description"></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-bold">Chất liệu mặc định</label>
+            <input class="form-control form-control-sm" v-model="form.defaultMaterial" />
+          </div>
+          <div v-if="saveError" class="alert alert-danger py-2 small">{{ saveError }}</div>
+          <div class="d-flex gap-2 justify-content-end">
+            <button type="button" class="btn btn-light btn-sm px-4 rounded-pill border" @click="closeModal">Huỷ</button>
+            <button type="submit" class="btn btn-primary btn-sm px-4 rounded-pill fw-bold" :disabled="saving">
+              <span v-if="saving" class="spinner-border spinner-border-sm me-1"></span>
+              {{ editingId ? 'Lưu thay đổi' : 'Thêm mới' }}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, reactive, onMounted, computed } from 'vue';
+import { productAdminAPI } from '../../services/api.js';
 
-const productStats = [
-  { label: 'Tổng sản phẩm', value: '30', bgClass: 'bg-danger', icon: 'bi-box-seam' },
-  { label: 'Đang hoạt động', value: '22', bgClass: 'bg-success', icon: 'bi-check-circle' },
-  { label: 'Hết hàng', value: '11', bgClass: 'bg-purple', icon: 'bi-slash-circle' }, // bg-purple cần định nghĩa CSS
-  { label: 'Sắp hết hàng', value: '9', bgClass: 'bg-indigo', icon: 'bi-exclamation-triangle' }
-];
+// ─── State ───────────────────────────────────────────────────
+const products = ref([]);
+const loading = ref(false);
+const error = ref('');
+const currentPage = ref(0);
+const totalPages = ref(0);
+const filter = reactive({ keyword: '', status: '', categoryId: null });
 
-const products = ref([
-  { id: 1, name: 'Thép AB(36L)', category: 'Linh kiện thép', price: '30.000.000', stock: 2, status: 'Sắp hết' },
-  { id: 2, name: 'Nhôm BC(40R)', category: 'Linh kiện nhôm', price: '45.000.000', stock: 85, status: 'Còn hàng' }
+const stats = reactive({ total: 0, active: 0, outOfStock: 0, lowStock: 0 });
+
+const showModal = ref(false);
+const editingId = ref(null);
+const saving = ref(false);
+const saveError = ref('');
+const form = reactive({
+  name: '', sku: '', price: null, stockQuantity: null,
+  categoryId: null, imageUrl: '', description: '', defaultMaterial: '',
+  defaultSpecification: '', slug: '', isActive: true,
+});
+
+// ─── Stats Cards ─────────────────────────────────────────────
+const productStats = computed(() => [
+  { label: 'Tổng sản phẩm',  value: stats.total,       bgClass: 'bg-danger',  icon: 'bi bi-box-seam' },
+  { label: 'Đang hoạt động', value: stats.active,      bgClass: 'bg-success', icon: 'bi bi-check-circle' },
+  { label: 'Hết hàng',       value: stats.outOfStock,  bgClass: 'bg-purple',  icon: 'bi bi-slash-circle' },
+  { label: 'Sắp hết hàng',   value: stats.lowStock,    bgClass: 'bg-indigo',  icon: 'bi bi-exclamation-triangle' },
 ]);
+
+// ─── Load Data ───────────────────────────────────────────────
+async function loadStats() {
+  try {
+    const data = await productAdminAPI.getStats();
+    stats.total = data.total ?? 0;
+    stats.active = data.active ?? 0;
+    stats.outOfStock = data.outOfStock ?? 0;
+    stats.lowStock = data.lowStock ?? 0;
+  } catch (e) {
+    console.error('loadStats error', e);
+  }
+}
+
+// HÀM MỚI: Reset trang về 0 trước khi tìm kiếm
+function searchProducts() {
+  currentPage.value = 0;
+  loadProducts();
+}
+
+async function loadProducts() {
+  loading.value = true;
+  error.value = '';
+  try {
+    const data = await productAdminAPI.getAll({
+      keyword: filter.keyword,
+      categoryId: filter.categoryId,
+      status: filter.status,
+      page: currentPage.value,
+      size: 5, 
+    });
+    
+    products.value = data.content ?? [];
+    
+    const totalElements = data.totalElements ?? (data.page?.totalElements ?? 0);
+    const pages = data.totalPages ?? (data.page?.totalPages ?? Math.ceil(totalElements / 5));
+    
+    totalPages.value = pages; // Gán lại tổng số trang
+    
+  } catch (e) {
+    error.value = 'Không thể tải danh sách sản phẩm. Vui lòng thử lại.';
+    console.error('loadProducts error', e);
+  } finally {
+    loading.value = false;
+  }
+}
+
+function changePage(p) {
+  currentPage.value = p;
+  loadProducts();
+}
+
+// ─── Modal ───────────────────────────────────────────────────
+function resetForm() {
+  Object.assign(form, {
+    name: '', sku: '', price: null, stockQuantity: null,
+    categoryId: null, imageUrl: '', description: '',
+    defaultMaterial: '', defaultSpecification: '', slug: '', isActive: true,
+  });
+  saveError.value = '';
+}
+
+function openAddModal() {
+  resetForm();
+  editingId.value = null;
+  showModal.value = true;
+}
+
+function openEditModal(item) {
+  resetForm();
+  editingId.value = item.id;
+  Object.assign(form, {
+    name: item.name || '',
+    sku: item.sku || '',
+    price: item.price,
+    stockQuantity: item.stockQuantity,
+    categoryId: item.categoryId,
+    imageUrl: item.imageUrl || '',
+    description: item.description || '',
+    defaultMaterial: item.defaultMaterial || '',
+    defaultSpecification: item.defaultSpecification || '',
+    slug: item.slug || '',
+    isActive: item.isActive !== false,
+  });
+  showModal.value = true;
+}
+
+function closeModal() {
+  showModal.value = false;
+}
+
+async function handleSave() {
+  saving.value = true;
+  saveError.value = '';
+  try {
+    if (editingId.value) {
+      await productAdminAPI.update(editingId.value, { ...form });
+    } else {
+      await productAdminAPI.create({ ...form });
+    }
+    closeModal();
+    await Promise.all([loadStats(), loadProducts()]);
+  } catch (e) {
+    saveError.value = e.response?.data?.error || 'Lỗi khi lưu sản phẩm';
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function handleDelete(item) {
+  if (!confirm(`Bạn có chắc muốn xoá sản phẩm "${item.name}"?`)) return;
+  try {
+    await productAdminAPI.delete(item.id);
+    await Promise.all([loadStats(), loadProducts()]);
+  } catch (e) {
+    alert('Xoá thất bại: ' + (e.response?.data?.error || e.message));
+  }
+}
+
+// ─── Helpers ─────────────────────────────────────────────────
+function formatPrice(price) {
+  if (price == null) return '—';
+  return new Intl.NumberFormat('vi-VN').format(price) + '₫';
+}
+
+function statusClass(status) {
+  if (status === 'Còn hàng') return 'bg-success text-white';
+  if (status === 'Sắp hết hàng') return 'bg-warning text-dark';
+  return 'bg-secondary text-white';
+}
+
+// ─── Init ────────────────────────────────────────────────────
+onMounted(async () => {
+  await Promise.all([loadStats(), loadProducts()]);
+});
 </script>
 
 <style scoped>
@@ -99,14 +341,28 @@ const products = ref([
   border: 1px solid #f1f2f4 !important;
   transition: all 0.3s ease;
 }
-
 .product-item:hover {
   transform: translateY(-3px);
   box-shadow: 0 5px 15px rgba(0,0,0,0.05) !important;
   background-color: #fcfcfd !important;
-}
-
-.hover-scale:hover {
   border-color: #0d6efd !important;
 }
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 1050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+.modal-box {
+  background: #fff;
+  animation: fadeIn .2s ease;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+@keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
 </style>

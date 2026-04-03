@@ -2,7 +2,10 @@ package org.example.features.company.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
 import java.time.LocalDateTime;
 
 /**
@@ -11,7 +14,9 @@ import java.time.LocalDateTime;
  */
 @Entity
 @Table(name = "users")
-@Data
+@Getter
+@Setter
+@NoArgsConstructor
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -30,6 +35,9 @@ public class User {
     @Column(name = "full_name", length = 200)
     private String fullName;
 
+    @Column(name = "phone", length = 20)
+    private String phone;
+
     @Column(name = "password_hash", nullable = false)
     @JsonIgnore
     private String password; // Renamed from passwordHash for Spring Security compatibility
@@ -46,6 +54,18 @@ public class User {
 
     @Column(name = "last_login")
     private LocalDateTime lastLogin;
+
+    @Column(name = "gender", length = 10)
+    private String gender;
+
+    @Column(name = "dob_day")
+    private Integer dobDay;
+
+    @Column(name = "dob_month")
+    private Integer dobMonth;
+
+    @Column(name = "dob_year")
+    private Integer dobYear;
 
     @PrePersist
     protected void onCreate() {

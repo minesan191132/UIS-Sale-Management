@@ -28,8 +28,8 @@
           <div class="d-flex align-items-center gap-3 actions-menu">
             <router-link to="/cart" class="cart-btn position-relative me">
               <i class="fas fa-shopping-bag"></i>
-              <span v-if="cartCount > 0" class="cart-badge">
-                {{ cartCount }}
+              <span v-if="cartItemCount > 0" class="cart-badge">
+                {{ cartItemCount }}
               </span>
             </router-link>
 
@@ -54,6 +54,12 @@
                 </div>
               </button>
               <ul class="dropdown-menu dropdown-menu-end shadow border-0" aria-labelledby="userDropdown">
+                <!-- Account Setting -->
+                <li>
+                  <router-link to="/account" class="dropdown-item">
+                    <i class="bi bi-person-circle me-2"></i>Tài khoản
+                  </router-link>
+                </li>
                 <!-- Admin Menu -->
                 <li v-if="user.role === 'ADMIN'">
                   <router-link to="/admin/dashboard" class="dropdown-item">
@@ -90,12 +96,26 @@
   
   <script setup>
   import { ref, onMounted } from 'vue';
-  import { getStoredUser, logout, isAuthenticated } from '../../services/api';
+  import { getStoredUser, logout, isAuthenticated, notificationsAPI } from '../../services/api';
   import { Dropdown } from 'bootstrap';
+  import { cartItemCount } from '../../store/cart.js';
   
-  const cartCount = ref(3);
   const user = ref(null);
+  const unreadNotificationCount = ref(0);
   let dropdownInstance = null;
+
+  const loadUnreadNotificationCount = async () => {
+    if (!user.value || user.value.role !== 'CUSTOMER') {
+      unreadNotificationCount.value = 0;
+      return;
+    }
+    try {
+      const data = await notificationsAPI.getUnreadCount();
+      unreadNotificationCount.value = Number(data?.unreadCount || 0);
+    } catch (e) {
+      unreadNotificationCount.value = 0;
+    }
+  };
 
   const toggleDropdown = () => {
     const el = document.getElementById('userDropdown');
@@ -112,6 +132,7 @@
   onMounted(() => {
     if (isAuthenticated()) {
       user.value = getStoredUser();
+      loadUnreadNotificationCount();
     }
   });
   </script>

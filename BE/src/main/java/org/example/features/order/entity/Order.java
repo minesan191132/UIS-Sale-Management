@@ -7,6 +7,7 @@ import org.example.features.company.entity.Company;
 import org.example.features.company.entity.User;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -38,8 +39,12 @@ public class Order {
     private List<OrderItem> items = new ArrayList<>();
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false, length = 20)
+    @Column(name = "status", nullable = false, length = 30)
     private OrderStatus status = OrderStatus.PENDING_QUOTE;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "order_type", nullable = false, length = 30)
+    private OrderType orderType = OrderType.CUSTOM_MANUFACTURING;
 
     @Column(name = "total_amount", precision = 15, scale = 2)
     private BigDecimal totalPrice; // Mapped to total_amount in DB
@@ -55,8 +60,20 @@ public class Order {
     @Column(name = "paid_at")
     private LocalDateTime paidAt;
 
+    @Column(name = "shipped_at")
+    private LocalDateTime shippedAt;
+
+    @Column(name = "completed_at")
+    private LocalDateTime completedAt;
+
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
+
+    @Column(name = "delivery_date")
+    private LocalDate deliveryDate;
+
+    @Column(name = "current_revision_no", nullable = false)
+    private Integer currentRevisionNo = 1;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;

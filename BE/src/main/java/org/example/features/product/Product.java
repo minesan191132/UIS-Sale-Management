@@ -23,8 +23,10 @@ public class Product {
     private String sku;
     private String name;
     private String slug;
-    private String description;
     private BigDecimal price;
+
+    @Column(name = "description", columnDefinition = "TEXT")
+    private String description;
 
     @Column(name = "default_material")
     private String defaultMaterial;

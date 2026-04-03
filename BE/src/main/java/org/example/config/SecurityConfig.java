@@ -68,19 +68,33 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/api/auth/**",
+                                "/api/contact/**",
+                            "/uploads/**",
+                                "/api/payments/sepay/webhook", // SePay gọi từ server ngoài, không có JWT
+                                "/api/payments/dev/**",       // Dev simulation endpoints
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
-                                "/actuator/health")
+                                "/actuator/health",
+                                "/error")
                         .permitAll() // Public endpoints
 
                         .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
                         .requestMatchers("/api/products/**").hasRole("ADMIN") // Product management
+
+                        .requestMatchers(HttpMethod.GET, "/api/productadmin/**").hasRole("ADMIN") // Admin product read
+                        .requestMatchers("/api/productadmin/**").hasRole("ADMIN") // Admin product write
 
                         .requestMatchers("/api/admin/**").hasRole("ADMIN") // Admin endpoints
                         .requestMatchers("/api/users/**").hasRole("ADMIN") // User management
                         .requestMatchers(HttpMethod.POST, "/api/companies/**").hasRole("ADMIN") // Company creation
                         .requestMatchers(HttpMethod.GET, "/api/orders", "/api/orders/*/quote", "/api/orders/*/status")
                         .hasRole("ADMIN") // Admin order views
+                        .requestMatchers(HttpMethod.POST, "/api/orders/admin-import").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/orders/imports/*/cancel").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/orders/*/cancel").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/orders/*/confirm-received").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/orders/*/complaint/my").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/orders/*/complaint/my").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/api/orders/**").hasRole("ADMIN") // Admin order updates
                         .requestMatchers("/api/orders/my", "/api/orders/upload").authenticated() // Customer order
                                                                                                  // access

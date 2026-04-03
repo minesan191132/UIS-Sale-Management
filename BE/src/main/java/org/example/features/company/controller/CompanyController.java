@@ -19,7 +19,6 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/companies")
-@CrossOrigin("*")
 @RequiredArgsConstructor
 public class CompanyController {
 

@@ -1,30 +1,61 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { isAuthenticated } from '../services/api'
 
-import HomeView from '../components/homepage/Homepage.vue'
-import ServiceView from '../components/services/Service.vue'
-import ServiceDetailView from '../components/services/ServiceDetail.vue'
-import Product from '../components/product/Product.vue'
-import Contact from '../components/contact/Contact.vue'
-import Cart from '../components/cart/Cart.vue'
-import Login from '../components/auth/Login.vue'
-import Register from '../components/auth/Register.vue'
-import CreateOrder from '../components/customer/CreateOrder.vue'
-import MyOrders from '../components/customer/MyOrders.vue'
+import AccountSetting from '../components/user/accountsetting.vue'
 
-import AdminLayout from '../layouts/AdminLayout.vue'
+const HomeView = () => import('../components/homepage/Homepage.vue')
+const ServiceView = () => import('../components/services/Service.vue')
+const ServiceDetailView = () => import('../components/services/ServiceDetail.vue')
+const Product = () => import('../components/product/Product.vue')
+const ProductDetail = () => import('../components/product/ProductDetail.vue')
+const Contact = () => import('../components/contact/Contact.vue')
+const Cart = () => import('../components/cart/Cart.vue')
+const Login = () => import('../components/auth/Login.vue')
+const Register = () => import('../components/auth/Register.vue')
+const CreateOrder = () => import('../components/customer/CreateOrder.vue')
+const MyOrders = () => import('../components/customer/MyOrders.vue')
+const AdminLayout = () => import('../layouts/AdminLayout.vue')
+const InventoryView = () => import('../components/admin/home.vue')
+const InvoiceMgmtView = () => import('../components/admin/ExportManagement.vue')
+const PreviewInvoiceView = () => import('../components/admin/preview.vue')
+const StatisticView = () => import('../components/admin/thongke.vue')
+const WarehouseView = () => import('../components/admin/nhapkho.vue')
+const WarehouseHistoryView = () => import('../components/admin/lichsunhapkho.vue')
+const ProductView = () => import('../components/admin/product.vue')
+const UserEditView = () => import('../components/admin/user_edit.vue')
+const UserListView = () => import('../components/admin/user_list.vue')
+const ProductOrderMgmtView = () => import('../components/admin/ProductOrderManagement.vue')
 
-import InventoryView from '../components/admin/home.vue'
-import InvoiceMgmtView from '../components/admin/ExportManagement.vue'
-import PreviewInvoiceView from '../components/admin/preview.vue'
-import StatisticView from '../components/admin/thongke.vue'
-import WarehouseView from '../components/admin/nhapkho.vue'
-import WarehouseHistoryView from '../components/admin/lichsunhapkho.vue'
-import ProductView from '../components/admin/product.vue'
-import UserEditView from '../components/admin/user_edit.vue'
-import UserListView from '../components/admin/user_list.vue'
-import OrderManagementView from '../components/admin/OrderManagement.vue'
+const ResendVerification = () => import('../components/auth/ResendVerification.vue')
+const ForgotPassword = () => import('../components/auth/ForgotPassword.vue')
+const VerifyOtp = () => import('../components/auth/VerifyOtp.vue')
+const ResetPassword = () => import('../components/auth/ResetPassword.vue')
+const Checkout = () => import('../components/payment/Checkout.vue')
+const CheckoutPaymentQR = () => import('../components/payment/PaymentQR.vue')
 
+let adminChunksPrefetched = false;
+const prefetchAdminChunks = () => {
+  if (adminChunksPrefetched || typeof window === 'undefined') return;
+  adminChunksPrefetched = true;
+
+  const run = () => {
+    Promise.allSettled([
+      InventoryView(),
+      InvoiceMgmtView(),
+      PreviewInvoiceView(),
+      StatisticView(),
+    ]).catch(() => {
+      // Ignore prefetch failures to avoid impacting navigation.
+    });
+  };
+
+  if (typeof window.requestIdleCallback === 'function') {
+    window.requestIdleCallback(run, { timeout: 1200 });
+    return;
+  }
+
+  window.setTimeout(run, 200);
+};
 
 const routes = [
   {
@@ -48,6 +79,11 @@ const routes = [
     component: Product
   },
   {
+    path: '/product/:id',
+    name: 'product-detail',
+    component: ProductDetail
+  },
+  {
     path: '/contact',
     name: 'contact',
     component: Contact
@@ -58,6 +94,17 @@ const routes = [
     component: Cart
   },
   {
+    path: '/checkout',
+    name: 'checkout',
+    component: Checkout
+  },
+  {
+    path: '/payment/:orderId',
+    name: 'payment-qr',
+    component: CheckoutPaymentQR,
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/login',
     name: 'login',
     component: Login
@@ -66,6 +113,26 @@ const routes = [
     path: '/register',
     name: 'register',
     component: Register
+  },
+  {
+    path: '/resend-verification',
+    name: 'ResendVerification',
+    component: ResendVerification
+  },
+  {
+    path: '/forgot-password',
+    name: 'ForgotPassword',
+    component: ForgotPassword
+  },
+  {
+    path: '/forgot-password/verify',
+    name: 'VerifyOtp',
+    component: VerifyOtp
+  },
+  {
+    path: '/reset-password',
+    name: 'ResetPassword',
+    component: ResetPassword
   },
   {
     path: '/create-order',
@@ -79,6 +146,12 @@ const routes = [
     component: MyOrders,
     meta: { requiresAuth: true, roles: ['CUSTOMER'] }
   },
+  {
+    path: '/account',
+    name: 'account-setting',
+    component: AccountSetting,
+    meta: { requiresAuth: true }
+  },
 
   {
     path: '/admin',
@@ -88,11 +161,12 @@ const routes = [
       { path: 'dashboard', name: 'dashboard', component: StatisticView, meta: { roles: ['ADMIN'] } },
       { path: 'inventory', name: 'inventory', component: InventoryView }, // All authenticated users
       { path: 'invoice-management', name: 'invoice-management', component: InvoiceMgmtView },
+      { path: 'product-orders', name: 'product-orders', component: ProductOrderMgmtView },
       { path: 'invoice-preview', name: 'invoice-preview', component: PreviewInvoiceView },
       { path: 'products', name: 'products', component: ProductView, meta: { roles: ['ADMIN'] } },
       { path: 'users', name: 'users', component: UserListView, meta: { roles: ['ADMIN'] } },
       { path: 'user-edit', name: 'user-edit', component: UserEditView, meta: { roles: ['ADMIN'] } },
-      { path: 'orders', name: 'orders', component: OrderManagementView, meta: { roles: ['ADMIN'] } },
+
       { path: 'warehouse', name: 'warehouse', component: WarehouseView }, // Needed for import?
       { path: 'warehouse-history', name: 'warehouse-history', component: WarehouseHistoryView }
     ]
@@ -111,18 +185,30 @@ const routes = [
 
 const router = createRouter({
   history: createWebHistory(),
-  routes
+  routes,
+  scrollBehavior(to, from, savedPosition) {
+    // Nếu có savedPosition (khi dùng nút back/forward), quay lại vị trí đó
+    if (savedPosition) {
+      return savedPosition;
+    }
+    // Nếu có hash trong URL (ví dụ: #section), scroll đến phần tử đó
+    if (to.hash) {
+      return {
+        el: to.hash,
+        behavior: 'smooth',
+      };
+    }
+    // Mặc định scroll lên đầu trang với smooth behavior
+    return { top: 0, behavior: 'smooth' };
+  }
 })
 
 // Authentication & Role Guard
 router.beforeEach((to, from, next) => {
-  // Update page title
   document.title = to.meta.title || 'DATT System'
-
-  const user = JSON.parse(localStorage.getItem('user'));
+  const userStr = sessionStorage.getItem('user') || localStorage.getItem('user');
+  const user = userStr ? JSON.parse(userStr) : null;
   const isAuthenticatedUser = isAuthenticated();
-
-  // 1. Check if route requires authentication
   if (to.meta.requiresAuth && !isAuthenticatedUser) {
     next({ path: '/login', query: { redirect: to.fullPath } })
     return;
@@ -140,6 +226,8 @@ router.beforeEach((to, from, next) => {
       return;
     }
   }
+
+
 
   // 3. Prevent logged-in user from visiting login/register
   if ((to.path === '/login' || to.path === '/register') && isAuthenticatedUser) {
@@ -159,5 +247,11 @@ router.beforeEach((to, from, next) => {
 
   next()
 })
+
+router.afterEach((to) => {
+  if (to.path.startsWith('/admin')) {
+    prefetchAdminChunks();
+  }
+});
 
 export default router

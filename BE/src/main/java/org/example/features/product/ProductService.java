@@ -44,11 +44,21 @@ public class ProductService {
         dto.setImageUrl(product.getImageUrl());
         dto.setStockQuantity(product.getStockQuantity());
 
+        // THÊM DÒNG NÀY ĐỂ TRUYỀN MÔ TẢ TỪ DATABASE LÊN WEB
+        dto.setDescription(product.getDescription());
+
         // Xử lý logic: Nếu số lượng > 0 là Còn hàng
         dto.setAvailable(product.getStockQuantity() != null && product.getStockQuantity() > 0);
 
         dto.setDefaultMaterial(product.getDefaultMaterial());
         dto.setDefaultSpecification(product.getDefaultSpecification());
         return dto;
+    }
+
+    public ProductResponse getProductById(Long id) {
+        Product product = productPageRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy sản phẩm với ID: " + id));
+
+        return mapToResponse(product);
     }
 }
