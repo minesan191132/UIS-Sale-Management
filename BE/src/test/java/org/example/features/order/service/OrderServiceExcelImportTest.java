@@ -21,6 +21,7 @@ import org.example.features.order.entity.OrderType;
 import org.example.features.order.repository.OrderImportBatchRepository;
 import org.example.features.order.repository.OrderItemRepository;
 import org.example.features.order.repository.OrderRepository;
+import org.example.features.order.repository.OrderEventRepository;
 import org.example.features.notification.service.UserNotificationService;
 import org.example.features.payment.service.PaymentService;
 import org.example.features.productadmin.AdminProductService;
@@ -61,6 +62,7 @@ class OrderServiceExcelImportTest {
         orderImportBatchRepository = mock(OrderImportBatchRepository.class);
         orderService = new OrderService(
                 orderRepository,
+            mock(OrderEventRepository.class),
                 orderImportBatchRepository,
                 mock(OrderItemRepository.class),
                 mock(UserRepository.class),
@@ -260,7 +262,7 @@ class OrderServiceExcelImportTest {
         batch.addItem(importedItem);
 
         when(orderImportBatchRepository.findById(999L)).thenReturn(Optional.of(batch));
-        when(orderRepository.findByOrderNumber("VNN-REIMPORT-001")).thenReturn(Optional.of(existingCancelledOrder));
+        when(orderRepository.findByOrderNumberIgnoreCase("VNN-REIMPORT-001")).thenReturn(Optional.of(existingCancelledOrder));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(orderImportBatchRepository.save(any(OrderImportBatch.class))).thenAnswer(invocation -> invocation.getArgument(0));
 

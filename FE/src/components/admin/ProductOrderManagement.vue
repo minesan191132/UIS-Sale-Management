@@ -92,6 +92,14 @@
                 <button @click="openDetail(order)" class="btn btn-outline-primary btn-sm" title="Xem chi tiết">
                   <i class="bi bi-eye"></i>
                 </button>
+                <button
+                  v-if="canAdminCancelOrder(order)"
+                  @click="cancelOrderByAdmin(order)"
+                  class="btn btn-outline-danger btn-sm"
+                  title="Hủy đơn"
+                >
+                  <i class="bi bi-slash-circle"></i>
+                </button>
                 <!-- Confirm payment (AWAITING_PAYMENT -> DEPOSITED) -->
                 <button
                   v-if="order.status === 'AWAITING_PAYMENT'"
@@ -251,6 +259,13 @@
             >
               <i class="bi bi-truck me-1"></i>Đánh dấu đã giao
             </button>
+            <button
+              v-if="canAdminCancelOrder(selectedOrder)"
+              @click="cancelOrderFromModal"
+              class="btn btn-outline-danger"
+            >
+              <i class="bi bi-slash-circle me-1"></i>Hủy đơn
+            </button>
           </div>
         </div>
       </div>
@@ -396,6 +411,54 @@ const updateStatus = async (orderId, newStatus, successMsg) => {
   }
 }
 
+const canAdminCancelOrder = (order) => {
+  if (!order) return false
+  return order.status === 'AWAITING_PAYMENT'
+    || order.status === 'DEPOSITED'
+    || order.status === 'PROCESSING'
+}
+
+const cancelOrderByAdmin = async (order) => {
+  if (!canAdminCancelOrder(order)) return
+
+  const result = await Swal.fire({
+    title: 'Hủy đơn hàng?',
+    text: `Đơn ${order.orderNumber} sẽ chuyển sang trạng thái "Đã hủy".`,
+    input: 'textarea',
+    inputLabel: 'Lý do hủy đơn',
+    inputPlaceholder: 'Nhập lý do để gửi cho khách hàng...',
+    inputAttributes: {
+      maxlength: '500',
+      'aria-label': 'Lý do hủy đơn bởi admin',
+    },
+    inputValidator: (value) => {
+      if (!value || !value.trim()) {
+        return 'Vui lòng nhập lý do hủy đơn'
+      }
+      return null
+    },
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Hủy đơn',
+    cancelButtonText: 'Đóng',
+    confirmButtonColor: '#dc2626',
+  })
+
+  if (!result.isConfirmed) return
+
+  try {
+    const reason = (result.value || '').trim()
+    await apiClient.put(`/orders/${order.id}/status`, { reason }, {
+      params: { status: 'CANCELLED' },
+    })
+    await loadOrders(currentPage.value)
+    Swal.fire({ icon: 'success', title: 'Đã hủy đơn', timer: 2000, showConfirmButton: false })
+    bsModal?.hide()
+  } catch (error) {
+    Swal.fire('Lỗi', error.response?.data?.error || 'Không thể hủy đơn hàng', 'error')
+  }
+}
+
 const confirmPayment = async (order) => {
   const result = await Swal.fire({
     title: 'Xác nhận đã thanh toán?',
@@ -443,6 +506,11 @@ const startPreparationFromModal = async () => {
 const markDeliveredFromModal = async () => {
   const ok = await updateStatus(selectedOrder.value.id, 'COMPLETED', 'Đã giao hàng thành công!')
   if (ok) bsModal?.hide()
+}
+
+const cancelOrderFromModal = async () => {
+  if (!selectedOrder.value) return
+  await cancelOrderByAdmin(selectedOrder.value)
 }
 
 // Helper: Check if order is fully paid

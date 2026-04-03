@@ -122,6 +122,10 @@
                   @click="rejectOrder(order)" class="btn btn-outline-danger" title="Từ chối đơn">
                   <i class="bi bi-x-circle"></i>
                 </button>
+                <button v-if="canAdminCancelRegularOrder(order)"
+                  @click="cancelRegularOrder(order)" class="btn btn-outline-danger" title="Hủy đơn">
+                  <i class="bi bi-slash-circle"></i>
+                </button>
                 <button v-if="order.status === 'PENDING_QUOTE' && isAllReviewed(order)"
                   @click="submitQuote(order)" class="btn btn-outline-success" title="Gửi báo giá">
                   <i class="bi bi-currency-dollar"></i>
@@ -477,6 +481,12 @@
               @click="rejectOrder(selectedOrder)"
               class="btn btn-danger">
               <i class="bi bi-x-circle me-1"></i>Từ chối đơn
+            </button>
+            <button
+              v-if="canAdminCancelRegularOrder(selectedOrder)"
+              @click="cancelRegularOrder(selectedOrder)"
+              class="btn btn-outline-danger">
+              <i class="bi bi-slash-circle me-1"></i>Hủy đơn
             </button>
             <button
               v-if="selectedOrder.status === 'PENDING_QUOTE' && isAllReviewed(selectedOrder)"
@@ -1144,6 +1154,19 @@ const rejectOrder = async (order) => {
       <p>Đơn <strong>${order.orderNumber}</strong> sẽ bị từ chối và không chuyển sang bước báo giá.</p>
       <p class="text-muted small">Bạn vẫn có thể import lại dữ liệu nếu cần.</p>
     `,
+    input: 'textarea',
+    inputLabel: 'Lý do từ chối',
+    inputPlaceholder: 'Nhập lý do từ chối đơn hàng...',
+    inputAttributes: {
+      maxlength: '500',
+      'aria-label': 'Lý do từ chối đơn hàng',
+    },
+    inputValidator: (value) => {
+      if (!value || !value.trim()) {
+        return 'Vui lòng nhập lý do từ chối';
+      }
+      return null;
+    },
     icon: 'warning',
     showCancelButton: true,
     confirmButtonText: 'Từ chối đơn',
@@ -1154,13 +1177,72 @@ const rejectOrder = async (order) => {
   if (!result.isConfirmed) return;
 
   try {
-    await apiClient.put(`/orders/imports/${order.id}/cancel`);
+    const reason = (result.value || '').trim();
+    await apiClient.put(`/orders/imports/${order.id}/cancel`, { reason });
     await Swal.fire('Đã từ chối', 'Đơn hàng chờ duyệt đã được từ chối.', 'success');
     await loadOrders(currentPage.value);
     bsModal?.hide();
   } catch (error) {
     console.error('Failed to reject order:', error);
     Swal.fire('Lỗi', error.response?.data?.error || 'Không thể từ chối đơn hàng', 'error');
+  }
+};
+
+const canAdminCancelRegularOrder = (order) => {
+  if (!order || order?.isTempImport) return false;
+  const cancellableStatuses = [
+    'PENDING_APPROVAL',
+    'PENDING_QUOTE',
+    'AWAITING_PAYMENT',
+    'DEPOSITED',
+    'PROCESSING',
+    'AWAITING_REMAINING_PAYMENT',
+  ];
+  return cancellableStatuses.includes(order.status);
+};
+
+const cancelRegularOrder = async (order) => {
+  if (!canAdminCancelRegularOrder(order)) return;
+
+  const result = await Swal.fire({
+    title: 'Hủy đơn hàng?',
+    html: `
+      <p>Đơn <strong>${order.orderNumber}</strong> sẽ chuyển sang trạng thái <strong>Đã hủy</strong>.</p>
+      <p class="text-muted small">Khách hàng sẽ nhận được thông báo từ hệ thống.</p>
+    `,
+    input: 'textarea',
+    inputLabel: 'Lý do từ chối / hủy đơn',
+    inputPlaceholder: 'Nhập lý do để gửi cho khách hàng...',
+    inputAttributes: {
+      maxlength: '500',
+      'aria-label': 'Lý do hủy đơn bởi admin',
+    },
+    inputValidator: (value) => {
+      if (!value || !value.trim()) {
+        return 'Vui lòng nhập lý do hủy đơn';
+      }
+      return null;
+    },
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Hủy đơn',
+    confirmButtonColor: '#dc3545',
+    cancelButtonText: 'Đóng',
+  });
+
+  if (!result.isConfirmed) return;
+
+  try {
+    const reason = (result.value || '').trim();
+    await apiClient.put(`/orders/${order.id}/status`, { reason }, {
+      params: { status: 'CANCELLED' },
+    });
+    await Swal.fire('Thành công', `Đơn ${order.orderNumber} đã được hủy.`, 'success');
+    await loadOrders(currentPage.value);
+    bsModal?.hide();
+  } catch (error) {
+    console.error('Failed to cancel regular order by admin:', error);
+    Swal.fire('Lỗi', error.response?.data?.error || 'Không thể hủy đơn hàng', 'error');
   }
 };
 
