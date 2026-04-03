@@ -207,15 +207,27 @@ const scrollToCapabilities = () => {
               <span class="text-gold">Tiêu Chuẩn Nhật Bản</span>
             </h1>
             <p class="lead mb-5 text-light opacity-75 reveal fade-bottom delay-1" style="max-width: 600px;">
-              Đối tác tin cậy chuyên cung cấp giải pháp gia công cơ khí, cắt chấn kim loại và xử lý nước thải cho doanh nghiệp quy mô lớn.
+              Gia công theo bản vẽ kỹ thuật và cung cấp sản phẩm phôi có sẵn cho doanh nghiệp sản xuất cần tiến độ nhanh, kiểm soát chất lượng chặt chẽ.
             </p>
-            <div class="d-flex gap-3 reveal fade-bottom delay-2">
-              <button @click="scrollToCapabilities" class="btn btn-gold btn-lg fw-bold rounded-1 px-4 py-3 text-uppercase shadow-sm">
-                Xem Năng Lực <i class="fas fa-arrow-down ms-2"></i>
-              </button>
+            <div class="d-flex flex-wrap gap-2 gap-md-3 mb-4 reveal fade-bottom delay-1 hero-pill-list">
+              <span class="hero-pill">Gia công theo bản vẽ</span>
+              <span class="hero-pill">Sản phẩm phôi có sẵn</span>
+            </div>
+            <div class="d-flex flex-wrap gap-3 reveal fade-bottom delay-2 hero-actions">
+              <router-link to="/create-order" class="btn btn-gold btn-lg fw-bold rounded-1 px-4 py-3 text-uppercase shadow-sm">
+                Đặt Gia Công Ngay <i class="fas fa-arrow-right ms-2"></i>
+              </router-link>
+              <router-link to="/products" class="btn btn-outline-light btn-lg fw-bold rounded-1 px-4 py-3 text-uppercase">
+                Xem Sản Phẩm Phôi
+              </router-link>
               <router-link to="/contact" class="btn btn-outline-light btn-lg fw-bold rounded-1 px-4 py-3 text-uppercase">
                 Liên Hệ Tư Vấn
               </router-link>
+            </div>
+            <div class="mt-3 reveal fade-bottom delay-2">
+              <button @click="scrollToCapabilities" class="btn btn-link hero-scroll-link p-0 fw-semibold">
+                Xem năng lực gia công <i class="fas fa-arrow-down ms-1"></i>
+              </button>
             </div>
           </div>
         </div>
@@ -361,10 +373,10 @@ const scrollToCapabilities = () => {
           <div class="col-md-5 col-lg-4">
             <div class="bg-white p-4 rounded-2 shadow-sm h-100 d-flex flex-column align-items-center justify-content-center border-top border-gold border-4 hover-card">
               <i class="fas fa-cubes fa-3x text-navy mb-3"></i>
-              <h5 class="fw-bold text-dark mb-2">Mua Phôi / Vật Tư Có Sẵn</h5>
+              <h5 class="fw-bold text-dark mb-2">Mua Sản Phẩm Phôi Có Sẵn</h5>
               <p class="text-muted small mb-4">Lựa chọn các loại thép hình, thép tấm, linh kiện đạt chuẩn từ kho của chúng tôi.</p>
               <router-link to="/products" class="btn btn-outline-navy w-100 fw-bold py-3 text-uppercase mt-auto">
-                Vào Kho Vật Tư
+                Xem Sản Phẩm Phôi
               </router-link>
             </div>
           </div>
@@ -465,6 +477,32 @@ const scrollToCapabilities = () => {
   text-shadow: 2px 4px 10px rgba(0, 0, 0, 0.6);
 }
 
+.hero-pill-list {
+  max-width: 640px;
+}
+
+.hero-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.4rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.08);
+  color: #f8fafc;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+.hero-scroll-link {
+  color: #bfdbfe;
+  text-decoration: none;
+}
+
+.hero-scroll-link:hover {
+  color: #dbeafe;
+}
+
 /* Đây chính là lớp ảnh in chìm (Mờ mờ) nằm phía sau chữ */
 .hero-banner::before {
   content: "";
@@ -477,6 +515,12 @@ const scrollToCapabilities = () => {
   opacity: 0.3; /* Làm mờ ảnh, chỉ để lại bóng mờ như Watermark */
   filter: grayscale(100%) blur(0px); /* Đổi sang trắng đen và làm hơi nhòe đi */
   z-index: 0;
+}
+
+@media (max-width: 767.98px) {
+  .hero-actions .btn {
+    width: 100%;
+  }
 }
 
 /* ================================================= */

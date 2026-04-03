@@ -18,7 +18,7 @@
             <router-link class="nav-link custom-link" to="/services">Dịch vụ</router-link>
           </li>
           <li class="nav-item">
-            <router-link class="nav-link custom-link" to="/products">Sản phẩm</router-link>
+            <router-link class="nav-link custom-link" to="/products">Sản phẩm phôi</router-link>
           </li>
           <li class="nav-item">
             <router-link class="nav-link custom-link" to="/contact">Liên hệ</router-link>
@@ -26,6 +26,14 @@
         </ul>
 
           <div class="d-flex align-items-center gap-3 actions-menu">
+            <router-link
+              v-if="showManufacturingCta"
+              to="/create-order"
+              class="btn btn-manufacturing-cta rounded-pill px-3 py-2 fw-semibold text-uppercase"
+            >
+              <i class="bi bi-tools me-1"></i>Đặt gia công
+            </router-link>
+
             <router-link to="/cart" class="cart-btn position-relative me">
               <i class="fas fa-shopping-bag"></i>
               <span v-if="cartItemCount > 0" class="cart-badge">
@@ -95,13 +103,14 @@
   </template>
   
   <script setup>
-  import { ref, onMounted } from 'vue';
+  import { ref, onMounted, computed } from 'vue';
   import { getStoredUser, logout, isAuthenticated, notificationsAPI } from '../../services/api';
   import { Dropdown } from 'bootstrap';
   import { cartItemCount } from '../../store/cart.js';
   
-  const user = ref(null);
+  const user = ref(isAuthenticated() ? getStoredUser() : null);
   const unreadNotificationCount = ref(0);
+  const showManufacturingCta = computed(() => !user.value || user.value.role === 'CUSTOMER');
   let dropdownInstance = null;
 
   const loadUnreadNotificationCount = async () => {
@@ -130,10 +139,7 @@
   };
 
   onMounted(() => {
-    if (isAuthenticated()) {
-      user.value = getStoredUser();
-      loadUnreadNotificationCount();
-    }
+    loadUnreadNotificationCount();
   });
   </script>
 
@@ -160,7 +166,9 @@
   transition: color 0.3s;
 }
 
-.custom-link:hover, .router-link-active {
+.custom-link:hover,
+.custom-link.router-link-active,
+.custom-link.router-link-exact-active {
   color: #fff !important;
 }
 
@@ -176,7 +184,9 @@
   transform: translateX(-50%);
 }
 
-.custom-link:hover::after, .router-link-active::after {
+.custom-link:hover::after,
+.custom-link.router-link-active::after,
+.custom-link.router-link-exact-active::after {
   width: 100%;
 }
 
@@ -209,6 +219,23 @@
   justify-content: center;
   border-radius: 50%;
   border: 2px solid #0f172a; 
+}
+
+.btn-manufacturing-cta {
+  display: inline-flex;
+  align-items: center;
+  background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%);
+  color: #0f172a;
+  border: none;
+  letter-spacing: 0.4px;
+  box-shadow: 0 8px 18px rgba(249, 115, 22, 0.35);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn-manufacturing-cta:hover {
+  color: #0f172a;
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(249, 115, 22, 0.45);
 }
 
 .btn-link:hover {
@@ -256,6 +283,11 @@
   .cart-btn {
     margin-bottom: 0.5rem;
     align-self: flex-start;
+  }
+
+  .btn-manufacturing-cta {
+    width: 100%;
+    justify-content: center;
   }
 }
 </style>
