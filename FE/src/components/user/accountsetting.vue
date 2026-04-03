@@ -30,7 +30,7 @@
               </div>
               <div class="user-meta">
                 <span class="username">{{ currentUser?.fullName || 'Người dùng' }}</span>
-                <button class="edit-profile-btn" @click="activeSection = 'profile'; accountOpen = true">
+                <button class="edit-profile-btn" @click="switchSection('profile')">
                   <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                     <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
@@ -47,7 +47,7 @@
 
               <!-- Thông Báo -->
               <a href="#" class="nav-item" :class="{ active: activeSection === 'notifications' }"
-                @click.prevent="activeSection = 'notifications'">
+                @click.prevent="switchSection('notifications')">
                 <span class="nav-icon">
                   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
                 </span>
@@ -68,16 +68,16 @@
                 </div>
                 <transition name="submenu">
                   <div class="nav-submenu" v-show="accountOpen">
-                    <a href="#" class="submenu-item" :class="{ active: activeSection === 'profile' }" @click.prevent="activeSection = 'profile'">Hồ Sơ</a>
-                    <a href="#" class="submenu-item" :class="{ active: activeSection === 'address' }" @click.prevent="activeSection = 'address'">Địa Chỉ</a>
-                    <a href="#" class="submenu-item" :class="{ active: activeSection === 'password' }" @click.prevent="activeSection = 'password'">Đổi Mật Khẩu</a>
+                    <a href="#" class="submenu-item" :class="{ active: activeSection === 'profile' }" @click.prevent="switchSection('profile')">Hồ Sơ</a>
+                    <a href="#" class="submenu-item" :class="{ active: activeSection === 'address' }" @click.prevent="switchSection('address')">Địa Chỉ</a>
+                    <a href="#" class="submenu-item" :class="{ active: activeSection === 'password' }" @click.prevent="switchSection('password')">Đổi Mật Khẩu</a>
                   </div>
                 </transition>
               </div>
 
               <!-- Đơn Mua -->
               <a href="#" class="nav-item" :class="{ active: activeSection === 'orders' }"
-                @click.prevent="activeSection = 'orders'">
+                @click.prevent="switchSection('orders')">
                 <span class="nav-icon">
                   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
                 </span>
@@ -95,6 +95,10 @@
               <div class="section-header">
                 <h1 class="section-title">Hồ Sơ Của Tôi</h1>
                 <p class="section-desc">Quản lý thông tin hồ sơ để bảo mật tài khoản</p>
+              </div>
+              <div v-if="profileDraftRestoredAt" class="alert alert-info py-2 px-3 small mb-3">
+                <i class="bi bi-clock-history me-1"></i>
+                Đã khôi phục bản nháp lưu lúc {{ new Date(profileDraftRestoredAt).toLocaleString('vi-VN') }}.
               </div>
               <div class="section-divider"></div>
 
@@ -130,6 +134,9 @@
                       <button type="submit" class="btn-save" :disabled="isLoading">
                         {{ isLoading ? 'Đang lưu...' : 'Lưu' }}
                       </button>
+                      <p v-if="hasProfileUnsavedChanges && !isLoading" class="profile-draft-hint mb-0">
+                        <i class="bi bi-save2 me-1"></i>Thay đổi chưa lưu đang được giữ ở bản nháp.
+                      </p>
                     </div>
                   </div>
                 </form>
@@ -171,8 +178,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
+import { useRoute, onBeforeRouteLeave } from 'vue-router'
 import { getStoredUser, userAPI, notificationsAPI } from '../../services/api'
 import Swal from 'sweetalert2'
 import Navbar from '../base/Navbar.vue'
@@ -182,23 +189,23 @@ import AddressSection from './address.vue'
 import NotificationsSection from './notifications.vue'
 import OrderHistorySection from './orderhistory.vue'
 
+const PROFILE_DRAFT_STORAGE_PREFIX = 'account.profileDraft.v1.'
+const PROFILE_DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
+
 const activeSection = ref('profile')
 const accountOpen = ref(true)
 const currentUser = ref(null)
 const isLoading = ref(false)
 const unreadNotificationCount = ref(0)
 const route = useRoute()
+const initialProfileState = ref(null)
+const profileDraftRestoredAt = ref(null)
+const bypassProfileLeaveGuard = ref(false)
+let profileDraftSaveTimer = null
 
 const isAccountSection = computed(() =>
   ['profile', 'address', 'password'].includes(activeSection.value)
 )
-
-
-
-const toggleAccount = () => {
-  accountOpen.value = !accountOpen.value
-  if (!isAccountSection.value) activeSection.value = 'profile'
-}
 
 const avatarSrc = ref('https://ui-avatars.com/api/?name=User&background=1e3a8a&color=fff&size=150')
 
@@ -212,6 +219,170 @@ const form = ref({
   dobYear: '',
 })
 
+const normalizeProfileState = (state) => {
+  const source = state || {}
+  return {
+    fullName: String(source.fullName || ''),
+    email: String(source.email || ''),
+    phone: String(source.phone || ''),
+    gender: String(source.gender || ''),
+    dobDay: String(source.dobDay || ''),
+    dobMonth: String(source.dobMonth || ''),
+    dobYear: String(source.dobYear || ''),
+  }
+}
+
+const getComparableProfileState = (state) => {
+  const normalized = normalizeProfileState(state)
+  return {
+    fullName: normalized.fullName.trim(),
+    email: normalized.email.trim(),
+    phone: normalized.phone.trim(),
+    gender: normalized.gender.trim(),
+    dobDay: normalized.dobDay.trim(),
+    dobMonth: normalized.dobMonth.trim(),
+    dobYear: normalized.dobYear.trim(),
+  }
+}
+
+const getProfileDraftKey = () => {
+  const identity = String(getStoredUser()?.email || 'guest').toLowerCase()
+  return `${PROFILE_DRAFT_STORAGE_PREFIX}${identity}`
+}
+
+const hasMeaningfulProfileDraft = (state) => {
+  const comparable = getComparableProfileState(state)
+  return Object.values(comparable).some((value) => String(value || '').trim().length > 0)
+}
+
+const setInitialProfileState = () => {
+  initialProfileState.value = getComparableProfileState(form.value)
+}
+
+const hasProfileUnsavedChanges = computed(() => {
+  if (!initialProfileState.value) return false
+  const current = getComparableProfileState(form.value)
+  return JSON.stringify(current) !== JSON.stringify(initialProfileState.value)
+})
+
+const clearProfileDraft = () => {
+  try {
+    localStorage.removeItem(getProfileDraftKey())
+  } catch (error) {
+    console.warn('Failed to clear profile draft:', error)
+  }
+  profileDraftRestoredAt.value = null
+}
+
+const saveProfileDraft = () => {
+  if (!initialProfileState.value) return
+
+  const snapshot = normalizeProfileState(form.value)
+  if (!hasMeaningfulProfileDraft(snapshot)) {
+    clearProfileDraft()
+    return
+  }
+
+  try {
+    localStorage.setItem(getProfileDraftKey(), JSON.stringify({
+      ...snapshot,
+      savedAt: Date.now(),
+    }))
+  } catch (error) {
+    console.warn('Failed to save profile draft:', error)
+  }
+}
+
+const loadProfileDraft = () => {
+  try {
+    const raw = localStorage.getItem(getProfileDraftKey())
+    if (!raw) return null
+
+    const parsed = JSON.parse(raw)
+    const savedAt = Number(parsed?.savedAt || 0)
+
+    if (savedAt > 0 && Date.now() - savedAt > PROFILE_DRAFT_MAX_AGE_MS) {
+      clearProfileDraft()
+      return null
+    }
+
+    return {
+      ...normalizeProfileState(parsed),
+      savedAt,
+    }
+  } catch (error) {
+    console.warn('Failed to load profile draft:', error)
+    return null
+  }
+}
+
+const scheduleProfileDraftSave = () => {
+  if (!initialProfileState.value) return
+
+  if (profileDraftSaveTimer) {
+    window.clearTimeout(profileDraftSaveTimer)
+  }
+
+  profileDraftSaveTimer = window.setTimeout(() => {
+    saveProfileDraft()
+  }, 350)
+}
+
+const handleBeforeUnload = (event) => {
+  if (activeSection.value !== 'profile' || isLoading.value || !hasProfileUnsavedChanges.value) return
+  event.preventDefault()
+  event.returnValue = ''
+}
+
+const confirmLeaveProfileChanges = async () => {
+  if (activeSection.value !== 'profile' || !hasProfileUnsavedChanges.value) return true
+
+  saveProfileDraft()
+  const confirmLeave = await Swal.fire({
+    title: 'Bạn có thay đổi chưa lưu',
+    text: 'Thông tin hồ sơ đã được lưu nháp. Bạn có chắc muốn rời khỏi phần này?',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Vẫn rời đi',
+    cancelButtonText: 'Ở lại chỉnh sửa',
+    confirmButtonColor: '#dc2626',
+    cancelButtonColor: '#64748b',
+  })
+
+  return confirmLeave.isConfirmed
+}
+
+const switchSection = async (nextSection) => {
+  if (!nextSection) return false
+
+  if (nextSection === activeSection.value) {
+    if (['profile', 'address', 'password'].includes(nextSection)) {
+      accountOpen.value = true
+    }
+    return true
+  }
+
+  const canLeave = await confirmLeaveProfileChanges()
+  if (!canLeave) return false
+
+  activeSection.value = nextSection
+  if (['profile', 'address', 'password'].includes(nextSection)) {
+    accountOpen.value = true
+  }
+  return true
+}
+
+const toggleAccount = async () => {
+  if (!isAccountSection.value) {
+    const switched = await switchSection('profile')
+    if (switched) {
+      accountOpen.value = true
+    }
+    return
+  }
+
+  accountOpen.value = !accountOpen.value
+}
 
 const onAvatarChange = (e) => {
   const file = e.target.files[0]
@@ -256,7 +427,51 @@ const loadUserProfile = async () => {
   }
 }
 
+const tryRestoreProfileDraft = async () => {
+  const draft = loadProfileDraft()
+  if (!draft) return
+
+  const restore = await Swal.fire({
+    title: 'Khôi phục bản nháp hồ sơ?',
+    text: `Đã tìm thấy bản nháp lưu lúc ${new Date(draft.savedAt || Date.now()).toLocaleString('vi-VN')}.`,
+    icon: 'question',
+    showDenyButton: true,
+    showCancelButton: true,
+    confirmButtonText: 'Khôi phục',
+    denyButtonText: 'Xóa nháp',
+    cancelButtonText: 'Bỏ qua',
+    confirmButtonColor: '#0d6efd',
+    denyButtonColor: '#dc2626',
+    cancelButtonColor: '#64748b',
+  })
+
+  if (restore.isConfirmed) {
+    form.value = normalizeProfileState(draft)
+    profileDraftRestoredAt.value = draft.savedAt || Date.now()
+  } else if (restore.isDenied) {
+    clearProfileDraft()
+  }
+}
+
+watch(form, () => {
+  scheduleProfileDraftSave()
+}, { deep: true })
+
+onBeforeRouteLeave(async () => {
+  if (bypassProfileLeaveGuard.value) return true
+
+  if (isLoading.value) {
+    await Swal.fire('Đang lưu hồ sơ', 'Vui lòng chờ lưu xong trước khi rời trang.', 'info')
+    return false
+  }
+
+  const canLeave = await confirmLeaveProfileChanges()
+  return canLeave
+})
+
 const saveProfile = async () => {
+  if (isLoading.value) return
+
   isLoading.value = true
   try {
     const updated = await userAPI.updateProfile({
@@ -281,6 +496,9 @@ const saveProfile = async () => {
       avatarSrc.value = `https://ui-avatars.com/api/?name=${name}&background=1e3a8a&color=fff&size=150`
     }
 
+    clearProfileDraft()
+    setInitialProfileState()
+
     Swal.fire({ icon: 'success', title: 'Thành công!', text: 'Hồ sơ đã được cập nhật.', timer: 1500, showConfirmButton: false })
   } catch (err) {
     Swal.fire({ icon: 'error', title: 'Lỗi', text: err.response?.data?.error || 'Không thể cập nhật hồ sơ.' })
@@ -290,13 +508,28 @@ const saveProfile = async () => {
 }
 
 onMounted(async () => {
+  window.addEventListener('beforeunload', handleBeforeUnload)
+
   if (route.query.section === 'notifications') {
     activeSection.value = 'notifications'
   }
+
   await Promise.all([
     loadUserProfile(),
     loadUnreadNotificationCount(),
   ])
+
+  await tryRestoreProfileDraft()
+  setInitialProfileState()
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', handleBeforeUnload)
+
+  if (profileDraftSaveTimer) {
+    window.clearTimeout(profileDraftSaveTimer)
+    profileDraftSaveTimer = null
+  }
 })
 </script>
 
@@ -576,6 +809,13 @@ onMounted(async () => {
   margin: 0 0 0;
 }
 
+.profile-safety-note {
+  margin-top: 12px;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  background: linear-gradient(90deg, rgba(239, 246, 255, 0.95), rgba(247, 250, 255, 0.95));
+  color: #1e3a8a;
+}
+
 /* Profile Layout */
 .profile-layout {
   display: flex;
@@ -675,6 +915,11 @@ onMounted(async () => {
 .btn-save:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.profile-draft-hint {
+  font-size: 12px;
+  color: #b45309;
 }
 
 /* Avatar section */
