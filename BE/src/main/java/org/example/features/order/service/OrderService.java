@@ -16,6 +16,7 @@ import org.example.features.order.dto.OrderRevisionSummaryDTO;
 import org.example.features.order.dto.OrderResponseDTO;
 import org.example.features.order.dto.QuoteRequestDTO;
 import org.example.features.order.entity.OrderEventType;
+import org.example.features.order.entity.OrderEvent;
 import org.example.features.order.entity.ItemReviewStatus;
 import org.example.features.order.entity.ImportBatchStatus;
 import org.example.features.order.entity.ImportSourceType;
@@ -26,6 +27,7 @@ import org.example.features.order.entity.OrderImportItem;
 import org.example.features.order.entity.OrderItem;
 import org.example.features.order.entity.OrderStatus;
 import org.example.features.order.entity.OrderType;
+import org.example.features.order.repository.OrderEventRepository;
 import org.example.features.order.repository.OrderImportBatchRepository;
 import org.example.features.order.repository.OrderItemRepository;
 import org.example.features.order.repository.OrderRepository;
@@ -108,6 +110,7 @@ public class OrderService {
         FIELD_DELIVERY_DATE, "Delivery Date");
 
     private final OrderRepository orderRepository;
+    private final OrderEventRepository orderEventRepository;
     private final OrderImportBatchRepository orderImportBatchRepository;
     private final OrderItemRepository orderItemRepository;
     private final UserRepository userRepository;
@@ -238,8 +241,13 @@ public class OrderService {
     }
 
     public List<OrderResponseDTO> getMyPendingImportBatches(Long userId) {
+        return getMyImportBatches(userId, ImportBatchStatus.PENDING_APPROVAL);
+    }
+
+    public List<OrderResponseDTO> getMyImportBatches(Long userId, ImportBatchStatus status) {
+        ImportBatchStatus targetStatus = status != null ? status : ImportBatchStatus.PENDING_APPROVAL;
         return orderImportBatchRepository
-                .findByUserIdAndStatusOrderByCreatedAtDesc(userId, ImportBatchStatus.PENDING_APPROVAL)
+                .findByUserIdAndStatusOrderByCreatedAtDesc(userId, targetStatus)
                 .stream()
                 .map(this::mapImportBatchToDTO)
                 .toList();
@@ -307,7 +315,7 @@ public class OrderService {
         OrderImportBatch batch = orderImportBatchRepository.findById(batchId)
                 .orElseThrow(() -> new IllegalArgumentException("Import batch not found"));
 
-        String normalizedCancelReason = normalizeCancelReason(cancelReason, !isAdmin);
+        String normalizedCancelReason = normalizeCancelReason(cancelReason, true);
 
         if (!isAdmin && (batch.getUser() == null || !batch.getUser().getId().equals(requestingUserId))) {
             throw new SecurityException("Unauthorized access to import batch");
@@ -318,6 +326,8 @@ public class OrderService {
         }
 
         batch.setStatus(ImportBatchStatus.REJECTED);
+        batch.setRejectionReason(normalizedCancelReason);
+        batch.setRejectedByRole(isAdmin ? "ADMIN" : "CUSTOMER");
         orderImportBatchRepository.save(batch);
 
         String normalizedCode = normalizeImportCode(batch.getImportCode());
@@ -332,7 +342,17 @@ public class OrderService {
                 null,
                 requestingUserId,
                 isAdmin ? "ADMIN" : "CUSTOMER",
-                normalizedCancelReason != null ? normalizedCancelReason : "Hủy import batch chờ duyệt: " + batch.getImportCode()));
+                normalizedCancelReason));
+
+            if (isAdmin && batch.getUser() != null) {
+                userNotificationService.pushNotificationToUser(
+                    batch.getUser().getId(),
+                    null,
+                    NotificationType.ORDER,
+                    "Đơn import bị từ chối",
+                    "Đơn " + batch.getImportCode() + " đã bị admin từ chối. Lý do: " + normalizedCancelReason,
+                    "import-rejected-" + batch.getId());
+            }
 
         log.info("Import batch {} cancelled by user {}", batch.getImportCode(), requestingUserId);
     }
@@ -1273,7 +1293,12 @@ public class OrderService {
      * Update order status (Admin)
      */
     @Transactional
-    public OrderResponseDTO updateOrderStatus(Long orderId, OrderStatus newStatus) {
+    public OrderResponseDTO updateOrderStatus(
+            Long orderId,
+            OrderStatus newStatus,
+            String cancelReason,
+            Long actorUserId,
+            String actorRole) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found"));
 
@@ -1285,6 +1310,16 @@ public class OrderService {
         if (newStatus != currentStatus && !isValidTransition(currentStatus, newStatus)) {
             throw new IllegalStateException(
                     "Không thể chuyển trạng thái từ " + currentStatus + " sang " + newStatus);
+        }
+
+        String normalizedActorRole =
+                actorRole == null || actorRole.isBlank()
+                        ? "ADMIN"
+                        : actorRole.trim().toUpperCase(Locale.ROOT);
+        String normalizedCancelReason = null;
+
+        if (newStatus == OrderStatus.CANCELLED) {
+            normalizedCancelReason = normalizeCancelReason(cancelReason, true);
         }
 
         order.setStatus(newStatus);
@@ -1299,15 +1334,33 @@ public class OrderService {
         }
         Order savedOrder = orderRepository.save(order);
 
-        notifyOrderStatusTransition(savedOrder, currentStatus, newStatus);
-        orderAuditService.recordStatusEvent(
-            savedOrder,
-            OrderEventType.STATUS_CHANGED,
-            currentStatus,
-            newStatus,
-            null,
-            "ADMIN",
-            "Admin cập nhật trạng thái đơn hàng");
+        if (newStatus == OrderStatus.CANCELLED) {
+            userNotificationService.pushOrderNotification(
+                savedOrder,
+                NotificationType.ORDER,
+                "Đơn hàng bị từ chối",
+                "Đơn " + savedOrder.getOrderNumber() + " đã bị admin từ chối. Lý do: " + normalizedCancelReason,
+                "order-status-" + savedOrder.getId() + "-CANCELLED");
+
+            orderAuditService.recordStatusEvent(
+                savedOrder,
+                OrderEventType.ORDER_CANCELLED,
+                currentStatus,
+                OrderStatus.CANCELLED,
+                actorUserId,
+                normalizedActorRole,
+                normalizedCancelReason);
+        } else {
+            notifyOrderStatusTransition(savedOrder, currentStatus, newStatus);
+            orderAuditService.recordStatusEvent(
+                savedOrder,
+                OrderEventType.STATUS_CHANGED,
+                currentStatus,
+                newStatus,
+                actorUserId,
+                normalizedActorRole,
+                "Admin cập nhật trạng thái đơn hàng");
+        }
 
         log.info("Order {} status updated to {}", savedOrder.getOrderNumber(), newStatus);
         return mapToDTO(savedOrder);
@@ -1538,13 +1591,30 @@ public class OrderService {
         dto.setUserName(batch.getUser() != null ? batch.getUser().getFullName() : null);
         dto.setCompanyId(batch.getCompany() != null ? batch.getCompany().getId() : null);
         dto.setCompanyName(batch.getCompany() != null ? batch.getCompany().getCompanyName() : null);
-        dto.setStatus(OrderStatus.PENDING_APPROVAL);
+        if (batch.getStatus() == ImportBatchStatus.REJECTED) {
+            dto.setStatus(OrderStatus.CANCELLED);
+        } else if (batch.getStatus() == ImportBatchStatus.APPROVED && batch.getApprovedOrder() != null) {
+            dto.setStatus(batch.getApprovedOrder().getStatus());
+        } else {
+            dto.setStatus(OrderStatus.PENDING_APPROVAL);
+        }
         dto.setOrderType(OrderType.CUSTOM_MANUFACTURING);
         dto.setTotalPrice(null);
         dto.setDepositAmount(null);
         dto.setPaymentQrUrl(null);
         dto.setPaidAt(null);
-        dto.setNotes("Đơn import đang chờ admin duyệt");
+        if (batch.getStatus() == ImportBatchStatus.REJECTED) {
+            dto.setNotes("Đơn import đã bị từ chối");
+            dto.setCancelReason(batch.getRejectionReason());
+            dto.setCancelledByRole(batch.getRejectedByRole());
+            dto.setRejectedByAdmin(batch.getRejectedByRole() != null
+                    && "ADMIN".equalsIgnoreCase(batch.getRejectedByRole()));
+        } else {
+            dto.setNotes("Đơn import đang chờ admin duyệt");
+            dto.setCancelReason(null);
+            dto.setCancelledByRole(null);
+            dto.setRejectedByAdmin(false);
+        }
         dto.setDeliveryDate(null);
         dto.setCreatedAt(batch.getCreatedAt());
         dto.setUpdatedAt(batch.getUpdatedAt());
@@ -1586,6 +1656,9 @@ public class OrderService {
         dto.setShippedAt(order.getShippedAt());
         dto.setCompletedAt(order.getCompletedAt());
         dto.setNotes(order.getNotes());
+        dto.setCancelReason(null);
+        dto.setCancelledByRole(null);
+        dto.setRejectedByAdmin(false);
         dto.setDeliveryDate(order.getDeliveryDate());
         dto.setCreatedAt(order.getCreatedAt());
         dto.setUpdatedAt(order.getUpdatedAt());
@@ -1617,8 +1690,28 @@ public class OrderService {
             return itemDTO;
         }).collect(Collectors.toList());
         dto.setItems(itemDTOs);
+        attachCancelMetadata(order, dto);
 
         return dto;
+    }
+
+    private void attachCancelMetadata(Order order, OrderResponseDTO dto) {
+        if (order == null || dto == null || order.getStatus() != OrderStatus.CANCELLED) {
+            return;
+        }
+
+        OrderEvent latestCancelEvent = orderEventRepository
+                .findTopByOrderIdAndEventTypeOrderByCreatedAtDescIdDesc(order.getId(), OrderEventType.ORDER_CANCELLED)
+                .orElse(null);
+
+        if (latestCancelEvent == null) {
+            return;
+        }
+
+        String actorRole = latestCancelEvent.getActorRole();
+        dto.setCancelReason(latestCancelEvent.getNote());
+        dto.setCancelledByRole(actorRole);
+        dto.setRejectedByAdmin(actorRole != null && "ADMIN".equalsIgnoreCase(actorRole));
     }
 
     private Map<String, BigDecimal> loadWeightByDrawing(List<OrderItem> items) {

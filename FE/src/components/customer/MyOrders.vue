@@ -107,6 +107,21 @@
                     <i class="bi bi-hourglass-split me-1"></i>
                     Đơn đang chờ được duyệt. Sau khi duyệt, hệ thống sẽ chuyển sang bước báo giá.
                   </div>
+                  <div
+                    v-else-if="order.status === 'CANCELLED' && isAdminRejectedOrder(order)"
+                    class="alert alert-danger mt-2 mb-0 py-2 px-3 small"
+                  >
+                    <i class="bi bi-shield-x me-1"></i>
+                    Đơn bị admin từ chối.
+                    <span v-if="order.cancelReason">Lý do: {{ order.cancelReason }}</span>
+                  </div>
+                  <div
+                    v-else-if="order.status === 'CANCELLED' && order.cancelReason"
+                    class="alert alert-secondary mt-2 mb-0 py-2 px-3 small"
+                  >
+                    <i class="bi bi-info-circle me-1"></i>
+                    Lý do hủy: {{ order.cancelReason }}
+                  </div>
                 </div>
 
                 <!-- Pricing & Actions -->
@@ -289,6 +304,21 @@
             <div v-if="selectedOrder.status === 'PENDING_APPROVAL'" class="alert alert-warning py-2 px-3 small mb-3 pending-approval-banner">
               <i class="bi bi-hourglass-split me-1"></i>
               Đơn đang chờ admin duyệt. Bạn có thể theo dõi trạng thái tại đây.
+            </div>
+            <div
+              v-if="selectedOrder.status === 'CANCELLED' && isAdminRejectedOrder(selectedOrder)"
+              class="alert alert-danger py-2 px-3 small mb-3"
+            >
+              <i class="bi bi-shield-x me-1"></i>
+              Đơn bị admin từ chối.
+              <span v-if="selectedOrder.cancelReason">Lý do: {{ selectedOrder.cancelReason }}</span>
+            </div>
+            <div
+              v-else-if="selectedOrder.status === 'CANCELLED' && selectedOrder.cancelReason"
+              class="alert alert-secondary py-2 px-3 small mb-3"
+            >
+              <i class="bi bi-info-circle me-1"></i>
+              Lý do hủy: {{ selectedOrder.cancelReason }}
             </div>
 
             <div class="mb-3">
@@ -754,8 +784,15 @@ const loadStatusCounts = async (orderType) => {
 
   try {
     if (safeType === 'CUSTOM_MANUFACTURING') {
-      const importResponse = await apiClient.get('/orders/imports/my')
-      const pendingApprovalCount = Array.isArray(importResponse.data) ? importResponse.data.length : 0
+      const [pendingImportResponse, rejectedImportResponse] = await Promise.all([
+        apiClient.get('/orders/imports/my'),
+        apiClient.get('/orders/imports/my', {
+          params: { status: 'REJECTED' },
+        }),
+      ])
+
+      const pendingApprovalCount = Array.isArray(pendingImportResponse.data) ? pendingImportResponse.data.length : 0
+      const rejectedImportCount = Array.isArray(rejectedImportResponse.data) ? rejectedImportResponse.data.length : 0
       counts.PENDING_APPROVAL = pendingApprovalCount
 
       const statusKeys = manufacturingStatusTabs
@@ -776,6 +813,8 @@ const loadStatusCounts = async (orderType) => {
           counts[status] = extractTotalCount(result.value?.data)
         }
       })
+
+      counts.CANCELLED = Number(counts.CANCELLED || 0) + rejectedImportCount
 
       counts.ALL = Object.values(counts).reduce((sum, count) => sum + Number(count || 0), 0)
     } else {
@@ -813,6 +852,26 @@ const loadOrders = async (page = 0) => {
     if (activeOrderType.value === 'CUSTOM_MANUFACTURING' && activeStatus.value === 'PENDING_APPROVAL') {
       const importResponse = await apiClient.get('/orders/imports/my')
       orders.value = (importResponse.data || []).map(o => ({ ...o, isTempImport: true }))
+      currentPage.value = 0
+      totalPages.value = 1
+      return
+    }
+
+    if (activeOrderType.value === 'CUSTOM_MANUFACTURING' && activeStatus.value === 'CANCELLED' && page === 0) {
+      const params = { page, size: 10, orderType: activeOrderType.value, status: activeStatus.value }
+      const [response, rejectedImportResponse] = await Promise.all([
+        apiClient.get('/orders/my', { params }),
+        apiClient.get('/orders/imports/my', {
+          params: { status: 'REJECTED' },
+        }),
+      ])
+
+      const cancelledOrders = response.data.content || response.data
+      const rejectedImports = (rejectedImportResponse.data || []).map(o => ({ ...o, isTempImport: true }))
+      const merged = [...rejectedImports, ...(Array.isArray(cancelledOrders) ? cancelledOrders : [])]
+        .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+
+      orders.value = merged.map(o => ({ ...o, isTempImport: !!o.isTempImport }))
       currentPage.value = 0
       totalPages.value = 1
       return
@@ -894,7 +953,7 @@ const getHistoryEventTitle = (event) => {
     case 'IMPORT_APPROVED':
       return 'Đã duyệt import dữ liệu đơn'
     case 'IMPORT_REJECTED':
-      return 'Import chờ duyệt đã bị hủy'
+      return 'Đơn import đã bị từ chối'
     case 'ORDER_CANCELLED':
       return 'Đơn hàng đã bị hủy'
     case 'CUSTOMER_CONFIRMED_RECEIVED':
@@ -926,10 +985,22 @@ const getHistoryActorText = (event) => {
 const getHistoryNoteText = (event) => {
   const note = event?.note ? String(event.note).trim() : ''
   if (!note) return ''
+  if (event?.eventType === 'IMPORT_REJECTED') {
+    return `Lý do từ chối: ${note}`
+  }
   if (event?.eventType === 'ORDER_CANCELLED') {
     return `Lý do hủy: ${note}`
   }
   return note
+}
+
+const isAdminRejectedOrder = (order) => {
+  if (!order || order.status !== 'CANCELLED') return false
+
+  if (order.rejectedByAdmin === true) return true
+
+  const role = String(order.cancelledByRole || '').trim().toUpperCase()
+  return role === 'ADMIN'
 }
 
 const isCancelEventType = (eventType) => {

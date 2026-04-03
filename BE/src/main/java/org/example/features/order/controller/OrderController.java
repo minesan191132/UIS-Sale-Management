@@ -14,6 +14,7 @@ import org.example.features.order.dto.OrderHistoryEventDTO;
 import org.example.features.order.dto.OrderRevisionSummaryDTO;
 import org.example.features.order.dto.OrderResponseDTO;
 import org.example.features.order.dto.QuoteRequestDTO;
+import org.example.features.order.entity.ImportBatchStatus;
 import org.example.features.order.entity.OrderStatus;
 import org.example.features.order.entity.OrderType;
 import org.example.features.order.service.OrderService;
@@ -172,9 +173,10 @@ public class OrderController {
      */
     @GetMapping("/imports/my")
     public ResponseEntity<?> getMyPendingImportBatches(
+            @RequestParam(required = false) ImportBatchStatus status,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         try {
-            List<OrderResponseDTO> batches = orderService.getMyPendingImportBatches(userDetails.getUserId());
+            List<OrderResponseDTO> batches = orderService.getMyImportBatches(userDetails.getUserId(), status);
             return ResponseEntity.ok(batches);
         } catch (Exception e) {
             log.error("Error fetching my pending import batches", e);
@@ -621,9 +623,16 @@ public class OrderController {
     @PutMapping("/{id}/status")
     public ResponseEntity<?> updateOrderStatus(
             @PathVariable Long id,
-            @RequestParam OrderStatus status) {
+            @RequestParam OrderStatus status,
+            @RequestBody(required = false) CancelOrderRequestDTO request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
         try {
-            OrderResponseDTO order = orderService.updateOrderStatus(id, status);
+            OrderResponseDTO order = orderService.updateOrderStatus(
+                    id,
+                    status,
+                    request != null ? request.getReason() : null,
+                    userDetails != null ? userDetails.getUserId() : null,
+                    userDetails != null ? userDetails.getRole() : null);
             return ResponseEntity.ok(order);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));

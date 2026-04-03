@@ -44,6 +44,12 @@ public class OrderImportBatch {
     @Column(name = "original_filename", length = 255)
     private String originalFilename;
 
+    @Column(name = "rejection_reason", length = 500)
+    private String rejectionReason;
+
+    @Column(name = "rejected_by_role", length = 20)
+    private String rejectedByRole;
+
     @OneToMany(mappedBy = "batch", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderImportItem> items = new ArrayList<>();
 
