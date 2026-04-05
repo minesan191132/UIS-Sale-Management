@@ -1,9 +1,19 @@
 import axios from 'axios';
 
-// API Base URL - Update for production
-// const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+const resolveApiBaseUrl = () => {
+  const envApiUrl = import.meta.env.VITE_API_URL;
+  if (envApiUrl && envApiUrl.trim()) {
+    return envApiUrl.replace(/\/+$/, '');
+  }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://uis-sale-management-production.up.railway.app/api';
+  if (import.meta.env.DEV) {
+    return 'http://localhost:8080/api';
+  }
+
+  return '/api';
+};
+
+export const API_BASE_URL = resolveApiBaseUrl();
 
 // Create axios instance
 const apiClient = axios.create({
@@ -57,7 +67,7 @@ export const authAPI = {
    * Login user
    */
   login: async (email, password) => {
-    const response = await apiClient.post(`${API_BASE_URL}/auth/login`, {
+    const response = await apiClient.post('/auth/login', {
       email,
       password,
     });

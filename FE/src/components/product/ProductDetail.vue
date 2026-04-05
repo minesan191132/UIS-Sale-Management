@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import axios from 'axios';
+import apiClient from '../../services/api';
 import { addToCart } from '../../store/cart.js';
 import Swal from 'sweetalert2';
 
@@ -32,7 +32,7 @@ const scrollToTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
 const fetchProductDetail = async () => {
   const productId = route.params.id;
   try {
-    const response = await axios.get(`http://localhost:8080/api/products/${productId}`);
+    const response = await apiClient.get(`/products/${productId}`);
     const data = response.data;
     
     // Đã thêm các lớp bảo vệ (||) để phòng trường hợp backend trả về dữ liệu rỗng

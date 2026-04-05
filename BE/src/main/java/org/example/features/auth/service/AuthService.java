@@ -62,6 +62,9 @@ public class AuthService {
     @Value("${jwt.expiration:86400000}")
     private long jwtExpiration;
 
+    @Value("${app.backend.url:http://localhost:8080}")
+    private String backendBaseUrl;
+
     /**
      * Register new user with company tax code
      * Fetches company info from VietQR API
@@ -109,7 +112,7 @@ public class AuthService {
                 VERIFY_TOKEN_EXPIRATION_MINUTES,
                 TimeUnit.MINUTES);
 
-        String verificationUrl = "http://localhost:8080/api/auth/verify/" + token;
+        String verificationUrl = buildVerificationUrl(token);
 
         emailService.sendVerificationEmail(savedUser, verificationUrl);
 
@@ -163,10 +166,22 @@ public class AuthService {
                 VERIFY_TOKEN_EXPIRATION_MINUTES,
                 TimeUnit.MINUTES);
 
-        String verificationUrl = "http://localhost:8080/api/auth/verify/" + token;
+        String verificationUrl = buildVerificationUrl(token);
         emailService.sendVerificationEmail(user, verificationUrl);
 
         return "Email kích hoạt đã được gửi lại thành công. Vui lòng kiểm tra hộp thư (và thư rác) của bạn.";
+    }
+
+    private String buildVerificationUrl(String token) {
+        String normalizedBaseUrl = normalizeBaseUrl(backendBaseUrl);
+        return normalizedBaseUrl + "/api/auth/verify/" + token;
+    }
+
+    private String normalizeBaseUrl(String url) {
+        if (url == null || url.isBlank()) {
+            return "http://localhost:8080";
+        }
+        return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
     }
 
     /**
