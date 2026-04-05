@@ -29,6 +29,9 @@ public class OrderResponseDTO {
     private LocalDateTime shippedAt;
     private LocalDateTime completedAt;
     private String notes;
+    private String cancelReason;
+    private String cancelledByRole;
+    private Boolean rejectedByAdmin;
     private LocalDate deliveryDate;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

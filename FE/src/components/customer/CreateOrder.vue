@@ -46,9 +46,9 @@
             <!-- Drag & Drop Zone -->
             <div 
               class="upload-zone border rounded p-5 text-center mb-3"
-              :class="{ 'drag-over': isDragOver }"
-              @dragover.prevent="isDragOver = true"
-              @dragleave.prevent="isDragOver = false"
+              :class="{ 'drag-over': isDragOver, disabled: isUploading }"
+              @dragover.prevent="handleDragOver"
+              @dragleave.prevent="handleDragLeave"
               @drop.prevent="handleDrop">
               <i class="bi bi-cloud-upload fs-1 text-muted mb-3"></i>
               <h5 class="mb-2">Kéo thả file vào đây</h5>
@@ -58,8 +58,9 @@
                 ref="fileInput" 
                 accept=".xlsx,.xls" 
                 @change="handleFileSelect" 
+                :disabled="isUploading"
                 class="d-none">
-              <button @click="triggerFileInput" class="btn btn-primary">
+              <button @click="triggerFileInput" :disabled="isUploading" class="btn btn-primary">
                 <i class="bi bi-folder2-open me-2"></i>Chọn File
               </button>
             </div>
@@ -69,9 +70,14 @@
               <i class="bi bi-file-earmark-excel me-2"></i>
               <strong>{{ selectedFile.name }}</strong> 
               ({{ formatFileSize(selectedFile.size) }})
-              <button @click="clearFile" class="btn btn-sm btn-outline-danger float-end">
+              <button @click="clearFile" :disabled="isUploading" class="btn btn-sm btn-outline-danger float-end">
                 <i class="bi bi-x"></i> Xóa
               </button>
+            </div>
+
+            <div v-if="hasPendingUpload" class="alert alert-warning py-2 px-3 small">
+              <i class="bi bi-exclamation-circle me-1"></i>
+              Bạn đang có file chưa tải lên. Đừng quên bấm "Tải Lên" trước khi rời trang.
             </div>
 
             <!-- Error Message -->
@@ -86,9 +92,9 @@
 
             <!-- Action Buttons -->
             <div class="d-flex gap-2 justify-content-end">
-              <router-link to="/" class="btn btn-outline-secondary">
+              <button @click="confirmCancelAndLeave" :disabled="isUploading" class="btn btn-outline-secondary">
                 <i class="bi bi-x me-2"></i>Hủy
-              </router-link>
+              </button>
               <button 
                 @click="uploadOrder" 
                 :disabled="!selectedFile || isUploading" 
@@ -106,8 +112,8 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { useRouter, onBeforeRouteLeave } from 'vue-router'
 import Swal from 'sweetalert2'
 import apiClient from '../../services/api'
 
@@ -119,6 +125,49 @@ const isDragOver = ref(false)
 const isUploading = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
+const bypassLeaveGuard = ref(false)
+
+const hasPendingUpload = computed(() => {
+  return !!selectedFile.value && !isUploading.value
+})
+
+const handleBeforeUnload = (event) => {
+  if (!hasPendingUpload.value && !isUploading.value) return
+  event.preventDefault()
+  event.returnValue = ''
+}
+
+onMounted(() => {
+  window.addEventListener('beforeunload', handleBeforeUnload)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', handleBeforeUnload)
+})
+
+onBeforeRouteLeave(async () => {
+  if (bypassLeaveGuard.value) return true
+
+  if (isUploading.value) {
+    await Swal.fire('Đang tải lên', 'Vui lòng chờ upload hoàn tất trước khi rời trang.', 'info')
+    return false
+  }
+
+  if (!hasPendingUpload.value) return true
+
+  const confirmLeave = await Swal.fire({
+    title: 'Rời trang này?',
+    text: 'Bạn đã chọn file nhưng chưa tải lên. Nếu rời trang, bạn sẽ phải chọn lại file.',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Vẫn rời trang',
+    cancelButtonText: 'Ở lại',
+    confirmButtonColor: '#dc2626',
+    cancelButtonColor: '#64748b',
+  })
+
+  return confirmLeave.isConfirmed
+})
 
 const downloadTemplate = () => {
   // Placeholder: User will provide real template later
@@ -131,7 +180,17 @@ const downloadTemplate = () => {
 }
 
 const triggerFileInput = () => {
+  if (isUploading.value) return
   fileInput.value.click()
+}
+
+const handleDragOver = () => {
+  if (isUploading.value) return
+  isDragOver.value = true
+}
+
+const handleDragLeave = () => {
+  isDragOver.value = false
 }
 
 const handleFileSelect = (event) => {
@@ -140,12 +199,14 @@ const handleFileSelect = (event) => {
 }
 
 const handleDrop = (event) => {
+  if (isUploading.value) return
   isDragOver.value = false
   const file = event.dataTransfer.files[0]
   validateAndSetFile(file)
 }
 
 const validateAndSetFile = (file) => {
+  if (isUploading.value) return
   errorMessage.value = ''
   
   if (!file) return
@@ -170,6 +231,7 @@ const validateAndSetFile = (file) => {
 }
 
 const clearFile = () => {
+  if (isUploading.value) return
   selectedFile.value = null
   errorMessage.value = ''
   successMessage.value = ''
@@ -178,7 +240,36 @@ const clearFile = () => {
   }
 }
 
+const confirmCancelAndLeave = async () => {
+  if (isUploading.value) return
+
+  if (!hasPendingUpload.value) {
+    bypassLeaveGuard.value = true
+    router.push('/')
+    return
+  }
+
+  const result = await Swal.fire({
+    title: 'Hủy thao tác upload?',
+    text: 'Bạn đang có file chưa tải lên. Nếu thoát, file đã chọn sẽ bị mất.',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Thoát trang',
+    cancelButtonText: 'Ở lại',
+    confirmButtonColor: '#dc2626',
+    cancelButtonColor: '#64748b',
+  })
+
+  if (!result.isConfirmed) return
+
+  clearFile()
+  bypassLeaveGuard.value = true
+  router.push('/')
+}
+
 const uploadOrder = async () => {
+  if (isUploading.value) return
+
   if (!selectedFile.value) {
     errorMessage.value = 'Vui lòng chọn file'
     return
@@ -208,6 +299,8 @@ const uploadOrder = async () => {
     })
 
     // Redirect to My Orders
+    clearFile()
+    bypassLeaveGuard.value = true
     router.push('/my-orders')
 
   } catch (error) {
@@ -239,5 +332,10 @@ const formatFileSize = (bytes) => {
 .upload-zone.drag-over {
   background: #e7f1ff;
   border-color: #0d6efd;
+}
+
+.upload-zone.disabled {
+  opacity: 0.6;
+  pointer-events: none;
 }
 </style>

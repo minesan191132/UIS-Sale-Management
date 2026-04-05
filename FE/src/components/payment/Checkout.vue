@@ -1,6 +1,6 @@
 <script setup>
-import { ref, reactive, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, reactive, onMounted, onBeforeUnmount, watch, computed } from 'vue';
+import { useRouter, onBeforeRouteLeave } from 'vue-router';
 import Navbar from '../base/Navbar.vue';
 import Footer from '../base/Footer.vue';
 import { cartState, cartTotalPrice, loadCart } from '../../store/cart.js';
@@ -8,8 +8,15 @@ import { isAuthenticated, getStoredUser, userAPI, ordersAPI } from '../../servic
 import Swal from 'sweetalert2';
 
 const router = useRouter();
+const CHECKOUT_DRAFT_STORAGE_PREFIX = 'checkout.formDraft.v1.';
+const CHECKOUT_DRAFT_MAX_AGE_MS = 3 * 24 * 60 * 60 * 1000;
+
 const selectedPayment = ref('BANK');
 const isSubmitting = ref(false);
+const initialCheckoutState = ref(null);
+const checkoutDraftRestoredAt = ref(null);
+const bypassCheckoutLeaveGuard = ref(false);
+let checkoutDraftSaveTimer = null;
 
 const form = reactive({
   name: '',
@@ -22,7 +29,181 @@ const form = reactive({
   note: ''
 });
 
-onMounted(async () => {
+const getCheckoutDraftKey = () => {
+  const identity = String(getStoredUser()?.email || 'guest').toLowerCase();
+  return `${CHECKOUT_DRAFT_STORAGE_PREFIX}${identity}`;
+};
+
+const normalizeCheckoutState = (state) => {
+  const source = state || {};
+  const sourceForm = source.form || {};
+
+  return {
+    selectedPayment: source.selectedPayment === 'COD' ? 'COD' : 'BANK',
+    form: {
+      name: String(sourceForm.name || ''),
+      phone: String(sourceForm.phone || ''),
+      orderEmail: String(sourceForm.orderEmail || ''),
+      address: String(sourceForm.address || ''),
+      companyName: String(sourceForm.companyName || ''),
+      taxId: String(sourceForm.taxId || ''),
+      invoiceEmail: String(sourceForm.invoiceEmail || ''),
+      note: String(sourceForm.note || ''),
+    },
+  };
+};
+
+const getCurrentCheckoutState = () => {
+  return normalizeCheckoutState({
+    selectedPayment: selectedPayment.value,
+    form,
+  });
+};
+
+const getComparableCheckoutState = (state) => {
+  const normalized = normalizeCheckoutState(state);
+  return {
+    selectedPayment: normalized.selectedPayment,
+    form: {
+      name: normalized.form.name.trim(),
+      phone: normalized.form.phone.trim(),
+      orderEmail: normalized.form.orderEmail.trim(),
+      address: normalized.form.address.trim(),
+      companyName: normalized.form.companyName.trim(),
+      taxId: normalized.form.taxId.trim(),
+      invoiceEmail: normalized.form.invoiceEmail.trim(),
+      note: normalized.form.note.trim(),
+    },
+  };
+};
+
+const hasMeaningfulCheckoutDraft = (state) => {
+  const comparable = getComparableCheckoutState(state);
+  if (comparable.selectedPayment !== 'BANK') return true;
+  return Object.values(comparable.form).some((value) => String(value || '').trim().length > 0);
+};
+
+const applyCheckoutState = (state) => {
+  const normalized = normalizeCheckoutState(state);
+  selectedPayment.value = normalized.selectedPayment;
+  Object.assign(form, normalized.form);
+};
+
+const setInitialCheckoutState = () => {
+  initialCheckoutState.value = getComparableCheckoutState(getCurrentCheckoutState());
+};
+
+const hasCheckoutUnsavedChanges = computed(() => {
+  if (!initialCheckoutState.value) return false;
+  const current = getComparableCheckoutState(getCurrentCheckoutState());
+  return JSON.stringify(current) !== JSON.stringify(initialCheckoutState.value);
+});
+
+const clearCheckoutDraft = () => {
+  try {
+    localStorage.removeItem(getCheckoutDraftKey());
+  } catch (error) {
+    console.warn('Failed to clear checkout draft:', error);
+  }
+  checkoutDraftRestoredAt.value = null;
+};
+
+const saveCheckoutDraft = () => {
+  if (!initialCheckoutState.value) return;
+
+  const snapshot = getCurrentCheckoutState();
+  if (!hasMeaningfulCheckoutDraft(snapshot)) {
+    clearCheckoutDraft();
+    return;
+  }
+
+  const payload = {
+    ...snapshot,
+    savedAt: Date.now(),
+  };
+
+  try {
+    localStorage.setItem(getCheckoutDraftKey(), JSON.stringify(payload));
+  } catch (error) {
+    console.warn('Failed to save checkout draft:', error);
+  }
+};
+
+const loadCheckoutDraft = () => {
+  try {
+    const raw = localStorage.getItem(getCheckoutDraftKey());
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw);
+    const savedAt = Number(parsed?.savedAt || 0);
+
+    if (savedAt > 0 && Date.now() - savedAt > CHECKOUT_DRAFT_MAX_AGE_MS) {
+      clearCheckoutDraft();
+      return null;
+    }
+
+    return {
+      ...normalizeCheckoutState(parsed),
+      savedAt,
+    };
+  } catch (error) {
+    console.warn('Failed to load checkout draft:', error);
+    return null;
+  }
+};
+
+const scheduleCheckoutDraftSave = () => {
+  if (!initialCheckoutState.value) return;
+
+  if (checkoutDraftSaveTimer) {
+    window.clearTimeout(checkoutDraftSaveTimer);
+  }
+
+  checkoutDraftSaveTimer = window.setTimeout(() => {
+    saveCheckoutDraft();
+  }, 350);
+};
+
+const handleBeforeUnload = (event) => {
+  if (isSubmitting.value || !hasCheckoutUnsavedChanges.value) return;
+  event.preventDefault();
+  event.returnValue = '';
+};
+
+watch(form, () => {
+  scheduleCheckoutDraftSave();
+}, { deep: true });
+
+watch(selectedPayment, () => {
+  scheduleCheckoutDraftSave();
+});
+
+onBeforeRouteLeave(async () => {
+  if (bypassCheckoutLeaveGuard.value) return true;
+
+  if (isSubmitting.value) {
+    await Swal.fire('Đang xử lý đơn hàng', 'Vui lòng chờ hệ thống hoàn tất thao tác.', 'info');
+    return false;
+  }
+
+  if (!hasCheckoutUnsavedChanges.value) return true;
+
+  saveCheckoutDraft();
+  const confirmLeave = await Swal.fire({
+    title: 'Rời trang thanh toán?',
+    text: 'Thông tin đã được lưu nháp. Nếu rời trang, bạn có thể khôi phục khi quay lại.',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Vẫn rời trang',
+    cancelButtonText: 'Ở lại',
+    confirmButtonColor: '#dc2626',
+    cancelButtonColor: '#64748b',
+  });
+
+  return confirmLeave.isConfirmed;
+});
+
+const hydrateCheckoutForm = async () => {
   if (isAuthenticated()) {
     const basicUser = getStoredUser();
     if (basicUser) {
@@ -53,9 +234,52 @@ onMounted(async () => {
       console.error('Không thể lấy full thông tin user:', error);
     }
   }
+};
+
+const tryRestoreCheckoutDraft = async () => {
+  const draft = loadCheckoutDraft();
+  if (!draft) return;
+
+  const restore = await Swal.fire({
+    title: 'Khôi phục thông tin thanh toán?',
+    text: `Đã tìm thấy bản nháp lưu lúc ${new Date(draft.savedAt || Date.now()).toLocaleString('vi-VN')}.`,
+    icon: 'question',
+    showDenyButton: true,
+    showCancelButton: true,
+    confirmButtonText: 'Khôi phục',
+    denyButtonText: 'Xóa nháp',
+    cancelButtonText: 'Bỏ qua',
+    confirmButtonColor: '#0d6efd',
+    denyButtonColor: '#dc2626',
+    cancelButtonColor: '#64748b',
+  });
+
+  if (restore.isConfirmed) {
+    applyCheckoutState(draft);
+    checkoutDraftRestoredAt.value = draft.savedAt || Date.now();
+  } else if (restore.isDenied) {
+    clearCheckoutDraft();
+  }
+};
+
+onMounted(async () => {
+  window.addEventListener('beforeunload', handleBeforeUnload);
+  await hydrateCheckoutForm();
+  await tryRestoreCheckoutDraft();
+  setInitialCheckoutState();
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', handleBeforeUnload);
+  if (checkoutDraftSaveTimer) {
+    window.clearTimeout(checkoutDraftSaveTimer);
+    checkoutDraftSaveTimer = null;
+  }
 });
 
 async function submitOrder() {
+  if (isSubmitting.value) return;
+
   // Validate required fields
   if (!form.name.trim()) {
     Swal.fire('Thiếu thông tin', 'Vui lòng nhập tên người nhận.', 'warning');
@@ -74,9 +298,26 @@ async function submitOrder() {
     return;
   }
   if (!isAuthenticated()) {
+    saveCheckoutDraft();
+    bypassCheckoutLeaveGuard.value = true;
     router.push({ path: '/login', query: { redirect: '/checkout' } });
     return;
   }
+
+  const confirmSubmit = await Swal.fire({
+    title: 'Xác nhận đặt hàng?',
+    text: selectedPayment.value === 'BANK'
+      ? 'Bạn sẽ được chuyển đến trang QR để thanh toán ngay sau khi tạo đơn.'
+      : 'Đơn hàng COD sẽ được xác nhận và nhân viên sẽ liên hệ với bạn.',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'Đặt hàng',
+    cancelButtonText: 'Xem lại',
+    confirmButtonColor: '#0b2e59',
+    cancelButtonColor: '#64748b',
+  });
+
+  if (!confirmSubmit.isConfirmed) return;
 
   isSubmitting.value = true;
   try {
@@ -107,6 +348,8 @@ async function submitOrder() {
     cartState.items = [];
     localStorage.removeItem(`upec_cart_${getStoredUser()?.email}`);
     loadCart();
+    clearCheckoutDraft();
+    bypassCheckoutLeaveGuard.value = true;
 
     if (selectedPayment.value === 'BANK') {
       // Redirect to QR payment page
@@ -141,6 +384,16 @@ async function submitOrder() {
           <i class="bi bi-arrow-left-circle-fill fs-3"></i>
         </router-link>
         <h2 class="mb-0 fw-bold" style="color: #0b2e59;">Xác nhận đặt hàng</h2>
+      </div>
+
+      <div class="alert alert-primary py-2 px-3 small mb-3">
+        <i class="bi bi-shield-check me-1"></i>
+        Thông tin thanh toán được lưu nháp tự động để tránh mất dữ liệu khi rời trang.
+      </div>
+
+      <div v-if="checkoutDraftRestoredAt" class="alert alert-info py-2 px-3 small mb-3">
+        <i class="bi bi-clock-history me-1"></i>
+        Đã khôi phục bản nháp lưu lúc {{ new Date(checkoutDraftRestoredAt).toLocaleString('vi-VN') }}.
       </div>
 
       <div class="row g-4 slide-up">
@@ -289,6 +542,10 @@ async function submitOrder() {
                   Xác nhận đặt hàng <i class="bi bi-check2-circle ms-2"></i>
                 </span>
               </button>
+
+              <p v-if="hasCheckoutUnsavedChanges && !isSubmitting" class="text-warning small mt-2 mb-0">
+                <i class="bi bi-save2 me-1"></i>Thông tin thay đổi sẽ được lưu nháp tự động.
+              </p>
               
               <p class="text-center text-muted small mt-3 mb-0">
                 <i class="bi bi-shield-lock text-success me-1"></i> Thông tin của bạn được bảo mật tuyệt đối.

@@ -45,6 +45,11 @@
       </div>
     </div>
 
+    <div class="safety-note mb-3">
+      <i class="bi bi-shield-check me-2"></i>
+      Bộ lọc đang xem được tự lưu. Khiếu nại chưa gửi sẽ được lưu nháp để tránh mất dữ liệu.
+    </div>
+
     <!-- Skeleton Loading -->
     <div v-if="isLoading" class="row g-3">
       <div v-for="i in 3" :key="i" class="col-12">
@@ -107,6 +112,21 @@
                     <i class="bi bi-hourglass-split me-1"></i>
                     Đơn đang chờ được duyệt. Sau khi duyệt, hệ thống sẽ chuyển sang bước báo giá.
                   </div>
+                  <div
+                    v-else-if="order.status === 'CANCELLED' && isAdminRejectedOrder(order)"
+                    class="alert alert-danger mt-2 mb-0 py-2 px-3 small"
+                  >
+                    <i class="bi bi-shield-x me-1"></i>
+                    Đơn bị admin từ chối.
+                    <span v-if="order.cancelReason">Lý do: {{ order.cancelReason }}</span>
+                  </div>
+                  <div
+                    v-else-if="order.status === 'CANCELLED' && order.cancelReason"
+                    class="alert alert-secondary mt-2 mb-0 py-2 px-3 small"
+                  >
+                    <i class="bi bi-info-circle me-1"></i>
+                    Lý do hủy: {{ order.cancelReason }}
+                  </div>
                 </div>
 
                 <!-- Pricing & Actions -->
@@ -160,8 +180,11 @@
                     <button
                       v-if="canCancelOrder(order)"
                       @click="cancelOrder(order)"
+                      :disabled="isActionLocked(order, 'cancel')"
                       class="btn btn-outline-danger btn-sm">
-                      <i class="bi bi-x-circle me-1"></i>Hủy đơn
+                      <span v-if="isActionLocked(order, 'cancel')" class="spinner-border spinner-border-sm me-1"></span>
+                      <i v-else class="bi bi-x-circle me-1"></i>
+                      {{ isActionLocked(order, 'cancel') ? 'Đang xử lý' : 'Hủy đơn' }}
                     </button>
 
                     <!-- Payment Button - READY_MADE (100% payment) -->
@@ -205,18 +228,23 @@
                     <button
                       v-if="order.status === 'SHIPPING'"
                       @click="confirmReceivedOrder(order)"
+                      :disabled="isActionLocked(order, 'confirm')"
                       class="btn btn-sm btn-success"
                     >
-                      <i class="bi bi-check2-circle me-1"></i>Đã nhận được hàng
+                      <span v-if="isActionLocked(order, 'confirm')" class="spinner-border spinner-border-sm me-1"></span>
+                      <i v-else class="bi bi-check2-circle me-1"></i>
+                      {{ isActionLocked(order, 'confirm') ? 'Đang cập nhật' : 'Đã nhận được hàng' }}
                     </button>
 
                     <button
                       v-if="order.status === 'SHIPPING'"
                       @click="openComplaintModal(order)"
+                      :disabled="isActionLocked(order, 'complaint')"
                       class="btn btn-sm btn-outline-danger"
                     >
-                      <i class="bi bi-exclamation-triangle me-1"></i>
-                      {{ hasComplaintForOrder(order.id) ? 'Sửa khiếu nại' : 'Khiếu nại thiếu hàng' }}
+                      <span v-if="isActionLocked(order, 'complaint')" class="spinner-border spinner-border-sm me-1"></span>
+                      <i v-else class="bi bi-exclamation-triangle me-1"></i>
+                      {{ isActionLocked(order, 'complaint') ? 'Đang mở form' : (hasComplaintForOrder(order.id) ? 'Sửa khiếu nại' : 'Khiếu nại thiếu hàng') }}
                     </button>
                   </div>
                 </div>
@@ -230,17 +258,17 @@
       <nav v-if="totalPages > 1" class="mt-4">
         <ul class="pagination justify-content-center">
           <li class="page-item" :class="{ disabled: currentPage === 0 }">
-            <button class="page-link" @click="loadOrders(currentPage - 1)">Trước</button>
+            <button class="page-link" :disabled="currentPage === 0 || isLoading" @click="loadOrders(currentPage - 1)">Trước</button>
           </li>
           <li 
             v-for="page in totalPages" 
             :key="page" 
             class="page-item" 
             :class="{ active: page - 1 === currentPage }">
-            <button class="page-link" @click="loadOrders(page - 1)">{{ page }}</button>
+            <button class="page-link" :disabled="isLoading" @click="loadOrders(page - 1)">{{ page }}</button>
           </li>
           <li class="page-item" :class="{ disabled: currentPage >= totalPages - 1 }">
-            <button class="page-link" @click="loadOrders(currentPage + 1)">Sau</button>
+            <button class="page-link" :disabled="currentPage >= totalPages - 1 || isLoading" @click="loadOrders(currentPage + 1)">Sau</button>
           </li>
         </ul>
       </nav>
@@ -289,6 +317,21 @@
             <div v-if="selectedOrder.status === 'PENDING_APPROVAL'" class="alert alert-warning py-2 px-3 small mb-3 pending-approval-banner">
               <i class="bi bi-hourglass-split me-1"></i>
               Đơn đang chờ admin duyệt. Bạn có thể theo dõi trạng thái tại đây.
+            </div>
+            <div
+              v-if="selectedOrder.status === 'CANCELLED' && isAdminRejectedOrder(selectedOrder)"
+              class="alert alert-danger py-2 px-3 small mb-3"
+            >
+              <i class="bi bi-shield-x me-1"></i>
+              Đơn bị admin từ chối.
+              <span v-if="selectedOrder.cancelReason">Lý do: {{ selectedOrder.cancelReason }}</span>
+            </div>
+            <div
+              v-else-if="selectedOrder.status === 'CANCELLED' && selectedOrder.cancelReason"
+              class="alert alert-secondary py-2 px-3 small mb-3"
+            >
+              <i class="bi bi-info-circle me-1"></i>
+              Lý do hủy: {{ selectedOrder.cancelReason }}
             </div>
 
             <div class="mb-3">
@@ -395,12 +438,15 @@
           </div>
 
           <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Dóng</button>
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
             <button
               v-if="canCancelOrder(selectedOrder)"
-              @click="cancelOrder(selectedOrder); bsModal?.hide()"
+              @click="cancelOrder(selectedOrder)"
+              :disabled="isActionLocked(selectedOrder, 'cancel')"
               class="btn btn-outline-danger">
-              <i class="bi bi-x-circle me-1"></i>Hủy đơn hàng
+              <span v-if="isActionLocked(selectedOrder, 'cancel')" class="spinner-border spinner-border-sm me-1"></span>
+              <i v-else class="bi bi-x-circle me-1"></i>
+              {{ isActionLocked(selectedOrder, 'cancel') ? 'Đang xử lý' : 'Hủy đơn hàng' }}
             </button>
             <button 
               v-if="selectedOrder.status === 'AWAITING_PAYMENT' || selectedOrder.status === 'DEPOSITED'" 
@@ -456,6 +502,11 @@
               <div class="alert alert-warning py-2 small mb-3">
                 <i class="bi bi-info-circle me-1"></i>
                 Bạn chỉ có thể gửi khiếu nại khi đơn đang ở trạng thái ĐANG GIAO.
+              </div>
+
+              <div v-if="complaintDraftRestoredAt" class="alert alert-info py-2 small mb-3">
+                <i class="bi bi-clock-history me-1"></i>
+                Đã khôi phục bản nháp lưu lúc {{ formatDate(complaintDraftRestoredAt) }}.
               </div>
 
               <div class="mb-3">
@@ -577,7 +628,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, nextTick, watch, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Swal from 'sweetalert2'
 import apiClient, { ordersAPI } from '../../services/api'
@@ -587,6 +638,10 @@ import { getOrderStatusLabel } from '../../constants/orderStatus'
 
 const route = useRoute()
 const router = useRouter()
+
+const VIEW_STATE_STORAGE_KEY = 'myOrders.viewState.v1'
+const COMPLAINT_DRAFT_STORAGE_PREFIX = 'myOrders.complaintDraft.'
+const COMPLAINT_DRAFT_MAX_AGE_MS = 3 * 24 * 60 * 60 * 1000
 
 const orders = ref([])
 const isLoading = ref(false)
@@ -611,12 +666,19 @@ const complaintRemovedImageIds = ref([])
 const complaintNewImages = ref([])
 const complaintExistsByOrderId = ref({})
 const isSavingComplaint = ref(false)
+const actionLoadingByOrderId = ref({})
+const complaintInitialState = ref(null)
+const complaintDraftRestoredAt = ref(null)
+const bypassComplaintHideGuard = ref(false)
 const orderHistoryEvents = ref([])
 const orderRevisionSummaries = ref([])
 const isLoadingOrderHistory = ref(false)
 let bsModal = null
 let bsPaymentModal = null
 let bsComplaintModal = null
+let complaintModalHideHandler = null
+let complaintModalHiddenHandler = null
+let complaintDraftSaveTimer = null
 
 // ── Type tabs (main level) ──
 const typeTabs = [
@@ -647,6 +709,9 @@ const productStatusTabs = [
   { key: 'ALL', label: 'Tất cả' },
 ]
 
+const manufacturingStatusKeySet = new Set(manufacturingStatusTabs.map(tab => tab.key))
+const productStatusKeySet = new Set(productStatusTabs.map(tab => tab.key))
+
 
 
 const currentStatusTabs = computed(() =>
@@ -663,6 +728,287 @@ const createZeroCounts = (tabs) => {
     base[tab.key] = 0
   }
   return base
+}
+
+const parsePositiveInt = (value, fallback = 0) => {
+  const num = Number(value)
+  if (!Number.isFinite(num)) return fallback
+  return Math.max(0, Math.trunc(num))
+}
+
+const makeOrderActionKey = (order, actionName) => {
+  const scope = order?.isTempImport ? 'import' : 'order'
+  return `${scope}:${order?.id || 'unknown'}:${actionName}`
+}
+
+const isActionLocked = (order, actionName) => {
+  if (!order?.id) return false
+  return !!actionLoadingByOrderId.value[makeOrderActionKey(order, actionName)]
+}
+
+const setActionLocked = (order, actionName, isLocked) => {
+  if (!order?.id) return
+  const key = makeOrderActionKey(order, actionName)
+  if (isLocked) {
+    actionLoadingByOrderId.value = {
+      ...actionLoadingByOrderId.value,
+      [key]: true,
+    }
+    return
+  }
+
+  const next = { ...actionLoadingByOrderId.value }
+  delete next[key]
+  actionLoadingByOrderId.value = next
+}
+
+const persistViewState = (overrides = {}) => {
+  const orderType = overrides.orderType ?? activeOrderType.value
+  const status = overrides.status ?? activeStatus.value
+  const page = parsePositiveInt(overrides.page ?? currentPage.value, 0)
+
+  try {
+    localStorage.setItem(VIEW_STATE_STORAGE_KEY, JSON.stringify({
+      orderType,
+      status,
+      page,
+      savedAt: Date.now(),
+    }))
+  } catch (error) {
+    console.warn('Failed to persist MyOrders view state:', error)
+  }
+}
+
+const restoreViewState = () => {
+  try {
+    const raw = localStorage.getItem(VIEW_STATE_STORAGE_KEY)
+    if (!raw) return
+
+    const parsed = JSON.parse(raw)
+    const restoredOrderType = parsed?.orderType === 'READY_MADE' ? 'READY_MADE' : 'CUSTOM_MANUFACTURING'
+    const validStatusSet = restoredOrderType === 'READY_MADE' ? productStatusKeySet : manufacturingStatusKeySet
+    const restoredStatus = validStatusSet.has(parsed?.status)
+      ? parsed.status
+      : getDefaultStatusForType(restoredOrderType)
+
+    activeOrderType.value = restoredOrderType
+    activeStatus.value = restoredStatus
+    currentPage.value = parsePositiveInt(parsed?.page, 0)
+  } catch (error) {
+    console.warn('Failed to restore MyOrders view state:', error)
+  }
+}
+
+const getComplaintDraftStorageKey = (orderId) => `${COMPLAINT_DRAFT_STORAGE_PREFIX}${orderId}`
+
+const normalizeComplaintMissingMap = (order, source) => {
+  const normalized = {}
+  const items = order?.items || []
+
+  for (const item of items) {
+    const itemId = item?.id
+    if (itemId == null) continue
+
+    const maxQty = Math.max(0, Number(item.quantity || 0))
+    const rawQty = Number(source?.[itemId] || 0)
+    const clamped = Number.isFinite(rawQty)
+      ? Math.max(0, Math.min(maxQty, Math.trunc(rawQty)))
+      : 0
+
+    if (clamped > 0) {
+      normalized[itemId] = clamped
+    }
+  }
+
+  return normalized
+}
+
+const createComplaintStateSnapshot = () => {
+  if (!complaintOrder.value?.id) return null
+
+  const removedImageIds = (complaintRemovedImageIds.value || [])
+    .map((id) => Number(id))
+    .filter((id) => Number.isFinite(id))
+    .sort((a, b) => a - b)
+
+  return {
+    description: (complaintDescription.value || '').trim(),
+    missingByItem: normalizeComplaintMissingMap(complaintOrder.value, complaintMissingByItem.value),
+    removedImageIds,
+    hasNewImages: (complaintNewImages.value || []).length > 0,
+  }
+}
+
+const toComparableComplaintState = (snapshot) => {
+  if (!snapshot) return null
+
+  return {
+    description: snapshot.description || '',
+    missingByItem: snapshot.missingByItem || {},
+    removedImageIds: snapshot.removedImageIds || [],
+  }
+}
+
+const setComplaintInitialState = () => {
+  complaintInitialState.value = toComparableComplaintState(createComplaintStateSnapshot())
+}
+
+const hasMeaningfulComplaintDraft = (snapshot) => {
+  if (!snapshot) return false
+  if (snapshot.description) return true
+  if (Object.keys(snapshot.missingByItem || {}).length > 0) return true
+  if ((snapshot.removedImageIds || []).length > 0) return true
+  return false
+}
+
+const hasComplaintUnsavedChanges = computed(() => {
+  if (!complaintOrder.value?.id || !complaintInitialState.value) return false
+
+  const current = createComplaintStateSnapshot()
+  const initial = complaintInitialState.value
+  if (!current) return false
+
+  if (current.hasNewImages) return true
+  if (current.description !== initial.description) return true
+  if (JSON.stringify(current.missingByItem) !== JSON.stringify(initial.missingByItem)) return true
+  if (JSON.stringify(current.removedImageIds) !== JSON.stringify(initial.removedImageIds)) return true
+
+  return false
+})
+
+const clearComplaintDraft = (orderId = complaintOrder.value?.id) => {
+  if (!orderId) return
+
+  try {
+    localStorage.removeItem(getComplaintDraftStorageKey(orderId))
+  } catch (error) {
+    console.warn('Failed to clear complaint draft:', error)
+  }
+
+  if (complaintOrder.value?.id === orderId) {
+    complaintDraftRestoredAt.value = null
+  }
+}
+
+const saveComplaintDraft = (orderId = complaintOrder.value?.id) => {
+  if (!orderId || !complaintOrder.value?.id) return
+
+  const snapshot = createComplaintStateSnapshot()
+  if (!snapshot) return
+
+  if (!hasMeaningfulComplaintDraft(snapshot)) {
+    clearComplaintDraft(orderId)
+    return
+  }
+
+  const payload = {
+    description: snapshot.description,
+    missingByItem: snapshot.missingByItem,
+    removedImageIds: snapshot.removedImageIds,
+    savedAt: Date.now(),
+  }
+
+  try {
+    localStorage.setItem(getComplaintDraftStorageKey(orderId), JSON.stringify(payload))
+  } catch (error) {
+    console.warn('Failed to save complaint draft:', error)
+  }
+}
+
+const loadComplaintDraft = (orderId) => {
+  if (!orderId) return null
+
+  try {
+    const raw = localStorage.getItem(getComplaintDraftStorageKey(orderId))
+    if (!raw) return null
+
+    const parsed = JSON.parse(raw)
+    const savedAt = Number(parsed?.savedAt || 0)
+
+    if (savedAt > 0 && Date.now() - savedAt > COMPLAINT_DRAFT_MAX_AGE_MS) {
+      clearComplaintDraft(orderId)
+      return null
+    }
+
+    return {
+      description: String(parsed?.description || ''),
+      missingByItem: parsed?.missingByItem || {},
+      removedImageIds: Array.isArray(parsed?.removedImageIds) ? parsed.removedImageIds : [],
+      savedAt,
+    }
+  } catch (error) {
+    console.warn('Failed to load complaint draft:', error)
+    return null
+  }
+}
+
+const scheduleComplaintDraftSave = () => {
+  if (!complaintOrder.value?.id) return
+
+  if (complaintDraftSaveTimer) {
+    window.clearTimeout(complaintDraftSaveTimer)
+  }
+
+  complaintDraftSaveTimer = window.setTimeout(() => {
+    saveComplaintDraft(complaintOrder.value?.id)
+  }, 350)
+}
+
+const attachComplaintModalGuards = () => {
+  if (!complaintModalRef.value || complaintModalHideHandler || complaintModalHiddenHandler) {
+    return
+  }
+
+  complaintModalHideHandler = async (event) => {
+    if (bypassComplaintHideGuard.value || isSavingComplaint.value || !hasComplaintUnsavedChanges.value) {
+      return
+    }
+
+    event.preventDefault()
+    saveComplaintDraft(complaintOrder.value?.id)
+
+    const confirmation = await Swal.fire({
+      title: 'Bạn có thay đổi chưa gửi',
+      text: 'Dữ liệu đã được lưu nháp. Bạn muốn thoát khỏi màn hình khiếu nại?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Thoát khỏi màn hình',
+      cancelButtonText: 'Tiếp tục chỉnh sửa',
+      confirmButtonColor: '#dc2626',
+      cancelButtonColor: '#64748b',
+    })
+
+    if (!confirmation.isConfirmed) return
+
+    bypassComplaintHideGuard.value = true
+    bsComplaintModal?.hide()
+  }
+
+  complaintModalHiddenHandler = () => {
+    bypassComplaintHideGuard.value = false
+    complaintOrder.value = null
+    complaintDescription.value = ''
+    complaintMissingByItem.value = {}
+    complaintExistingImages.value = []
+    complaintRemovedImageIds.value = []
+    complaintNewImages.value = []
+    complaintInitialState.value = null
+    complaintDraftRestoredAt.value = null
+  }
+
+  complaintModalRef.value.addEventListener('hide.bs.modal', complaintModalHideHandler)
+  complaintModalRef.value.addEventListener('hidden.bs.modal', complaintModalHiddenHandler)
+}
+
+const detachComplaintModalGuards = () => {
+  if (complaintModalRef.value && complaintModalHideHandler) {
+    complaintModalRef.value.removeEventListener('hide.bs.modal', complaintModalHideHandler)
+  }
+  if (complaintModalRef.value && complaintModalHiddenHandler) {
+    complaintModalRef.value.removeEventListener('hidden.bs.modal', complaintModalHiddenHandler)
+  }
+  complaintModalHideHandler = null
+  complaintModalHiddenHandler = null
 }
 
 const extractTotalCount = (data) => {
@@ -710,6 +1056,8 @@ const openOrderFromQueryIfPresent = async () => {
 
     activeOrderType.value = targetType
     activeStatus.value = 'ALL'
+    currentPage.value = 0
+    persistViewState({ orderType: targetType, status: 'ALL', page: 0 })
 
     await Promise.all([
       loadOrders(0),
@@ -725,17 +1073,38 @@ const openOrderFromQueryIfPresent = async () => {
   }
 }
 
+const handleBeforeUnload = (event) => {
+  if (!hasComplaintUnsavedChanges.value) return
+  event.preventDefault()
+  event.returnValue = ''
+}
+
 onMounted(async () => {
+  restoreViewState()
+  window.addEventListener('beforeunload', handleBeforeUnload)
+
   await Promise.all([
-    loadOrders(),
+    loadOrders(currentPage.value),
     loadStatusCounts(activeOrderType.value),
   ])
   await openOrderFromQueryIfPresent()
 })
 
+onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', handleBeforeUnload)
+  detachComplaintModalGuards()
+
+  if (complaintDraftSaveTimer) {
+    window.clearTimeout(complaintDraftSaveTimer)
+    complaintDraftSaveTimer = null
+  }
+})
+
 const changeOrderType = (key) => {
   activeOrderType.value = key
   activeStatus.value = getDefaultStatusForType(key)
+  currentPage.value = 0
+  persistViewState({ orderType: key, status: activeStatus.value, page: 0 })
   Promise.all([
     loadOrders(0),
     loadStatusCounts(key),
@@ -744,8 +1113,22 @@ const changeOrderType = (key) => {
 
 const changeStatus = (key) => {
   activeStatus.value = key
+  currentPage.value = 0
+  persistViewState({ status: key, page: 0 })
   loadOrders(0)
 }
+
+watch(complaintDescription, () => {
+  scheduleComplaintDraftSave()
+})
+
+watch(complaintMissingByItem, () => {
+  scheduleComplaintDraftSave()
+}, { deep: true })
+
+watch(complaintRemovedImageIds, () => {
+  scheduleComplaintDraftSave()
+}, { deep: true })
 
 const loadStatusCounts = async (orderType) => {
   const safeType = orderType || activeOrderType.value
@@ -754,8 +1137,15 @@ const loadStatusCounts = async (orderType) => {
 
   try {
     if (safeType === 'CUSTOM_MANUFACTURING') {
-      const importResponse = await apiClient.get('/orders/imports/my')
-      const pendingApprovalCount = Array.isArray(importResponse.data) ? importResponse.data.length : 0
+      const [pendingImportResponse, rejectedImportResponse] = await Promise.all([
+        apiClient.get('/orders/imports/my'),
+        apiClient.get('/orders/imports/my', {
+          params: { status: 'REJECTED' },
+        }),
+      ])
+
+      const pendingApprovalCount = Array.isArray(pendingImportResponse.data) ? pendingImportResponse.data.length : 0
+      const rejectedImportCount = Array.isArray(rejectedImportResponse.data) ? rejectedImportResponse.data.length : 0
       counts.PENDING_APPROVAL = pendingApprovalCount
 
       const statusKeys = manufacturingStatusTabs
@@ -776,6 +1166,8 @@ const loadStatusCounts = async (orderType) => {
           counts[status] = extractTotalCount(result.value?.data)
         }
       })
+
+      counts.CANCELLED = Number(counts.CANCELLED || 0) + rejectedImportCount
 
       counts.ALL = Object.values(counts).reduce((sum, count) => sum + Number(count || 0), 0)
     } else {
@@ -808,23 +1200,47 @@ const loadStatusCounts = async (orderType) => {
 }
 
 const loadOrders = async (page = 0) => {
+  const safePage = parsePositiveInt(page, 0)
   isLoading.value = true
+
   try {
     if (activeOrderType.value === 'CUSTOM_MANUFACTURING' && activeStatus.value === 'PENDING_APPROVAL') {
       const importResponse = await apiClient.get('/orders/imports/my')
       orders.value = (importResponse.data || []).map(o => ({ ...o, isTempImport: true }))
       currentPage.value = 0
       totalPages.value = 1
+      persistViewState({ page: 0 })
       return
     }
 
-    const params = { page, size: 10, orderType: activeOrderType.value }
+    if (activeOrderType.value === 'CUSTOM_MANUFACTURING' && activeStatus.value === 'CANCELLED' && safePage === 0) {
+      const params = { page: safePage, size: 10, orderType: activeOrderType.value, status: activeStatus.value }
+      const [response, rejectedImportResponse] = await Promise.all([
+        apiClient.get('/orders/my', { params }),
+        apiClient.get('/orders/imports/my', {
+          params: { status: 'REJECTED' },
+        }),
+      ])
+
+      const cancelledOrders = response.data.content || response.data
+      const rejectedImports = (rejectedImportResponse.data || []).map(o => ({ ...o, isTempImport: true }))
+      const merged = [...rejectedImports, ...(Array.isArray(cancelledOrders) ? cancelledOrders : [])]
+        .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+
+      orders.value = merged.map(o => ({ ...o, isTempImport: !!o.isTempImport }))
+      currentPage.value = 0
+      totalPages.value = 1
+      persistViewState({ page: 0 })
+      return
+    }
+
+    const params = { page: safePage, size: 10, orderType: activeOrderType.value }
     if (activeStatus.value !== 'ALL') params.status = activeStatus.value
 
     const response = await apiClient.get('/orders/my', { params })
     let merged = response.data.content || response.data
 
-    if (activeOrderType.value === 'CUSTOM_MANUFACTURING' && activeStatus.value === 'ALL' && page === 0) {
+    if (activeOrderType.value === 'CUSTOM_MANUFACTURING' && activeStatus.value === 'ALL' && safePage === 0) {
       const importResponse = await apiClient.get('/orders/imports/my')
       const pendingImports = (importResponse.data || []).map(o => ({ ...o, isTempImport: true }))
       merged = [...pendingImports, ...(Array.isArray(merged) ? merged : [])]
@@ -832,8 +1248,9 @@ const loadOrders = async (page = 0) => {
     }
 
     orders.value = Array.isArray(merged) ? merged.map(o => ({ ...o, isTempImport: !!o.isTempImport })) : []
-    currentPage.value = response.data.number || 0
-    totalPages.value = response.data.totalPages || 1
+    currentPage.value = parsePositiveInt(response.data.number, safePage)
+    totalPages.value = Math.max(1, parsePositiveInt(response.data.totalPages, 1))
+    persistViewState({ page: currentPage.value })
   } catch (error) {
     console.error('Failed to load orders:', error)
     Swal.fire('Lỗi', 'Không thể tải danh sách đơn hàng', 'error')
@@ -894,7 +1311,7 @@ const getHistoryEventTitle = (event) => {
     case 'IMPORT_APPROVED':
       return 'Đã duyệt import dữ liệu đơn'
     case 'IMPORT_REJECTED':
-      return 'Import chờ duyệt đã bị hủy'
+      return 'Đơn import đã bị từ chối'
     case 'ORDER_CANCELLED':
       return 'Đơn hàng đã bị hủy'
     case 'CUSTOMER_CONFIRMED_RECEIVED':
@@ -926,10 +1343,22 @@ const getHistoryActorText = (event) => {
 const getHistoryNoteText = (event) => {
   const note = event?.note ? String(event.note).trim() : ''
   if (!note) return ''
+  if (event?.eventType === 'IMPORT_REJECTED') {
+    return `Lý do từ chối: ${note}`
+  }
   if (event?.eventType === 'ORDER_CANCELLED') {
     return `Lý do hủy: ${note}`
   }
   return note
+}
+
+const isAdminRejectedOrder = (order) => {
+  if (!order || order.status !== 'CANCELLED') return false
+
+  if (order.rejectedByAdmin === true) return true
+
+  const role = String(order.cancelledByRole || '').trim().toUpperCase()
+  return role === 'ADMIN'
 }
 
 const isCancelEventType = (eventType) => {
@@ -1007,7 +1436,7 @@ const openPaymentModal = async (order) => {
 const onPaymentConfirmed = (paymentInfo) => {
   // Reload danh sách để cập nhật trạng thái
   Promise.all([
-    loadOrders(),
+    loadOrders(currentPage.value),
     loadStatusCounts(activeOrderType.value),
   ])
   Swal.fire({
@@ -1031,7 +1460,7 @@ const hasComplaintForOrder = (orderId) => {
 }
 
 const confirmReceivedOrder = async (order) => {
-  if (!order?.id) return
+  if (!order?.id || isActionLocked(order, 'confirm')) return
 
   const result = await Swal.fire({
     title: 'Xác nhận đã nhận hàng?',
@@ -1046,6 +1475,7 @@ const confirmReceivedOrder = async (order) => {
 
   if (!result.isConfirmed) return
 
+  setActionLocked(order, 'confirm', true)
   try {
     await ordersAPI.confirmReceived(order.id)
     await Promise.all([
@@ -1062,17 +1492,20 @@ const confirmReceivedOrder = async (order) => {
   } catch (error) {
     const msg = error.response?.data?.error || 'Không thể xác nhận nhận hàng'
     Swal.fire('Lỗi', msg, 'error')
+  } finally {
+    setActionLocked(order, 'confirm', false)
   }
 }
 
 const openComplaintModal = async (order) => {
-  if (!order?.id) return
+  if (!order?.id || isActionLocked(order, 'complaint')) return
 
   if (order.status !== 'SHIPPING') {
     await Swal.fire('Không hợp lệ', 'Chỉ có thể khiếu nại khi đơn đang giao hàng.', 'warning')
     return
   }
 
+  setActionLocked(order, 'complaint', true)
   try {
     const [detailResponse, complaintData] = await Promise.all([
       apiClient.get(`/orders/${order.id}`),
@@ -1103,14 +1536,58 @@ const openComplaintModal = async (order) => {
     })
     complaintMissingByItem.value = missingMap
 
+    const draft = loadComplaintDraft(order.id)
+    if (draft) {
+      const restorePrompt = await Swal.fire({
+        title: 'Khôi phục bản nháp khiếu nại?',
+        text: `Đã tìm thấy bản nháp lưu lúc ${formatDate(draft.savedAt)}.`,
+        icon: 'question',
+        showDenyButton: true,
+        showCancelButton: true,
+        confirmButtonText: 'Khôi phục',
+        denyButtonText: 'Xóa nháp',
+        cancelButtonText: 'Bỏ qua',
+        confirmButtonColor: '#0d6efd',
+        denyButtonColor: '#dc2626',
+        cancelButtonColor: '#64748b',
+      })
+
+      if (restorePrompt.isConfirmed) {
+        complaintDescription.value = draft.description || ''
+
+        const normalizedDraftMissing = normalizeComplaintMissingMap(complaintOrder.value, draft.missingByItem)
+        const restoredMissingMap = {}
+        ;(complaintOrder.value?.items || []).forEach((item) => {
+          restoredMissingMap[item.id] = Number(normalizedDraftMissing[item.id] || 0)
+        })
+        complaintMissingByItem.value = restoredMissingMap
+
+        const existingImageIds = new Set((complaintExistingImages.value || []).map((img) => Number(img.id)))
+        complaintRemovedImageIds.value = (draft.removedImageIds || [])
+          .map((id) => Number(id))
+          .filter((id) => existingImageIds.has(id))
+          .sort((a, b) => a - b)
+
+        complaintDraftRestoredAt.value = draft.savedAt || Date.now()
+      } else if (restorePrompt.isDenied) {
+        clearComplaintDraft(order.id)
+      }
+    }
+
+    setComplaintInitialState()
+
     await nextTick()
     if (!bsComplaintModal && complaintModalRef.value) {
       bsComplaintModal = new Modal(complaintModalRef.value)
     }
+
+    attachComplaintModalGuards()
     bsComplaintModal?.show()
   } catch (error) {
     const msg = error.response?.data?.error || 'Không thể mở form khiếu nại'
     Swal.fire('Lỗi', msg, 'error')
+  } finally {
+    setActionLocked(order, 'complaint', false)
   }
 }
 
@@ -1125,6 +1602,7 @@ const toggleKeepExistingComplaintImage = (imageId) => {
 
 const removeNewComplaintImage = (index) => {
   complaintNewImages.value = complaintNewImages.value.filter((_, idx) => idx !== index)
+  scheduleComplaintDraftSave()
 }
 
 const onComplaintImagesSelected = (event) => {
@@ -1145,6 +1623,7 @@ const onComplaintImagesSelected = (event) => {
 
   const accepted = files.slice(0, availableSlots)
   complaintNewImages.value = [...complaintNewImages.value, ...accepted]
+  scheduleComplaintDraftSave()
 
   if (accepted.length < files.length) {
     Swal.fire('Giới hạn ảnh', `Chỉ nhận thêm ${availableSlots} ảnh.`, 'info')
@@ -1154,7 +1633,7 @@ const onComplaintImagesSelected = (event) => {
 }
 
 const submitComplaint = async () => {
-  if (!complaintOrder.value?.id) return
+  if (!complaintOrder.value?.id || isSavingComplaint.value) return
 
   const normalizedDescription = (complaintDescription.value || '').trim()
   if (!normalizedDescription) {
@@ -1199,6 +1678,8 @@ const submitComplaint = async () => {
       [complaintOrder.value.id]: true,
     }
 
+    clearComplaintDraft(complaintOrder.value.id)
+    bypassComplaintHideGuard.value = true
     bsComplaintModal?.hide()
     await Promise.all([
       loadOrders(currentPage.value),
@@ -1220,6 +1701,8 @@ const submitComplaint = async () => {
 }
 
 const cancelOrder = async (order) => {
+  if (!order?.id || isActionLocked(order, 'cancel')) return
+
   const result = await Swal.fire({
     title: 'Hủy đơn hàng?',
     text: `Bạn có chắc muốn hủy đơn ${order.orderNumber}? Hành động này không thể hoàn tác.`,
@@ -1247,7 +1730,30 @@ const cancelOrder = async (order) => {
   if (!result.isConfirmed) return
 
   const cancelReason = (result.value || '').trim()
+  const confirmCode = String(order.orderNumber || order.importCode || order.id).trim()
 
+  const finalConfirmation = await Swal.fire({
+    title: 'Xác nhận lần cuối',
+    text: `Để tránh hủy nhầm, vui lòng nhập chính xác mã đơn: ${confirmCode}`,
+    input: 'text',
+    inputPlaceholder: `Nhập ${confirmCode}`,
+    inputValidator: (value) => {
+      if (!value || value.trim() !== confirmCode) {
+        return 'Mã đơn không khớp'
+      }
+      return null
+    },
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#dc2626',
+    cancelButtonColor: '#64748b',
+    confirmButtonText: 'Xác nhận hủy',
+    cancelButtonText: 'Quay lại',
+  })
+
+  if (!finalConfirmation.isConfirmed) return
+
+  setActionLocked(order, 'cancel', true)
   try {
     if (order?.isTempImport) {
       await apiClient.put(`/orders/imports/${order.id}/cancel`, { reason: cancelReason })
@@ -1257,6 +1763,11 @@ const cancelOrder = async (order) => {
 
     await loadOrders(currentPage.value)
     await loadStatusCounts(activeOrderType.value)
+
+    if (selectedOrder.value?.id === order.id) {
+      bsModal?.hide()
+    }
+
     Swal.fire({
       icon: 'success',
       title: 'Đã hủy đơn hàng',
@@ -1267,6 +1778,8 @@ const cancelOrder = async (order) => {
   } catch (error) {
     const msg = error.response?.data?.error || 'Không thể hủy đơn hàng'
     Swal.fire('Lỗi', msg, 'error')
+  } finally {
+    setActionLocked(order, 'cancel', false)
   }
 }
 
@@ -1424,6 +1937,17 @@ const openRemainingPaymentModal = (order) => {
 .pending-approval-banner {
   border: 1px solid rgba(245, 158, 11, 0.35);
   background: linear-gradient(90deg, rgba(255, 243, 205, 0.95), rgba(255, 251, 235, 0.95));
+}
+
+.safety-note {
+  display: flex;
+  align-items: center;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  background: linear-gradient(90deg, rgba(239, 246, 255, 0.95), rgba(247, 250, 255, 0.95));
+  color: #1e3a8a;
+  font-size: 0.84rem;
 }
 
 .btn-glow:hover::after {
