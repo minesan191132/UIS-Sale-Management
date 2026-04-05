@@ -1,7 +1,9 @@
 import axios from 'axios';
 
 // API Base URL - Update for production
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+// const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://uis-sale-management-production.up.railway.app/api';
 
 // Create axios instance
 const apiClient = axios.create({
