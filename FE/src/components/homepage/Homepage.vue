@@ -141,9 +141,9 @@ const coreValues = ref([
 ]);
 
 // Ảnh Slideshow (Khai báo import rõ ràng để Vue nhận diện được ảnh)
-import slide1 from '../../assets/picture/homepageimg/gia-cong-co-khi-chinh-xac-2.jpg';
-import slide2 from '../../assets/picture/homepageimg/gia-cong-co-khi-chinh-xac-3.jpg';
-import slide3 from '../../assets/picture/homepageimg/gia-cong-co-khi-chinh-xac-4.jpg';
+import slide1 from '../../assets/picture/HomePageimg/gia-cong-co-khi-chinh-xac-2.jpg';
+import slide2 from '../../assets/picture/HomePageimg/gia-cong-co-khi-chinh-xac-3.jpg';
+import slide3 from '../../assets/picture/HomePageimg/gia-cong-co-khi-chinh-xac-4.jpg';
 
 // Mảng Slideshow sử dụng các biến đã import ở trên
 const factoryImages = ref([slide1, slide2, slide3]);
