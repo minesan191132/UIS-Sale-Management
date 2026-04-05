@@ -5,10 +5,10 @@ import Navbar from '../base/Navbar.vue';
 import Footer from '../base/Footer.vue';
 
 // IMPORT ẢNH TỪ THƯ MỤC ASSETS
-import sp1Img from '../../assets/picture/homepageimg/FanGuard.jpg';
-import sp2Img from '../../assets/picture/homepageimg/StrainerPipe.jpg';
-import sp3Img from '../../assets/picture/homepageimg/PipeSupport.jpg';
-import sp4Img from '../../assets/picture/homepageimg/CrossBrace.jpg';
+import sp1Img from '../../assets/picture/HomePageimg/FanGuard.jpg';
+import sp2Img from '../../assets/picture/HomePageimg/StrainerPipe.jpg';
+import sp3Img from '../../assets/picture/HomePageimg/PipeSupport.jpg';
+import sp4Img from '../../assets/picture/HomePageimg/CrossBrace.jpg';
 
 // Thêm 2 biến này vào dưới mảng dữ liệu để điều khiển Popup
 const selectedProduct = ref(null);
