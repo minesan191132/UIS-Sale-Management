@@ -57,6 +57,7 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(request -> {
                     var corsConfig = new org.springframework.web.cors.CorsConfiguration();
                     corsConfig.addAllowedOrigin("http://localhost:5173"); // Vue dev server (main frontend)
+                    corsConfig.addAllowedOrigin("https://uis-sale-management.vercel.app"); // Production frontend
                     corsConfig.addAllowedMethod("*"); // Allow all HTTP methods
                     corsConfig.addAllowedHeader("*"); // Allow all headers
                     corsConfig.setAllowCredentials(true); // Allow cookies/auth headers
