@@ -12,6 +12,7 @@ import org.example.features.auth.dto.ResendEmailDTO;
 import org.example.features.auth.dto.ResetPasswordDTO;
 import org.example.features.auth.dto.VerifyOtpDTO;
 import org.example.features.auth.service.AuthService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -32,6 +33,9 @@ public class AuthController {
 
     private final AuthService authService;
 
+    @Value("${app.frontend.url:http://localhost:5173}")
+    private String frontendBaseUrl;
+
     /**
      * Register new user with company tax code
      * POST /api/auth/register
@@ -48,7 +52,7 @@ public class AuthController {
      */
     @GetMapping("/verify/{token}")
     public ResponseEntity<?> verifyEmail(@PathVariable String token) {
-        String frontendLoginUrl = "http://localhost:5173";
+        String frontendLoginUrl = normalizeBaseUrl(frontendBaseUrl);
         try {
             boolean isVerified = authService.verifyToken(token);
             if (isVerified) {
@@ -66,6 +70,13 @@ public class AuthController {
                     .location(URI.create(frontendLoginUrl + "/resend-verification?error=server"))
                     .build();
         }
+    }
+
+    private String normalizeBaseUrl(String url) {
+        if (url == null || url.isBlank()) {
+            return "http://localhost:5173";
+        }
+        return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
     }
 
     /**

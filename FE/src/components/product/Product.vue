@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue';
-import axios from 'axios';
+import apiClient from '../../services/api';
 
 import Navbar from '../base/Navbar.vue';
 import Footer from '../base/Footer.vue';
@@ -24,7 +24,7 @@ const inStockOnly = ref(false);
 // --- HÀM GỌI API TÍCH HỢP LỌC ---
 const fetchProducts = async () => {
   try {
-    const response = await axios.get('http://localhost:8080/api/products', {
+    const response = await apiClient.get('/products', {
       params: { 
         page: currentPage.value, 
         size: 6, 

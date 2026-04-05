@@ -2,6 +2,7 @@ package org.example.config;
 
 import lombok.RequiredArgsConstructor;
 import org.example.config.security.JwtAuthenticationFilter;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -19,6 +20,8 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.http.HttpMethod;
 
+import java.util.Arrays;
+
 /**
  * Spring Security Configuration
  * JWT-based authentication with stateless sessions
@@ -31,6 +34,9 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final UserDetailsService userDetailsService;
+
+    @Value("${app.cors.allowed-origins:http://localhost:5173,https://uis-sale-management.vercel.app}")
+    private String corsAllowedOrigins;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -56,8 +62,10 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(request -> {
                     var corsConfig = new org.springframework.web.cors.CorsConfiguration();
-                    corsConfig.addAllowedOrigin("http://localhost:5173"); // Vue dev server (main frontend)
-                    corsConfig.addAllowedOrigin("https://uis-sale-management.vercel.app"); // Production frontend
+                    Arrays.stream(corsAllowedOrigins.split(","))
+                            .map(String::trim)
+                            .filter(origin -> !origin.isBlank())
+                            .forEach(corsConfig::addAllowedOrigin);
                     corsConfig.addAllowedMethod("*"); // Allow all HTTP methods
                     corsConfig.addAllowedHeader("*"); // Allow all headers
                     corsConfig.setAllowCredentials(true); // Allow cookies/auth headers
