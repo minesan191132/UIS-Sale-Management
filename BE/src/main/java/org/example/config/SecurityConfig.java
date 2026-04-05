@@ -21,6 +21,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.http.HttpMethod;
 
 import java.util.Arrays;
+import java.util.function.Consumer;
 
 /**
  * Spring Security Configuration
@@ -37,6 +38,9 @@ public class SecurityConfig {
 
     @Value("${app.cors.allowed-origins:http://localhost:5173,https://uis-sale-management.vercel.app}")
     private String corsAllowedOrigins;
+
+    @Value("${app.cors.allowed-origin-patterns:https://*.vercel.app}")
+    private String corsAllowedOriginPatterns;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -62,10 +66,8 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(request -> {
                     var corsConfig = new org.springframework.web.cors.CorsConfiguration();
-                    Arrays.stream(corsAllowedOrigins.split(","))
-                            .map(String::trim)
-                            .filter(origin -> !origin.isBlank())
-                            .forEach(corsConfig::addAllowedOrigin);
+                    forEachConfiguredValue(corsAllowedOrigins, corsConfig::addAllowedOrigin);
+                    forEachConfiguredValue(corsAllowedOriginPatterns, corsConfig::addAllowedOriginPattern);
                     corsConfig.addAllowedMethod("*"); // Allow all HTTP methods
                     corsConfig.addAllowedHeader("*"); // Allow all headers
                     corsConfig.setAllowCredentials(true); // Allow cookies/auth headers
@@ -112,5 +114,12 @@ public class SecurityConfig {
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    private void forEachConfiguredValue(String csv, Consumer<String> consumer) {
+        Arrays.stream(csv.split(","))
+                .map(String::trim)
+                .filter(value -> !value.isBlank())
+                .forEach(consumer);
     }
 }

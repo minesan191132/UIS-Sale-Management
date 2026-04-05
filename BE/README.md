@@ -13,12 +13,15 @@ Backend now supports environment-driven URLs so the same codebase works for both
 	- Local default: `http://localhost:8080`
 - `APP_CORS_ALLOWED_ORIGINS`: comma-separated allowed CORS origins.
 	- Local default includes `http://localhost:5173`
+- `APP_CORS_ALLOWED_ORIGIN_PATTERNS`: comma-separated origin patterns for dynamic hosts.
+	- Default includes `https://*.vercel.app` to support preview deployments.
 
 ### Railway suggested values
 
 - `APP_FRONTEND_URL=https://uis-sale-management.vercel.app`
 - `APP_BACKEND_URL=https://uis-sale-management-production.up.railway.app`
 - `APP_CORS_ALLOWED_ORIGINS=http://localhost:5173,https://uis-sale-management.vercel.app`
+- `APP_CORS_ALLOWED_ORIGIN_PATTERNS=https://*.vercel.app`
 
 These values prevent localhost hardcode issues while preserving local development defaults.
 
