@@ -2,6 +2,7 @@ package org.example.config;
 
 import lombok.RequiredArgsConstructor;
 import org.example.config.security.JwtAuthenticationFilter;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -19,6 +20,9 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.http.HttpMethod;
 
+import java.util.Arrays;
+import java.util.function.Consumer;
+
 /**
  * Spring Security Configuration
  * JWT-based authentication with stateless sessions
@@ -31,6 +35,12 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final UserDetailsService userDetailsService;
+
+    @Value("${app.cors.allowed-origins:http://localhost:5173,https://uis-sale-management.vercel.app}")
+    private String corsAllowedOrigins;
+
+    @Value("${app.cors.allowed-origin-patterns:https://*.vercel.app}")
+    private String corsAllowedOriginPatterns;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -56,8 +66,8 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(request -> {
                     var corsConfig = new org.springframework.web.cors.CorsConfiguration();
-                    corsConfig.addAllowedOrigin("http://localhost:5173"); // Vue dev server (main frontend)
-                    corsConfig.addAllowedOrigin("https://uis-sale-management.vercel.app"); // Production frontend
+                    forEachConfiguredValue(corsAllowedOrigins, corsConfig::addAllowedOrigin);
+                    forEachConfiguredValue(corsAllowedOriginPatterns, corsConfig::addAllowedOriginPattern);
                     corsConfig.addAllowedMethod("*"); // Allow all HTTP methods
                     corsConfig.addAllowedHeader("*"); // Allow all headers
                     corsConfig.setAllowCredentials(true); // Allow cookies/auth headers
@@ -104,5 +114,12 @@ public class SecurityConfig {
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    private void forEachConfiguredValue(String csv, Consumer<String> consumer) {
+        Arrays.stream(csv.split(","))
+                .map(String::trim)
+                .filter(value -> !value.isBlank())
+                .forEach(consumer);
     }
 }

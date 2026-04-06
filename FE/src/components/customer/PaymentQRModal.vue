@@ -126,6 +126,7 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
+import { paymentAPI } from '../../services/api'
 
 const props = defineProps({
   orderId: {
@@ -136,7 +137,6 @@ const props = defineProps({
 
 const emit = defineEmits(['payment-confirmed'])
 
-const API_BASE = 'http://localhost:8080/api'
 const POLLING_INTERVAL = 10000
 
 const paymentInfo = ref(null)
@@ -152,14 +152,7 @@ async function fetchPaymentInfo() {
   error.value = null
 
   try {
-    const token = sessionStorage.getItem('authToken') || localStorage.getItem('authToken')
-    const res = await fetch(`${API_BASE}/payments/orders/${props.orderId}/qr`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    })
-
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-
-    paymentInfo.value = await res.json()
+    paymentInfo.value = await paymentAPI.getPaymentInfo(props.orderId)
 
     if (paymentInfo.value.orderStatus === 'DEPOSITED') {
       stopPolling()
