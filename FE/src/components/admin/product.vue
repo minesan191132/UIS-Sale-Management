@@ -1,165 +1,217 @@
 <template>
-  <div class="products-container p-4">
-    <h2 class="fw-bold mb-4 text-uppercase fs-4">Quản lý sản phẩm</h2>
+  <div class="products-container p-4 min-vh-100 d-flex flex-column w-100" style="background-color: #f8f9fa; max-width: 100%;">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <div>
+        <h2 class="fw-bolder mb-1 text-dark fs-3 text-uppercase">Quản lý sản phẩm</h2>
+        <p class="text-muted mb-0">Quản lý danh sách vật tư và cập nhật tồn kho hệ thống</p>
+      </div>
+      <button class="btn btn-navy px-4 py-2 rounded-pill fw-bold shadow-sm d-flex align-items-center" @click="openAddModal">
+        <i class="bi bi-plus-lg me-2"></i> Thêm sản phẩm mới
+      </button>
+    </div>
 
-    <div class="row g-3 mb-4">
+    <div class="row g-4 mb-4">
       <div class="col-md-3" v-for="(stat, index) in productStats" :key="index">
-        <div :class="stat.bgClass" class="card border-0 shadow-sm p-3 text-white h-100 position-relative overflow-hidden">
-          <div class="position-relative" style="z-index: 2;">
-            <h3 class="fw-bold mb-0">{{ stat.value }}</h3>
-            <p class="small fw-bold text-uppercase mb-0 opacity-90">{{ stat.label }}</p>
+        <div class="card border-0 shadow-sm rounded-4 h-100 stat-card" :class="stat.theme">
+          <div class="card-body p-4 d-flex justify-content-between align-items-center">
+            <div class="stat-content">
+              <p class="stat-label fw-bold text-uppercase mb-1" style="font-size: 0.8rem; letter-spacing: 0.5px;">{{ stat.label }}</p>
+              <h2 class="stat-value fw-bolder mb-0 display-6">{{ stat.value }}</h2>
+            </div>
+            <div class="icon-box rounded-circle d-flex justify-content-center align-items-center" style="width: 60px; height: 60px;">
+              <i :class="stat.icon" class="fs-3 stat-icon"></i>
+            </div>
           </div>
-          <i :class="stat.icon" class="position-absolute end-0 bottom-0 mb-n2 me-n2 display-4 opacity-25"></i>
         </div>
       </div>
     </div>
 
-    <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
-      <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-          <h5 class="fw-bold m-0">Danh sách sản phẩm</h5>
-          <small class="text-muted">Quản lý và sửa thông tin sản phẩm</small>
-        </div>
-        <button class="btn btn-primary btn-sm px-3 rounded-pill fw-bold" @click="openAddModal">
-          <i class="bi bi-plus-lg me-1"></i> Thêm sản phẩm mới
-        </button>
-      </div>
-
-      <div class="row g-2 mb-4">
-        <div class="col-md-4">
-          <input type="text" class="form-control form-control-sm bg-light border-0"
-                 placeholder="Tìm kiếm theo tên hoặc SKU..." v-model="filter.keyword" @keyup.enter="searchProducts">
-        </div>
-        <div class="col-md-3">
-          <select class="form-select form-select-sm bg-light border-0" v-model="filter.status" @change="searchProducts">
-            <option value="">Tất cả trạng thái</option>
-            <option value="in_stock">Còn hàng</option>
-            <option value="low_stock">Sắp hết hàng</option>
-            <option value="out_of_stock">Hết hàng</option>
-          </select>
-        </div>
-        <div class="col-md-3">
-          <select class="form-select form-select-sm bg-light border-0" v-model="filter.categoryId" @change="searchProducts">
-            <option :value="null">Tất cả danh mục</option>
-            <option :value="1">Phôi Sắt</option>
-            <option :value="2">Phôi Thép</option>
-            <option :value="3">Phôi Inox</option>
-          </select>
-        </div>
-        <div class="col-md-2">
-          <button class="btn btn-primary btn-sm w-100 fw-bold" @click="searchProducts">Tìm kiếm</button>
-        </div>
-      </div>
-
-      <div v-if="loading" class="text-center py-4">
-        <div class="spinner-border text-primary" role="status"></div>
-        <p class="mt-2 text-muted">Đang tải...</p>
-      </div>
-
-      <div v-else-if="error" class="alert alert-danger">{{ error }}</div>
-
-      <div v-else class="product-list d-flex flex-column gap-3">
-        <div v-if="products.length === 0" class="text-center text-muted py-5">
-          Không tìm thấy sản phẩm nào.
-        </div>
-        <div v-for="item in products" :key="item.id"
-             class="product-item p-3 border rounded-4 bg-white shadow-sm hover-scale transition">
-          <div class="row align-items-center">
-            <div class="col-md-1 text-center">
-              <img v-if="item.imageUrl" :src="item.imageUrl" alt="img"
-                   class="rounded-3 border" style="width:60px;height:60px;object-fit:cover"/>
-              <div v-else class="bg-light rounded-3 py-3 text-muted small border">HÌNH</div>
+    <div class="card border-0 shadow-sm rounded-4 bg-white flex-grow-1 w-100">
+      
+      <div class="card-header bg-white border-bottom py-4 px-4">
+        <div class="row g-3 align-items-center">
+          <div class="col-md-4">
+            <div class="search-box position-relative">
+              <i class="bi bi-search position-absolute text-muted" style="top: 50%; left: 15px; transform: translateY(-50%);"></i>
+              <input type="text" class="form-control bg-light border-0 rounded-pill shadow-none ps-5 py-2 fw-medium"
+                     placeholder="Tìm kiếm theo tên hoặc mã SKU..." v-model="filter.keyword" @keyup.enter="searchProducts">
             </div>
-            <div class="col-md-4">
-              <h6 class="fw-bold mb-1">{{ item.name }}</h6>
-              <p class="small text-muted mb-0">SKU: <span class="fw-bold">{{ item.sku || '—' }}</span></p>
-              <h5 class="fw-bold text-danger mt-1 mb-0">
-                {{ formatPrice(item.price) }}
-                <small class="text-muted fs-6 fw-normal ms-2">Tồn kho: {{ item.stockQuantity ?? 0 }}</small>
-              </h5>
-            </div>
-            <div class="col-md-3 text-center">
-              <span :class="statusClass(item.status)" class="badge px-4 py-2 rounded-pill fw-normal">
-                {{ item.status }}
-              </span>
-            </div>
-            <div class="col-md-4 text-end d-flex gap-2 justify-content-end">
-              <button class="btn btn-light btn-sm border px-4 rounded-pill" @click="openEditModal(item)">Sửa</button>
-              <button class="btn btn-danger btn-sm border px-4 rounded-pill" @click="handleDelete(item)">Xoá</button>
-            </div>
+          </div>
+          <div class="col-md-3">
+            <select class="form-select bg-light border-0 rounded-pill shadow-none fw-medium text-secondary py-2 px-4" v-model="filter.status" @change="searchProducts">
+              <option value="">Tất cả trạng thái</option>
+              <option value="in_stock">Còn hàng</option>
+              <option value="low_stock">Sắp hết hàng</option>
+              <option value="out_of_stock">Hết hàng</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <select class="form-select bg-light border-0 rounded-pill shadow-none fw-medium text-secondary py-2 px-4" v-model="filter.categoryId" @change="searchProducts">
+              <option :value="null">Tất cả danh mục</option>
+              <option :value="1">Phôi Sắt</option>
+              <option :value="2">Phôi Thép</option>
+              <option :value="3">Phôi Inox</option>
+            </select>
+          </div>
+          <div class="col-md-2">
+            <button class="btn btn-primary w-100 py-2 rounded-pill fw-bold text-white shadow-sm" style="background-color: #2563eb; border: none;" @click="searchProducts">
+              <i class="bi bi-funnel-fill me-1"></i> Lọc kết quả
+            </button>
           </div>
         </div>
       </div>
 
-      <div v-if="totalPages > 1" class="d-flex justify-content-center align-items-center gap-3 mt-4 pt-3 border-top">
-        <button class="btn btn-outline-primary px-4 fw-bold rounded-pill" :disabled="currentPage === 0" @click="changePage(currentPage - 1)">
-          <i class="bi bi-chevron-left me-1"></i> Trang trước
-        </button>
-        
-        <span class="badge bg-light text-dark border px-4 py-2 fs-6 rounded-pill shadow-sm">
-          Trang {{ currentPage + 1 }} / {{ totalPages }}
-        </span>
-        
-        <button class="btn btn-outline-primary px-4 fw-bold rounded-pill" :disabled="currentPage >= totalPages - 1" @click="changePage(currentPage + 1)">
-          Trang sau <i class="bi bi-chevron-right ms-1"></i>
-        </button>
+      <div class="table-responsive w-100">
+        <table class="table align-middle mb-0 custom-table w-100">
+          <thead class="bg-light">
+            <tr>
+              <th class="px-4 py-4 text-muted fw-bold text-uppercase" style="font-size: 0.85rem;">Sản phẩm</th>
+              <th class="py-4 text-muted fw-bold text-uppercase" style="font-size: 0.85rem;">Mã SKU</th>
+              <th class="py-4 text-muted fw-bold text-uppercase" style="font-size: 0.85rem;">Giá bán</th>
+              <th class="py-4 text-muted fw-bold text-uppercase text-center" style="font-size: 0.85rem;">Tồn kho</th>
+              <th class="py-4 text-muted fw-bold text-uppercase text-center" style="font-size: 0.85rem;">Trạng thái</th>
+              <th class="px-4 py-4 text-muted fw-bold text-uppercase text-end" style="font-size: 0.85rem;">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-if="loading">
+              <td colspan="6" class="text-center py-5">
+                <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;"></div>
+              </td>
+            </tr>
+            <tr v-else-if="error">
+              <td colspan="6" class="text-center py-4 text-danger fw-bold">{{ error }}</td>
+            </tr>
+            <tr v-else-if="products.length === 0">
+              <td colspan="6" class="text-center py-5">
+                <i class="bi bi-inbox fs-1 text-muted d-block mb-3 opacity-50"></i>
+                <h5 class="text-muted fw-bold">Không tìm thấy sản phẩm</h5>
+              </td>
+            </tr>
+            
+            <tr v-for="item in products" :key="item.id" class="table-row-hover">
+              <td class="px-4 py-3">
+                <div class="d-flex align-items-center gap-4">
+                  <div class="img-box rounded-3 border shadow-sm flex-shrink-0 bg-white overflow-hidden" style="width: 80px; height: 80px;">
+                    <img v-if="item.imageUrl" :src="item.imageUrl" class="w-100 h-100" style="object-fit: cover;"/>
+                    <div v-else class="w-100 h-100 d-flex align-items-center justify-content-center text-muted bg-light"><i class="bi bi-image fs-3"></i></div>
+                  </div>
+                  <div>
+                    <h6 class="mb-1 fw-bold text-dark fs-5 product-name">{{ item.name }}</h6>
+                  </div>
+                </div>
+              </td>
+              <td class="py-3 text-secondary fw-bold">{{ item.sku || '—' }}</td>
+              <td class="py-3 fw-bolder text-dark fs-5">{{ formatPrice(item.price) }}</td>
+              <td class="py-3 text-center">
+                <span class="fw-bolder fs-5" :class="item.stockQuantity > 0 ? 'text-dark' : 'text-danger'">{{ item.stockQuantity ?? 0 }}</span>
+              </td>
+              <td class="py-3 text-center">
+                <span class="badge rounded-pill px-3 py-2 fw-bold" :class="statusClass(item.status)" style="font-size: 0.85rem;">
+                  <i class="me-1" :class="statusIcon(item.status)"></i> {{ item.status }}
+                </span>
+              </td>
+              <td class="px-4 py-3 text-end">
+                <div class="d-flex gap-2 justify-content-end">
+                  <button class="btn btn-action bg-light text-primary border" @click="openEditModal(item)" title="Sửa">
+                    <i class="bi bi-pencil-square"></i>
+                  </button>
+                  <button class="btn btn-action bg-light text-danger border" @click="handleDelete(item)" title="Xóa">
+                    <i class="bi bi-trash3-fill"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
+
+      <div v-if="totalPages > 1" class="card-footer bg-white border-top py-4 px-4">
+        <div class="d-flex justify-content-between align-items-center">
+          <span class="text-muted fw-medium">Hiển thị trang <b class="text-dark fs-5">{{ currentPage + 1 }}</b> / {{ totalPages }}</span>
+          <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary px-4 py-2 rounded-pill fw-bold" :disabled="currentPage === 0" @click="changePage(currentPage - 1)">
+              <i class="bi bi-chevron-left me-1"></i> Trang trước
+            </button>
+            <button class="btn btn-outline-secondary px-4 py-2 rounded-pill fw-bold" :disabled="currentPage >= totalPages - 1" @click="changePage(currentPage + 1)">
+              Trang sau <i class="bi bi-chevron-right ms-1"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
-      <div class="modal-box card shadow-lg p-4 rounded-4" style="max-width:540px;width:100%">
-        <h5 class="fw-bold mb-3">{{ editingId ? 'Sửa sản phẩm' : 'Thêm sản phẩm mới' }}</h5>
-        <form @submit.prevent="handleSave">
-          <div class="mb-2">
-            <label class="form-label small fw-bold">Tên sản phẩm *</label>
-            <input class="form-control form-control-sm" v-model="form.name" required />
-          </div>
-          <div class="row g-2 mb-2">
-            <div class="col">
-              <label class="form-label small fw-bold">SKU</label>
-              <input class="form-control form-control-sm" v-model="form.sku" />
+      <div class="modal-box card border-0 shadow-lg p-0 rounded-4" style="max-width:600px;width:100%">
+        <div class="bg-light p-4 border-bottom rounded-top-4 d-flex justify-content-between align-items-center">
+          <h4 class="fw-bolder mb-0 text-dark">
+            {{ editingId ? 'Cập nhật sản phẩm' : 'Thêm sản phẩm mới' }}
+          </h4>
+          <button class="btn-close shadow-none fs-5" @click="closeModal"></button>
+        </div>
+
+        <div class="p-4">
+          <form @submit.prevent="handleSave">
+            <div class="mb-3">
+              <label class="form-label fw-bold text-secondary mb-1">Tên sản phẩm <span class="text-danger">*</span></label>
+              <input class="form-control custom-input" v-model="form.name" required />
             </div>
-            <div class="col">
-              <label class="form-label small fw-bold">Giá (VNĐ)</label>
-              <input class="form-control form-control-sm" type="number" v-model="form.price" />
+            
+            <div class="row g-3 mb-3">
+              <div class="col-md-6">
+                <label class="form-label fw-bold text-secondary mb-1">Mã SKU</label>
+                <input class="form-control custom-input" v-model="form.sku" />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-bold text-secondary mb-1">Giá bán (VNĐ)</label>
+                <input class="form-control custom-input" type="number" v-model="form.price" />
+              </div>
             </div>
-          </div>
-          <div class="row g-2 mb-2">
-            <div class="col">
-              <label class="form-label small fw-bold">Tồn kho</label>
-              <input class="form-control form-control-sm" type="number" v-model="form.stockQuantity" />
+            
+            <div class="row g-3 mb-3">
+              <div class="col-md-6">
+                <label class="form-label fw-bold text-secondary mb-1">Số lượng tồn kho</label>
+                <input class="form-control custom-input" type="number" v-model="form.stockQuantity" />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-bold text-secondary mb-1">Danh mục</label>
+                <select class="form-select custom-input" v-model="form.categoryId">
+                  <option :value="null">-- Chọn --</option>
+                  <option :value="1">Phôi Sắt</option>
+                  <option :value="2">Phôi Thép</option>
+                  <option :value="3">Phôi Inox</option>
+                </select>
+              </div>
             </div>
-            <div class="col">
-              <label class="form-label small fw-bold">Danh mục</label>
-              <select class="form-select form-select-sm" v-model="form.categoryId">
-                <option :value="null">-- Chọn --</option>
-                <option :value="1">Phôi Sắt</option>
-                <option :value="2">Phôi Thép</option>
-                <option :value="3">Phôi Inox</option>
-              </select>
+            
+            <div class="mb-3">
+              <label class="form-label fw-bold text-secondary mb-1">URL Hình ảnh</label>
+              <input class="form-control custom-input" v-model="form.imageUrl" />
             </div>
-          </div>
-          <div class="mb-2">
-            <label class="form-label small fw-bold">URL Hình ảnh</label>
-            <input class="form-control form-control-sm" v-model="form.imageUrl" />
-          </div>
-          <div class="mb-2">
-            <label class="form-label small fw-bold">Mô tả</label>
-            <textarea class="form-control form-control-sm" rows="2" v-model="form.description"></textarea>
-          </div>
-          <div class="mb-3">
-            <label class="form-label small fw-bold">Chất liệu mặc định</label>
-            <input class="form-control form-control-sm" v-model="form.defaultMaterial" />
-          </div>
-          <div v-if="saveError" class="alert alert-danger py-2 small">{{ saveError }}</div>
-          <div class="d-flex gap-2 justify-content-end">
-            <button type="button" class="btn btn-light btn-sm px-4 rounded-pill border" @click="closeModal">Huỷ</button>
-            <button type="submit" class="btn btn-primary btn-sm px-4 rounded-pill fw-bold" :disabled="saving">
-              <span v-if="saving" class="spinner-border spinner-border-sm me-1"></span>
-              {{ editingId ? 'Lưu thay đổi' : 'Thêm mới' }}
-            </button>
-          </div>
-        </form>
+
+            <div class="mb-3">
+              <label class="form-label fw-bold text-secondary mb-1">Chất liệu mặc định</label>
+              <input class="form-control custom-input" v-model="form.defaultMaterial" />
+            </div>
+            
+            <div class="mb-4">
+              <label class="form-label fw-bold text-secondary mb-1">Mô tả ngắn</label>
+              <textarea class="form-control custom-input" rows="2" v-model="form.description"></textarea>
+            </div>
+            
+            <div v-if="saveError" class="alert alert-danger py-2 rounded-3">{{ saveError }}</div>
+            
+            <div class="d-flex gap-3 justify-content-end pt-3 border-top mt-4">
+              <button type="button" class="btn btn-light px-4 py-2 rounded-pill fw-bold border" @click="closeModal">Huỷ bỏ</button>
+              <button type="submit" class="btn btn-navy px-4 py-2 rounded-pill fw-bold shadow-sm" :disabled="saving">
+                <span v-if="saving" class="spinner-border spinner-border-sm me-2"></span>
+                {{ editingId ? 'Lưu thay đổi' : 'Xác nhận Thêm' }}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   </div>
@@ -189,12 +241,12 @@ const form = reactive({
   defaultSpecification: '', slug: '', isActive: true,
 });
 
-// ─── Stats Cards ─────────────────────────────────────────────
+// ─── Khai báo Theme cho các ô thống kê ──────────────────────
 const productStats = computed(() => [
-  { label: 'Tổng sản phẩm',  value: stats.total,       bgClass: 'bg-danger',  icon: 'bi bi-box-seam' },
-  { label: 'Đang hoạt động', value: stats.active,      bgClass: 'bg-success', icon: 'bi bi-check-circle' },
-  { label: 'Hết hàng',       value: stats.outOfStock,  bgClass: 'bg-purple',  icon: 'bi bi-slash-circle' },
-  { label: 'Sắp hết hàng',   value: stats.lowStock,    bgClass: 'bg-indigo',  icon: 'bi bi-exclamation-triangle' },
+  { label: 'Tổng sản phẩm',  value: stats.total,      theme: 'theme-primary', icon: 'bi bi-box-seam' },
+  { label: 'Đang hoạt động', value: stats.active,     theme: 'theme-success', icon: 'bi bi-check-circle' },
+  { label: 'Sắp hết hàng',   value: stats.lowStock,   theme: 'theme-warning', icon: 'bi bi-exclamation-triangle' },
+  { label: 'Hết hàng',       value: stats.outOfStock, theme: 'theme-danger',  icon: 'bi bi-x-circle' },
 ]);
 
 // ─── Load Data ───────────────────────────────────────────────
@@ -210,7 +262,6 @@ async function loadStats() {
   }
 }
 
-// HÀM MỚI: Reset trang về 0 trước khi tìm kiếm
 function searchProducts() {
   currentPage.value = 0;
   loadProducts();
@@ -229,15 +280,10 @@ async function loadProducts() {
     });
     
     products.value = data.content ?? [];
-    
     const totalElements = data.totalElements ?? (data.page?.totalElements ?? 0);
-    const pages = data.totalPages ?? (data.page?.totalPages ?? Math.ceil(totalElements / 5));
-    
-    totalPages.value = pages; // Gán lại tổng số trang
-    
+    totalPages.value = data.totalPages ?? (data.page?.totalPages ?? Math.ceil(totalElements / 5));
   } catch (e) {
     error.value = 'Không thể tải danh sách sản phẩm. Vui lòng thử lại.';
-    console.error('loadProducts error', e);
   } finally {
     loading.value = false;
   }
@@ -258,51 +304,30 @@ function resetForm() {
   saveError.value = '';
 }
 
-function openAddModal() {
-  resetForm();
-  editingId.value = null;
-  showModal.value = true;
-}
+function openAddModal() { resetForm(); editingId.value = null; showModal.value = true; }
 
 function openEditModal(item) {
-  resetForm();
-  editingId.value = item.id;
+  resetForm(); editingId.value = item.id;
   Object.assign(form, {
-    name: item.name || '',
-    sku: item.sku || '',
-    price: item.price,
-    stockQuantity: item.stockQuantity,
-    categoryId: item.categoryId,
-    imageUrl: item.imageUrl || '',
-    description: item.description || '',
-    defaultMaterial: item.defaultMaterial || '',
-    defaultSpecification: item.defaultSpecification || '',
-    slug: item.slug || '',
-    isActive: item.isActive !== false,
+    name: item.name || '', sku: item.sku || '', price: item.price, stockQuantity: item.stockQuantity,
+    categoryId: item.categoryId, imageUrl: item.imageUrl || '', description: item.description || '',
+    defaultMaterial: item.defaultMaterial || '', defaultSpecification: item.defaultSpecification || '',
+    slug: item.slug || '', isActive: item.isActive !== false,
   });
   showModal.value = true;
 }
 
-function closeModal() {
-  showModal.value = false;
-}
+function closeModal() { showModal.value = false; }
 
 async function handleSave() {
-  saving.value = true;
-  saveError.value = '';
+  saving.value = true; saveError.value = '';
   try {
-    if (editingId.value) {
-      await productAdminAPI.update(editingId.value, { ...form });
-    } else {
-      await productAdminAPI.create({ ...form });
-    }
+    if (editingId.value) { await productAdminAPI.update(editingId.value, { ...form }); } 
+    else { await productAdminAPI.create({ ...form }); }
     closeModal();
     await Promise.all([loadStats(), loadProducts()]);
-  } catch (e) {
-    saveError.value = e.response?.data?.error || 'Lỗi khi lưu sản phẩm';
-  } finally {
-    saving.value = false;
-  }
+  } catch (e) { saveError.value = e.response?.data?.error || 'Lỗi khi lưu sản phẩm'; } 
+  finally { saving.value = false; }
 }
 
 async function handleDelete(item) {
@@ -310,59 +335,105 @@ async function handleDelete(item) {
   try {
     await productAdminAPI.delete(item.id);
     await Promise.all([loadStats(), loadProducts()]);
-  } catch (e) {
-    alert('Xoá thất bại: ' + (e.response?.data?.error || e.message));
-  }
+  } catch (e) { alert('Xoá thất bại: ' + (e.response?.data?.error || e.message)); }
 }
 
-// ─── Helpers ─────────────────────────────────────────────────
+// ─── Helpers: Pastel Badges ──────────────────────────────────
 function formatPrice(price) {
   if (price == null) return '—';
-  return new Intl.NumberFormat('vi-VN').format(price) + '₫';
+  return new Intl.NumberFormat('vi-VN').format(price) + ' ₫';
 }
 
 function statusClass(status) {
-  if (status === 'Còn hàng') return 'bg-success text-white';
-  if (status === 'Sắp hết hàng') return 'bg-warning text-dark';
-  return 'bg-secondary text-white';
+  if (status === 'Còn hàng') return 'bg-success bg-opacity-10 text-success border border-success border-opacity-25';
+  if (status === 'Sắp hết hàng') return 'bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25';
+  return 'bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25';
 }
 
-// ─── Init ────────────────────────────────────────────────────
+function statusIcon(status) {
+  if (status === 'Còn hàng') return 'bi bi-check2-circle';
+  if (status === 'Sắp hết hàng') return 'bi bi-exclamation-circle';
+  return 'bi bi-x-circle';
+}
+
 onMounted(async () => {
   await Promise.all([loadStats(), loadProducts()]);
 });
 </script>
 
 <style scoped>
-.bg-purple { background-color: #9c27b0 !important; }
-.bg-indigo { background-color: #6610f2 !important; }
+.text-navy { color: #0b2e59 !important; }
+.btn-navy { background-color: #0b2e59; color: #fff; border: none; transition: 0.3s; }
+.btn-navy:hover { background-color: #173b6c; color: #fff; transform: translateY(-2px); box-shadow: 0 4px 10px rgba(11, 46, 89, 0.2); }
 
-.product-item {
-  border: 1px solid #f1f2f4 !important;
-  transition: all 0.3s ease;
+/* --- 1. HIỆU ỨNG THỐNG KÊ (HOVER ĐỔI MÀU + RUNG ICON) --- */
+.stat-card {
+  background-color: #fff;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  cursor: pointer;
+  overflow: hidden;
 }
-.product-item:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 5px 15px rgba(0,0,0,0.05) !important;
-  background-color: #fcfcfd !important;
-  border-color: #0d6efd !important;
+.stat-label { color: #6c757d; }
+.stat-value { color: #212529; }
+.icon-box { background-color: #f8f9fa; transition: all 0.4s; }
+
+/* Set màu mặc định cho Icon */
+.theme-primary .stat-icon { color: #0d6efd; }
+.theme-success .stat-icon { color: #198754; }
+.theme-warning .stat-icon { color: #ffc107; }
+.theme-danger  .stat-icon { color: #dc3545; }
+
+/* Trạng thái Hover: Đổi nền, chuyển chữ sang trắng */
+.stat-card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important; }
+.stat-card:hover .stat-label, .stat-card:hover .stat-value, .stat-card:hover .stat-icon { color: #fff !important; }
+.stat-card:hover .icon-box { background-color: rgba(255,255,255,0.2) !important; }
+
+/* Gắn màu nền tương ứng khi Hover */
+.theme-primary:hover { background-color: #0d6efd !important; }
+.theme-success:hover { background-color: #198754 !important; }
+.theme-warning:hover { background-color: #ffc107 !important; }
+.theme-danger:hover  { background-color: #dc3545 !important; }
+
+/* Icon nhảy múa (Wiggle Animation) */
+.stat-card:hover .stat-icon { animation: wiggle 0.6s ease-in-out infinite alternate; }
+
+@keyframes wiggle {
+  0% { transform: rotate(0deg) scale(1); }
+  25% { transform: rotate(-10deg) scale(1.1); }
+  50% { transform: rotate(10deg) scale(1.1); }
+  75% { transform: rotate(-5deg) scale(1.1); }
+  100% { transform: rotate(0deg) scale(1); }
 }
 
+/* --- 2. BẢNG DỮ LIỆU (TRÀN VIỀN, ẢNH TO) --- */
+.custom-table { width: 100%; border-collapse: collapse; }
+.custom-table th { border-bottom: 2px solid #edf2f7; background-color: #f8fafc; }
+.custom-table td { border-bottom: 1px solid #edf2f7; vertical-align: middle; }
+.table-row-hover { transition: background-color 0.2s ease; }
+.table-row-hover:hover { background-color: #f1f5f9; }
+
+.product-name {
+  display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  max-width: 300px; line-height: 1.4;
+}
+
+/* Nút Action vuông bo góc */
+.btn-action {
+  width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 10px; transition: 0.2s; font-size: 1.1rem;
+}
+.btn-action.text-primary:hover { background-color: #eff6ff !important; border-color: #bfdbfe !important; transform: translateY(-2px); }
+.btn-action.text-danger:hover { background-color: #fef2f2 !important; border-color: #fecaca !important; transform: translateY(-2px); }
+
+/* Form Modal */
+.custom-input { border: 1px solid #cbd5e1; border-radius: 8px; padding: 0.7rem 1rem; }
+.custom-input:focus { border-color: #0b2e59; box-shadow: 0 0 0 3px rgba(11, 46, 89, 0.1); }
+
+/* Modal Overlay */
 .modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.45);
-  z-index: 1050;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
+  position: fixed; inset: 0; background: rgba(15, 23, 42, 0.5); backdrop-filter: blur(2px);
+  z-index: 1050; display: flex; align-items: center; justify-content: center; padding: 1rem;
 }
-.modal-box {
-  background: #fff;
-  animation: fadeIn .2s ease;
-  max-height: 90vh;
-  overflow-y: auto;
-}
-@keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
+.modal-box { animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+@keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
 </style>
