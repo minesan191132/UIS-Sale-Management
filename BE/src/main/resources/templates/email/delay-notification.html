@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="vi">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cập nhật ngày giao hàng - UIS</title>
+</head>
+
+<body style="margin:0;padding:0;background:#f0f4f8;font-family:'Segoe UI',Arial,sans-serif;color:#333;">
+  <div style="max-width:600px;margin:40px auto;padding:20px;">
+
+    <!-- Header -->
+    <div
+      style="background:linear-gradient(135deg,#0f172a 0%,#1e3a8a 100%);border-radius:12px 12px 0 0;padding:32px 40px;text-align:center;">
+      <div style="font-size:28px;font-weight:700;color:#fff;letter-spacing:2px;">UIS</div>
+      <div style="font-size:13px;color:#93c5fd;margin-top:4px;">UTSUNOMIYA MECHANICAL SALES WEBSITES</div>
+    </div>
+
+    <!-- Body -->
+    <div style="background:#ffffff;padding:36px 40px;">
+      <h2 style="font-size:20px;color:#1e3a8a;margin:0 0 16px;">Cập nhật ngày giao hàng</h2>
+
+      <p style="font-size:15px;color:#555;line-height:1.7;margin:0 0 12px;">
+        Kính gửi <strong th:text="${fullName}">Khách hàng</strong>,
+      </p>
+      <p style="font-size:15px;color:#555;line-height:1.7;margin:0 0 12px;">
+        Đơn hàng <strong th:text="${orderNumber}">UIS-000</strong> của bạn đã được cập nhật ngày giao.
+      </p>
+
+      <!-- Info Box -->
+      <div style="background:#f0f4ff;border-left:4px solid #1e3a8a;border-radius:6px;padding:16px 20px;margin:20px 0;">
+        <p style="margin:0 0 8px;color:#1e3a8a;font-weight:600;font-size:15px;">
+          Ngày giao mới: <span th:text="${newDeliveryDate}">dd/MM/yyyy</span>
+        </p>
+        <p style="margin:0;color:#555;font-size:15px;">
+          Lý do: <span th:text="${reason}">...</span>
+        </p>
+      </div>
+
+      <p style="font-size:15px;color:#555;line-height:1.7;margin:0 0 12px;">
+        Chúng tôi thành thật xin lỗi vì sự bất tiện này và cam kết hoàn thành đơn hàng đúng hạn mới.
+      </p>
+      <p style="font-size:15px;color:#555;line-height:1.7;margin:0;">
+        Nếu có thắc mắc, vui lòng liên hệ với chúng tôi qua hệ thống.
+      </p>
+    </div>
+
+    <!-- Footer -->
+    <div
+      style="background:#f8fafc;border-top:1px solid #e5e7eb;border-radius:0 0 12px 12px;padding:20px 40px;text-align:center;">
+      <p style="font-size:12px;color:#9ca3af;margin:0;">
+        Email này được gửi tự động từ hệ thống
+        <span style="font-weight:600;color:#1e3a8a;">UIS - UTSUNOMIYA MECHANICAL SALES WEBSITES</span>.<br>
+        Vui lòng không trả lời email này.
+      </p>
+    </div>
+
+  </div>
+</body>
+
+</html>
