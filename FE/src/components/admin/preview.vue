@@ -1,8 +1,8 @@
 <template>
-  <div class="p-4 bg-light min-vh-100">
+  <div class="invoice-preview-page p-4 min-vh-100">
     <!-- No data -->
     <div v-if="!shipment" class="d-flex align-items-center justify-content-center" style="min-height: 60vh;">
-      <div class="text-center" style="max-width: 400px;">
+      <div class="text-center empty-preview-card" style="max-width: 420px;">
         <i class="bi bi-file-earmark-text fs-1 text-muted d-block mb-3"></i>
         <h5 class="fw-bold">Chưa có phiếu xuất kho</h5>
         <p class="text-muted small">
@@ -17,14 +17,15 @@
     <!-- Preview Content -->
     <div v-else>
       <!-- Header -->
-      <div class="d-flex justify-content-between align-items-start mb-4">
+      <div class="card border-0 shadow-sm mb-4 preview-hero">
+        <div class="card-body d-flex flex-column flex-lg-row justify-content-between align-items-start gap-3">
         <div>
           <h2 class="fw-bold text-dark m-0 fs-4">
             <i class="bi bi-truck me-2"></i>Phiếu xuất kho
           </h2>
           <p class="text-muted small mb-0 mt-1">Xem trước và xuất Excel</p>
         </div>
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 preview-actions">
           <router-link to="/admin/invoice-management" class="btn btn-outline-secondary btn-sm px-3">
             <i class="bi bi-arrow-left me-1"></i>Quay lại
           </router-link>
@@ -33,10 +34,11 @@
             {{ exporting ? 'Đang xuất...' : 'Xuất Excel' }}
           </button>
         </div>
+        </div>
       </div>
 
       <!-- Info Card -->
-      <div class="card border-0 shadow-sm mb-4">
+      <div class="card border-0 shadow-sm mb-4 preview-summary-card">
         <div class="card-body">
           <div class="row">
             <div class="col-md-6">
@@ -60,7 +62,7 @@
       </div>
 
       <!-- Preview Table -->
-      <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+      <div class="card border-0 shadow-sm rounded-4 overflow-hidden preview-table-card">
         <div class="table-responsive">
           <table class="table table-hover align-middle mb-0 shipment-table">
             <thead class="bg-light">
@@ -286,6 +288,29 @@ const exportExcel = async () => {
 </script>
 
 <style scoped>
+.invoice-preview-page {
+  background: linear-gradient(180deg, #f3f7ff 0%, #f8fafc 45%, #f3f4f6 100%);
+}
+
+.empty-preview-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: #ffffff;
+  padding: 1.5rem;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+}
+
+.preview-hero {
+  border: 1px solid #dbeafe;
+  background: radial-gradient(circle at top right, rgba(59, 130, 246, 0.12), transparent 48%), #ffffff;
+}
+
+.preview-summary-card,
+.preview-table-card {
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+
 .shipment-table { font-size: 0.82rem; }
 .shipment-table td, .shipment-table th { padding: 6px 8px !important; vertical-align: middle; line-height: 1.3; }
 .shipment-table tbody tr { height: 36px; }
@@ -299,13 +324,34 @@ const exportExcel = async () => {
 }
 .inline-input::placeholder { color: #adb5bd; font-weight: 400; }
 .inline-input:hover { border-color: #adb5bd; background: #fff; }
-.inline-input:focus { outline: none; border-color: #86b7fe; border-style: solid; background: #fff; box-shadow: 0 0 0 2px rgba(13,110,253,.1); }
+.inline-input:focus { outline: none; border-color: #93c5fd; border-style: solid; background: #fff; box-shadow: 0 0 0 2px rgba(59,130,246,.14); }
 .stock-input { color: #198754; }
 .order-col-header { border-bottom: none !important; padding-bottom: 2px !important; font-weight: 600; }
 .order-col-date {
   font-size: 0.78rem !important; font-weight: 600 !important;
-  color: #0d6efd !important; background: #e8f4fd !important;
+  color: #3b82f6 !important; background: #eff6ff !important;
   padding-top: 4px !important; padding-bottom: 4px !important;
   border-top: 1px dashed #dee2e6 !important;
+}
+
+@media (max-width: 992px) {
+  .preview-hero .card-body {
+    align-items: stretch !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .preview-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .preview-actions .btn {
+    width: 100%;
+  }
+
+  .shipment-table {
+    font-size: 0.78rem;
+  }
 }
 </style>

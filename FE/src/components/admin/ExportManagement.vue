@@ -1,9 +1,27 @@
 <template>
-  <div class="p-4 bg-light min-vh-100">
-    <h2 class="fw-bold mb-4 text-uppercase">Quản lý xuất hoá đơn & Báo giá</h2>
+  <div class="processing-page p-4 min-vh-100">
+    <div class="card border-0 shadow-sm mb-4 processing-hero">
+      <div class="card-body d-flex flex-column flex-lg-row justify-content-between align-items-start align-items-lg-center gap-3">
+        <div>
+          <h2 class="fw-bold mb-1 text-uppercase">Quản lý xuất hoá đơn & Báo giá</h2>
+          <p class="text-muted mb-0">Theo dõi đơn gia công, review vật tư và xuất kho theo lô ngày giao.</p>
+        </div>
+        <div class="d-flex flex-wrap align-items-center gap-2">
+          <span class="badge rounded-pill text-primary bg-primary-subtle border border-primary-subtle px-3 py-2">
+            Đơn hiển thị: {{ orders.length }}
+          </span>
+          <span class="badge rounded-pill text-success bg-success-subtle border border-success-subtle px-3 py-2">
+            Đã chọn: {{ selectedItemIds.length }} vật tư
+          </span>
+          <button class="btn btn-outline-primary btn-sm px-3" @click="openAdminImportDialog" :disabled="importing">
+            <i class="bi bi-upload me-1"></i>{{ importing ? 'Đang import...' : 'Import Excel' }}
+          </button>
+        </div>
+      </div>
+    </div>
 
     <!-- Filters -->
-    <div class="card border-0 shadow-sm p-3 mb-4">
+    <div class="card border-0 shadow-sm p-3 mb-4 processing-filter-card">
       <div class="row g-3 align-items-end justify-content-between">
         <div class="col-md-9">
           <div class="row g-2">
@@ -14,7 +32,7 @@
             </div>
             <div class="col-md-3">
               <label class="small fw-bold text-muted mb-1">Trạng thái</label>
-              <select class="form-select form-select-sm" v-model="filterStatus" @change="loadOrders(0)">
+              <select class="form-select form-select-sm modern-admin-select" v-model="filterStatus" @change="loadOrders(0)">
                 <option value="">Tất cả</option>
                 <option value="PENDING_APPROVAL">Chờ duyệt đơn</option>
                 <option value="PENDING_QUOTE">Chờ báo giá</option>
@@ -38,10 +56,7 @@
             </div>
           </div>
         </div>
-        <div class="col-md-3 d-flex gap-2 justify-content-end">
-          <button class="btn btn-outline-primary btn-sm px-3" @click="openAdminImportDialog" :disabled="importing">
-            <i class="bi bi-upload me-1"></i>{{ importing ? 'Đang import...' : 'Import Excel' }}
-          </button>
+        <div class="col-md-3 d-flex gap-2 justify-content-md-end">
           <button class="btn btn-primary btn-sm px-3" @click="loadOrders(0)">Tìm kiếm</button>
           <button class="btn btn-outline-secondary btn-sm px-3" @click="resetFilters">Đặt lại</button>
         </div>
@@ -63,7 +78,7 @@
     </div>
 
     <!-- Orders Table -->
-    <div v-else class="card border-0 shadow-sm rounded-4 overflow-hidden">
+    <div v-else class="card border-0 shadow-sm rounded-4 overflow-hidden processing-table-card">
       <table class="table align-middle mb-0 custom-hover-table" style="table-layout: fixed;">
         <thead class="bg-light shadow-sm">
           <tr class="small text-muted text-uppercase">
@@ -109,38 +124,38 @@
             <td>{{ formatCurrency(order.totalPrice) }}</td>
             <td>{{ formatDate(order.createdAt) }}</td>
             <td @click.stop>
-              <div class="btn-group btn-group-sm">
-                <button @click="openReviewModal(order)" class="btn btn-outline-primary"
+              <div class="d-flex flex-wrap gap-1 action-group-wrap">
+                <button @click="openReviewModal(order)" class="btn btn-outline-primary btn-action-circle"
                   :title="order.status === 'PENDING_APPROVAL' ? 'Xem chi tiết đơn' : 'Xem & Review'">
                   <i class="bi bi-eye"></i>
                 </button>
                 <button v-if="order.status === 'PENDING_APPROVAL'"
-                  @click="approveOrder(order)" class="btn btn-outline-warning" title="Duyệt đơn">
+                  @click="approveOrder(order)" class="btn btn-outline-warning btn-action-circle" title="Duyệt đơn">
                   <i class="bi bi-check2-circle"></i>
                 </button>
                 <button v-if="order.status === 'PENDING_APPROVAL' && order.isTempImport"
-                  @click="rejectOrder(order)" class="btn btn-outline-danger" title="Từ chối đơn">
+                  @click="rejectOrder(order)" class="btn btn-outline-danger btn-action-circle" title="Từ chối đơn">
                   <i class="bi bi-x-circle"></i>
                 </button>
                 <button v-if="canAdminCancelRegularOrder(order)"
-                  @click="cancelRegularOrder(order)" class="btn btn-outline-danger" title="Hủy đơn">
+                  @click="cancelRegularOrder(order)" class="btn btn-outline-danger btn-action-circle" title="Hủy đơn">
                   <i class="bi bi-slash-circle"></i>
                 </button>
                 <button v-if="order.status === 'PENDING_QUOTE' && isAllReviewed(order)"
-                  @click="submitQuote(order)" class="btn btn-outline-success" title="Gửi báo giá">
+                  @click="submitQuote(order)" class="btn btn-outline-success btn-action-circle" title="Gửi báo giá">
                   <i class="bi bi-currency-dollar"></i>
                 </button>
                 <button v-if="order.status === 'DEPOSITED'" @click="startProcessing(order)"
-                  class="btn btn-success btn-sm" title="Bắt đầu gia công">
-                  <i class="bi bi-play-fill me-1"></i>Gia công
+                  class="btn btn-success btn-sm btn-action-circle" title="Bắt đầu gia công">
+                  <i class="bi bi-play-fill"></i>
                 </button>
                 <button v-if="order.status === 'PROCESSING'" @click="finishProcessing(order)"
-                  class="btn btn-warning btn-sm" title="Hoàn thành gia công" :disabled="finishing">
-                  <i class="bi bi-check-circle-fill me-1"></i>Đã hoàn thành gia công
+                  class="btn btn-warning btn-sm btn-action-circle" title="Hoàn thành gia công" :disabled="finishing">
+                  <i class="bi bi-check-circle-fill"></i>
                 </button>
                 <button v-if="order.status === 'AWAITING_DELIVERY'" @click="markAsShipping(order)"
-                  class="btn btn-primary btn-sm" title="Bàn giao vận chuyển" :disabled="shipping">
-                  <i class="bi bi-truck me-1"></i>Giao hàng
+                  class="btn btn-primary btn-sm btn-action-circle" title="Bàn giao vận chuyển" :disabled="shipping">
+                  <i class="bi bi-truck"></i>
                 </button>
               </div>
             </td>
@@ -284,205 +299,239 @@
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
           <div class="modal-body">
-            <!-- Order Info -->
-            <div class="row mb-4">
-              <div class="col-md-4">
-                <p class="mb-1"><strong>Khách hàng:</strong> {{ selectedOrder.userName }}</p>
-                <p class="mb-1"><strong>Công ty:</strong> {{ selectedOrder.companyName }}</p>
-              </div>
-              <div class="col-md-4">
-                <p class="mb-1">
-                  <strong>Trạng thái:</strong>
-                  <span :class="getStatusBadgeClass(selectedOrder.status)">
-                    {{ getStatusText(selectedOrder.status) }}
-                  </span>
-                </p>
-                <p class="mb-1"><strong>Ngày tạo:</strong> {{ formatDate(selectedOrder.createdAt) }}</p>
-              </div>
-              <div class="col-md-4">
-                <p v-if="selectedOrder.status !== 'PENDING_APPROVAL'" class="mb-1"><strong>Tiến trình review:</strong> {{ getReviewProgress(selectedOrder) }}</p>
-                <p class="mb-1" v-if="selectedOrder.totalPrice">
-                  <strong>Tổng giá trị:</strong> {{ formatCurrency(selectedOrder.totalPrice) }}
-                </p>
+            <div class="order-summary-card mb-3">
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <p class="mb-1"><strong>Khách hàng:</strong> {{ selectedOrder.userName }}</p>
+                  <p class="mb-0"><strong>Công ty:</strong> {{ selectedOrder.companyName }}</p>
+                </div>
+                <div class="col-md-4">
+                  <p class="mb-1">
+                    <strong>Trạng thái:</strong>
+                    <span :class="getStatusBadgeClass(selectedOrder.status)">
+                      {{ getStatusText(selectedOrder.status) }}
+                    </span>
+                  </p>
+                  <p class="mb-0"><strong>Ngày tạo:</strong> {{ formatDate(selectedOrder.createdAt) }}</p>
+                </div>
+                <div class="col-md-4">
+                  <p v-if="selectedOrder.status !== 'PENDING_APPROVAL'" class="mb-1"><strong>Tiến trình review:</strong> {{ getReviewProgress(selectedOrder) }}</p>
+                  <p class="mb-0" v-if="selectedOrder.totalPrice">
+                    <strong>Tổng giá trị:</strong> {{ formatCurrency(selectedOrder.totalPrice) }}
+                  </p>
+                </div>
               </div>
             </div>
 
-            <div class="mb-3">
-              <h6 class="fw-bold mb-2">Lịch sử đơn hàng</h6>
-              <div v-if="isLoadingOrderHistory" class="small text-muted">
+            <div class="modal-section-tabs mb-3" role="tablist" aria-label="Chi tiết đơn hàng">
+              <button
+                type="button"
+                role="tab"
+                :aria-selected="activeDetailTab === 'history'"
+                aria-controls="history-panel"
+                class="modal-tab-btn"
+                :class="{ 'modal-tab-active': activeDetailTab === 'history' }"
+                @click="activeDetailTab = 'history'">
+                <i class="bi bi-clock-history me-1"></i>Lịch sử đơn hàng
+                <span class="badge rounded-pill text-bg-light ms-2">{{ sortedOrderHistoryEvents.length }}</span>
+              </button>
+              <button
+                type="button"
+                role="tab"
+                :aria-selected="activeDetailTab === 'materials'"
+                aria-controls="materials-panel"
+                class="modal-tab-btn"
+                :class="{ 'modal-tab-active': activeDetailTab === 'materials' }"
+                @click="activeDetailTab = 'materials'">
+                <i class="bi bi-grid-1x2 me-1"></i>Chi tiết vật tư & Báo giá
+                <span class="badge rounded-pill text-bg-light ms-2">{{ selectedOrder.items?.length || 0 }}</span>
+              </button>
+            </div>
+
+            <transition name="modal-tab-fade" mode="out-in">
+              <div v-if="activeDetailTab === 'history'" id="history-panel" key="history" class="tab-panel tab-panel-history" role="tabpanel">
+              <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                <h6 class="fw-bold m-0">Nhật ký xử lý đơn hàng</h6>
+                <div class="small text-muted d-flex flex-wrap gap-3">
+                  <span>Tổng revision: {{ orderRevisionSummaries.length }}</span>
+                  <span>Tổng số lần hủy: {{ totalCancelAttempts }}</span>
+                </div>
+              </div>
+
+              <div v-if="isLoadingOrderHistory" class="history-empty-state">
                 <span class="spinner-border spinner-border-sm me-2"></span>
                 Đang tải lịch sử đơn hàng...
               </div>
-              <div v-else-if="orderHistoryEvents.length === 0" class="small text-muted border rounded py-2 px-3 bg-light">
+
+              <div v-else-if="sortedOrderHistoryEvents.length === 0" class="history-empty-state">
                 Chưa có bản ghi lịch sử cho đơn hàng này.
               </div>
-              <div v-else class="admin-order-history-list">
+
+              <div v-else class="admin-order-history-list history-timeline">
                 <div
-                  v-for="event in orderHistoryEvents"
+                  v-for="event in sortedOrderHistoryEvents"
                   :key="`admin-history-${event.id}`"
                   class="admin-order-history-item"
                 >
-                  <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
-                    <div class="fw-semibold small">{{ getHistoryEventTitle(event) }}</div>
-                    <small class="text-muted">{{ formatDate(event.createdAt) }}</small>
+                  <div class="history-bullet"></div>
+                  <div class="history-content">
+                    <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
+                      <div class="fw-semibold small">{{ getHistoryEventTitle(event) }}</div>
+                      <small class="text-muted">{{ formatDate(event.createdAt) }}</small>
+                    </div>
+                    <div class="small text-muted">
+                      Người thao tác: {{ getHistoryActorText(event) }}
+                      <span v-if="event.revisionNo"> • Revision dữ liệu #{{ event.revisionNo }}</span>
+                      <span v-if="getCancelSequence(event) !== null"> • Lần hủy #{{ getCancelSequence(event) }}</span>
+                    </div>
+                    <div v-if="event.note" class="small mt-1 fw-medium text-dark-emphasis">{{ getHistoryNoteText(event) }}</div>
                   </div>
-                  <div class="small text-muted">
-                    Người thao tác: {{ getHistoryActorText(event) }}
-                    <span v-if="event.revisionNo"> • Revision dữ liệu #{{ event.revisionNo }}</span>
-                    <span v-if="getCancelSequence(event) !== null"> • Lần hủy #{{ getCancelSequence(event) }}</span>
-                  </div>
-                  <div v-if="event.note" class="small mt-1">{{ getHistoryNoteText(event) }}</div>
                 </div>
               </div>
-              <div v-if="orderRevisionSummaries.length > 0" class="small text-muted mt-2">
-                Tổng số revision: {{ orderRevisionSummaries.length }}.
               </div>
-              <div class="small text-muted mt-1">
-                Tổng số lần hủy: {{ totalCancelAttempts }}.
-              </div>
-            </div>
 
-            <!-- Items Table -->
-            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
-              <div class="small text-muted">
-                <i class="bi bi-arrows-move me-1"></i> Bảng có thể cuộn ngang, dữ liệu vẫn giữ đầy đủ.
+              <div v-else id="materials-panel" key="materials" class="tab-panel tab-panel-materials" role="tabpanel">
+              <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                <div class="small text-muted">
+                  <i class="bi bi-arrows-move me-1"></i> Bảng có thể cuộn ngang, dữ liệu vẫn giữ đầy đủ.
+                </div>
+                <div v-if="selectedOrder.status !== 'PENDING_APPROVAL'" class="btn-group btn-group-sm" role="group" aria-label="Mật độ hiển thị bảng review">
+                  <button
+                    type="button"
+                    class="btn"
+                    :class="reviewDensity === 'comfortable' ? 'btn-primary' : 'btn-outline-primary'"
+                    @click="reviewDensity = 'comfortable'">
+                    Comfortable
+                  </button>
+                  <button
+                    type="button"
+                    class="btn"
+                    :class="reviewDensity === 'compact' ? 'btn-primary' : 'btn-outline-primary'"
+                    @click="reviewDensity = 'compact'">
+                    Compact
+                  </button>
+                </div>
               </div>
-              <div v-if="selectedOrder.status !== 'PENDING_APPROVAL'" class="btn-group btn-group-sm" role="group" aria-label="Mật độ hiển thị bảng review">
-                <button
-                  type="button"
-                  class="btn"
-                  :class="reviewDensity === 'comfortable' ? 'btn-primary' : 'btn-outline-primary'"
-                  @click="reviewDensity = 'comfortable'">
-                  Comfortable
-                </button>
-                <button
-                  type="button"
-                  class="btn"
-                  :class="reviewDensity === 'compact' ? 'btn-primary' : 'btn-outline-primary'"
-                  @click="reviewDensity = 'compact'">
-                  Compact
-                </button>
-              </div>
-            </div>
-            <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
-              <table class="table table-bordered table-sm align-middle mb-0 review-table"
-                :class="reviewDensity === 'compact' ? 'review-table-compact' : 'review-table-comfortable'">
-                <thead class="table-light" style="position: sticky; top: 0; z-index: 1;">
-                  <tr>
-                    <th class="text-center sticky-col-left-stt" style="width: 52px">STT</th>
-                    <th style="min-width: 120px">VNN_NO</th>
-                    <th style="min-width: 95px">Item Code</th>
-                    <th class="sticky-col-left-drawing" style="min-width: 105px">Drawing No.</th>
-                    <th style="min-width: 180px">Tên linh kiện</th>
-                    <th style="min-width: 140px">Spec</th>
-                    <th style="min-width: 95px">Vật liệu</th>
-                    <th class="text-center" style="width: 65px">SL</th>
-                    <th class="text-center" style="min-width: 100px">Ngày xuất</th>
-                    <th class="text-center" style="min-width: 95px">Khối lượng</th>
-                    <th class="text-center" style="min-width: 95px">Review</th>
-                    <th class="text-center" style="min-width: 130px">Đơn giá</th>
-                    <th class="text-center" style="min-width: 130px">Thành tiền</th>
-                    <th class="text-center sticky-col-right-actions" style="min-width: 140px">Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="(item, index) in selectedOrder.items" :key="item.id" :class="getItemRowClass(item)">
-                    <td class="text-center sticky-col-left-stt">{{ item.stt || (index + 1) }}</td>
+              <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                <table class="table table-bordered table-sm align-middle mb-0 review-table"
+                  :class="reviewDensity === 'compact' ? 'review-table-compact' : 'review-table-comfortable'">
+                  <thead class="table-light" style="position: sticky; top: 0; z-index: 1;">
+                    <tr>
+                      <th class="text-center sticky-col-left-stt" style="width: 52px">STT</th>
+                      <th style="min-width: 120px">VNN_NO</th>
+                      <th style="min-width: 95px">Item Code</th>
+                      <th class="sticky-col-left-drawing" style="min-width: 105px">Drawing No.</th>
+                      <th style="min-width: 180px">Tên linh kiện</th>
+                      <th style="min-width: 140px">Spec</th>
+                      <th style="min-width: 95px">Vật liệu</th>
+                      <th class="text-center" style="width: 65px">SL</th>
+                      <th class="text-center" style="min-width: 100px">Ngày xuất</th>
+                      <th class="text-center" style="min-width: 95px">Khối lượng</th>
+                      <th class="text-center" style="min-width: 95px">Review</th>
+                      <th class="text-center" style="min-width: 130px">Đơn giá</th>
+                      <th class="text-center" style="min-width: 130px">Thành tiền</th>
+                      <th class="text-center sticky-col-right-actions" style="min-width: 140px">Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(item, index) in selectedOrder.items" :key="item.id" :class="getItemRowClass(item)">
+                      <td class="text-center sticky-col-left-stt">{{ item.stt || (index + 1) }}</td>
                       <td style="font-size: 0.8rem" :title="item.unit || ''">{{ item.unit || '' }}</td>
                       <td style="font-size: 0.8rem" :title="item.itemCode || ''">{{ item.itemCode || '' }}</td>
-                    <td class="sticky-col-left-drawing" style="font-size: 0.8rem" :title="item.drawingNumber || ''">{{ item.drawingNumber || '' }}</td>
+                      <td class="sticky-col-left-drawing" style="font-size: 0.8rem" :title="item.drawingNumber || ''">{{ item.drawingNumber || '' }}</td>
                       <td class="text-wrap" :title="item.itemName || ''">{{ item.itemName || '' }}</td>
                       <td class="text-wrap" :title="item.specification || ''">{{ item.specification || '' }}</td>
                       <td class="text-wrap" :title="item.material || ''">{{ item.material || '' }}</td>
-                    <td class="text-center fw-bold">{{ item.quantity }}</td>
-                    <td class="text-center">{{ item.deliveryDate ? formatDateShort(item.deliveryDate) : '' }}</td>
-                    <td class="text-center">{{ formatWeight(item.weight) }}</td>
-                    <td class="text-center">
-                      <span :class="getReviewBadgeClass(item.reviewStatus)" style="font-size: 0.7rem">
-                        {{ getReviewStatusText(item.reviewStatus) }}
-                      </span>
-                    </td>
-                    <td class="text-end">
-                      <template v-if="selectedOrder.status === 'PENDING_QUOTE'">
-                        <input
-                          type="number"
-                          class="form-control form-control-sm text-end"
-                          :value="getReviewDraft(item).unitPrice ?? ''"
-                          @input="setDraftUnitPrice(item, $event.target.value)"
-                          min="0"
-                          step="1000"
-                          placeholder="Đơn giá" />
-                      </template>
-                      <template v-else>
-                        <span v-if="item.unitPrice">{{ formatNumber(item.unitPrice) }}</span>
+                      <td class="text-center fw-bold">{{ item.quantity }}</td>
+                      <td class="text-center">{{ item.deliveryDate ? formatDateShort(item.deliveryDate) : '' }}</td>
+                      <td class="text-center">{{ formatWeight(item.weight) }}</td>
+                      <td class="text-center">
+                        <span :class="getReviewBadgeClass(item.reviewStatus)" style="font-size: 0.7rem">
+                          {{ getReviewStatusText(item.reviewStatus) }}
+                        </span>
+                      </td>
+                      <td class="text-end">
+                        <template v-if="selectedOrder.status === 'PENDING_QUOTE'">
+                          <input
+                            type="number"
+                            class="form-control form-control-sm text-end"
+                            :value="getReviewDraft(item).unitPrice ?? ''"
+                            @input="setDraftUnitPrice(item, $event.target.value)"
+                            min="0"
+                            step="1000"
+                            placeholder="Đơn giá" />
+                        </template>
+                        <template v-else>
+                          <span v-if="item.unitPrice">{{ formatNumber(item.unitPrice) }}</span>
+                          <span v-else class="text-muted"></span>
+                        </template>
+                      </td>
+                      <td class="text-end">
+                        <span v-if="item.totalItemPrice" class="fw-bold">{{ formatNumber(item.totalItemPrice) }}</span>
                         <span v-else class="text-muted"></span>
-                      </template>
-                    </td>
-                    <td class="text-end">
-                      <span v-if="item.totalItemPrice" class="fw-bold">{{ formatNumber(item.totalItemPrice) }}</span>
-                      <span v-else class="text-muted"></span>
-                    </td>
-                    <td class="text-center sticky-col-right-actions">
-                      <div class="d-flex flex-column align-items-center gap-1">
-                        <div v-if="selectedOrder.status === 'PENDING_QUOTE'" class="btn-group btn-group-sm">
-                          <button @click="reviewItem(item, 'APPROVED')" class="btn btn-outline-success btn-sm" title="Duyệt">
-                            <i class="bi bi-check-lg"></i>
+                      </td>
+                      <td class="text-center sticky-col-right-actions">
+                        <div class="d-flex flex-column align-items-center gap-1">
+                          <div v-if="selectedOrder.status === 'PENDING_QUOTE'" class="btn-group btn-group-sm">
+                            <button @click="reviewItem(item, 'APPROVED')" class="btn btn-outline-success btn-sm" title="Duyệt">
+                              <i class="bi bi-check-lg"></i>
+                            </button>
+                            <button @click="reviewItem(item, 'REJECTED')" class="btn btn-outline-danger btn-sm" title="Từ chối">
+                              <i class="bi bi-x-lg"></i>
+                            </button>
+                            <button @click="reviewItem(item, 'NEED_DISCUSSION')" class="btn btn-outline-warning btn-sm" title="Cần trao đổi">
+                              <i class="bi bi-chat-dots"></i>
+                            </button>
+                          </div>
+
+                          <button
+                            v-if="selectedOrder.status === 'PENDING_QUOTE'"
+                            type="button"
+                            class="btn btn-outline-secondary btn-sm note-action-btn"
+                            @click="openAdminNoteEditor(item)">
+                            <i class="bi bi-chat-left-text me-1"></i>
+                            {{ getReviewDraft(item).adminNote ? 'Sửa ghi chú' : 'Ghi chú' }}
                           </button>
-                          <button @click="reviewItem(item, 'REJECTED')" class="btn btn-outline-danger btn-sm" title="Từ chối">
-                            <i class="bi bi-x-lg"></i>
+
+                          <button
+                            v-else-if="item.adminNote"
+                            type="button"
+                            class="btn btn-outline-secondary btn-sm note-action-btn"
+                            @click="openItemNotePopup(item)">
+                            <i class="bi bi-chat-left-text me-1"></i>Xem ghi chú
                           </button>
-                          <button @click="reviewItem(item, 'NEED_DISCUSSION')" class="btn btn-outline-warning btn-sm" title="Cần trao đổi">
-                            <i class="bi bi-chat-dots"></i>
-                          </button>
+
+                          <span v-else class="text-muted small">—</span>
                         </div>
-
-                        <button
-                          v-if="selectedOrder.status === 'PENDING_QUOTE'"
-                          type="button"
-                          class="btn btn-outline-secondary btn-sm note-action-btn"
-                          @click="openAdminNoteEditor(item)">
-                          <i class="bi bi-chat-left-text me-1"></i>
-                          {{ getReviewDraft(item).adminNote ? 'Sửa ghi chú' : 'Ghi chú' }}
-                        </button>
-
-                        <button
-                          v-else-if="item.adminNote"
-                          type="button"
-                          class="btn btn-outline-secondary btn-sm note-action-btn"
-                          @click="openItemNotePopup(item)">
-                          <i class="bi bi-chat-left-text me-1"></i>Xem ghi chú
-                        </button>
-
-                        <span v-else class="text-muted small">—</span>
-                      </div>
-                    </td>
-                  </tr>
-                </tbody>
-                <tfoot v-if="calculatedTotal > 0">
-                  <tr class="table-light fw-bold">
-                    <td colspan="12" class="text-end">Tổng (sản phẩm đã duyệt):</td>
-                    <td class="text-end">{{ formatNumber(calculatedTotal) }}</td>
-                    <td></td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-
-            <!-- Admin notes -->
-            <div v-if="selectedOrder.items?.some(item => item.adminNote)" class="mt-3">
-              <div class="small text-muted mb-2">Ghi chú sản phẩm:</div>
-              <div class="d-flex flex-wrap gap-2">
-                <button
-                  v-for="item in selectedOrder.items"
-                  :key="'note-' + item.id"
-                  v-show="item.adminNote"
-                  type="button"
-                  class="btn btn-outline-secondary btn-sm"
-                  @click="openItemNotePopup(item)">
-                  <i class="bi bi-chat-left-text me-1"></i>{{ item.itemName || 'Sản phẩm' }}
-                </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                  <tfoot v-if="calculatedTotal > 0">
+                    <tr class="table-light fw-bold">
+                      <td colspan="12" class="text-end">Tổng (sản phẩm đã duyệt):</td>
+                      <td class="text-end">{{ formatNumber(calculatedTotal) }}</td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
               </div>
-            </div>
+
+              <div v-if="selectedOrder.items?.some(item => item.adminNote)" class="mt-3">
+                <div class="small text-muted mb-2">Ghi chú sản phẩm:</div>
+                <div class="d-flex flex-wrap gap-2">
+                  <button
+                    v-for="item in selectedOrder.items"
+                    :key="'note-' + item.id"
+                    v-show="item.adminNote"
+                    type="button"
+                    class="btn btn-outline-secondary btn-sm"
+                    @click="openItemNotePopup(item)">
+                    <i class="bi bi-chat-left-text me-1"></i>{{ item.itemName || 'Sản phẩm' }}
+                  </button>
+                </div>
+              </div>
+              </div>
+            </transition>
           </div>
 
           <div class="modal-footer">
@@ -552,6 +601,7 @@ const importing = ref(false);
 const companiesForImport = ref([]);
 const reviewDrafts = ref({});
 const reviewDensity = ref('comfortable');
+const activeDetailTab = ref('materials');
 const orderHistoryEvents = ref([]);
 const orderRevisionSummaries = ref([]);
 const isLoadingOrderHistory = ref(false);
@@ -864,6 +914,7 @@ const openReviewModal = async (order) => {
     const detailUrl = order?.isTempImport ? `/orders/imports/${order.id}` : `/orders/${order.id}`;
     const response = await apiClient.get(detailUrl);
     selectedOrder.value = { ...response.data, isTempImport: !!order?.isTempImport };
+    activeDetailTab.value = 'materials';
     initializeReviewDrafts(selectedOrder.value.items || []);
     await preloadDefaultPricesForDrafts(selectedOrder.value.items || []);
     await nextTick();
@@ -949,6 +1000,17 @@ const getCancelSequence = (event) => {
 
 const totalCancelAttempts = computed(() => {
   return (orderHistoryEvents.value || []).filter((event) => isCancelEventType(event?.eventType)).length;
+});
+
+const sortedOrderHistoryEvents = computed(() => {
+  const source = Array.isArray(orderHistoryEvents.value) ? [...orderHistoryEvents.value] : [];
+  source.sort((a, b) => {
+    const ta = a?.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const tb = b?.createdAt ? new Date(b.createdAt).getTime() : 0;
+    if (ta !== tb) return tb - ta;
+    return Number(b?.id || 0) - Number(a?.id || 0);
+  });
+  return source;
 });
 
 const getHistoryNoteText = (event) => {
@@ -1365,7 +1427,7 @@ const markAsShipping = async (order) => {
     icon: 'question',
     showCancelButton: true,
     confirmButtonText: '✅ Xác nhận',
-    confirmButtonColor: '#0d6efd',
+    confirmButtonColor: '#3b82f6',
     cancelButtonText: 'Hủy',
   });
 
@@ -1454,7 +1516,7 @@ const openAdminNoteEditor = async (item) => {
     showCancelButton: true,
     confirmButtonText: 'Lưu',
     cancelButtonText: 'Đóng',
-    confirmButtonColor: '#0d6efd',
+    confirmButtonColor: '#3b82f6',
   });
 
   if (value === undefined) return;
@@ -1472,7 +1534,7 @@ const openItemNotePopup = async (item) => {
     html: `<div style="white-space: pre-wrap; word-break: break-word; text-align: left;">${escapeHtml(note)}</div>`,
     width: 650,
     confirmButtonText: 'Đóng',
-    confirmButtonColor: '#0d6efd',
+    confirmButtonColor: '#3b82f6',
   });
 };
 
@@ -1527,19 +1589,125 @@ const formatWeight = (weight) => {
 </script>
 
 <style scoped>
+.processing-page {
+  background: linear-gradient(180deg, #f3f7ff 0%, #f8fafc 40%, #f3f4f6 100%);
+}
+
+.processing-hero {
+  background: radial-gradient(circle at top right, rgba(59, 130, 246, 0.12), transparent 45%), #ffffff;
+  border: 1px solid #dbeafe;
+}
+
+.processing-filter-card {
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+
+.processing-table-card {
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+
+.action-group-wrap {
+  min-width: 0;
+}
+
+.btn-action-circle {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+}
+
+.btn-action-circle:hover {
+  transform: scale(1.08);
+}
+
 .cursor-pointer {
   cursor: pointer;
 }
 .table-active-row {
   background-color: #f8f9fa !important;
-  border-left: 4px solid #0d6efd !important;
+  border-left: 4px solid #3b82f6 !important;
 }
 .custom-hover-table tbody tr:hover {
-  background-color: #f1f8ff;
+  background-color: #eff6ff;
 }
+
+.custom-hover-table thead th {
+  color: #475569;
+  letter-spacing: 0.02em;
+}
+
 .shadow-inner {
   background-color: #fbfcfd;
 }
+
+.order-summary-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.9rem 1rem;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.modal-section-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.modal-tab-btn {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  border-radius: 999px;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.86rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.modal-tab-btn:hover {
+  border-color: #93c5fd;
+  color: #1d4ed8;
+  background: #eff6ff;
+}
+
+.modal-tab-active {
+  border-color: #2563eb;
+  color: #1e3a8a;
+  background: #dbeafe;
+  box-shadow: inset 0 0 0 1px #93c5fd;
+}
+
+.tab-panel {
+  border-radius: 12px;
+  border: 1px solid #dbe3ef;
+  padding: 0.85rem;
+}
+
+.tab-panel-history {
+  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+}
+
+.tab-panel-materials {
+  background: #ffffff;
+}
+
+.history-empty-state {
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  padding: 0.65rem 0.8rem;
+  color: #64748b;
+  background: #f8fafc;
+  font-size: 0.86rem;
+}
+
 .form-check-input {
   cursor: pointer;
 }
@@ -1647,7 +1815,7 @@ const formatWeight = (weight) => {
   box-shadow: -1px 0 0 #dee2e6;
 }
 .item-selected {
-  background: rgba(13, 110, 253, 0.06) !important;
+  background: rgba(59, 130, 246, 0.08) !important;
 }
 
 /* Date group bar */
@@ -1682,14 +1850,14 @@ const formatWeight = (weight) => {
   transition: all 0.15s;
 }
 .date-group-tag:hover {
-  border-color: #86b7fe;
-  color: #0d6efd;
-  background: #e8f4fd;
+  border-color: #93c5fd;
+  color: #3b82f6;
+  background: #eff6ff;
 }
 .date-group-active {
-  border-color: #0d6efd !important;
-  color: #0d6efd !important;
-  background: #e8f4fd !important;
+  border-color: #3b82f6 !important;
+  color: #3b82f6 !important;
+  background: #eff6ff !important;
   font-weight: 600;
 }
 .date-group-count {
@@ -1711,19 +1879,81 @@ const formatWeight = (weight) => {
 }
 
 .admin-order-history-list {
-  border: 1px solid #e2e8f0;
+  border: 1px solid #dbe3ef;
   border-radius: 10px;
-  background: #fff;
-  max-height: 220px;
+  background: #fdfefe;
+  max-height: 340px;
   overflow-y: auto;
 }
 
 .admin-order-history-item {
   padding: 10px 12px;
-  border-bottom: 1px dashed #e2e8f0;
+  border-bottom: 1px dashed #dbe3ef;
 }
 
 .admin-order-history-item:last-child {
   border-bottom: none;
+}
+
+.history-timeline .admin-order-history-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.history-bullet {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #2563eb;
+  margin-top: 7px;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
+  flex-shrink: 0;
+}
+
+.history-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.modal-tab-fade-enter-active,
+.modal-tab-fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.modal-tab-fade-enter-from,
+.modal-tab-fade-leave-to {
+  opacity: 0;
+}
+
+@media (max-width: 992px) {
+  .processing-hero .card-body {
+    align-items: stretch !important;
+  }
+
+  .processing-filter-card .col-md-3.d-flex {
+    justify-content: flex-start !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .modal-section-tabs {
+    gap: 6px;
+  }
+
+  .modal-tab-btn {
+    width: 100%;
+    justify-content: space-between;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .tab-panel {
+    padding: 0.65rem;
+  }
+
+  .date-group-bar {
+    padding: 8px 10px;
+  }
 }
 </style>

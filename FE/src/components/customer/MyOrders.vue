@@ -287,30 +287,31 @@
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
           <div class="modal-body">
-            <!-- Order Info -->
-            <div class="row mb-3 pb-3 border-bottom">
-              <div class="col-md-4">
-                <p class="mb-1"><strong>Trạng thái:</strong> 
-                  <span :class="getStatusBadgeClass(selectedOrder.status)">{{ getStatusText(selectedOrder.status) }}</span>
-                </p>
-                <p class="mb-1"><strong>Ngày tạo:</strong> {{ formatDate(selectedOrder.createdAt) }}</p>
-              </div>
-              <div class="col-md-4">
-                <p class="mb-1" v-if="selectedOrder.totalPrice">
-                  <strong>Tổng giá trị:</strong> 
-                  <span class="text-primary fw-bold">{{ formatCurrency(selectedOrder.totalPrice) }}</span>
-                </p>
-                <p class="mb-1" v-if="selectedOrder.depositAmount">
-                  <strong>{{ selectedOrder.status === 'AWAITING_REMAINING_PAYMENT' ? 'Còn lại cần TT:' : 'Cọc trước:' }}</strong>
-                  <span :class="selectedOrder.status === 'AWAITING_REMAINING_PAYMENT' ? 'text-danger fw-bold' : 'text-success fw-bold'">
-                    {{ selectedOrder.status === 'AWAITING_REMAINING_PAYMENT' 
-                       ? formatCurrency(Number(selectedOrder.totalPrice) - Number(selectedOrder.depositAmount)) 
-                       : formatCurrency(selectedOrder.depositAmount) }}
-                  </span>
-                </p>
-              </div>
-              <div class="col-md-4">
-                <p class="mb-1"><strong>Số sản phẩm:</strong> {{ selectedOrder.items?.length || 0 }}</p>
+            <div class="order-summary-card mb-3">
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <p class="mb-1"><strong>Trạng thái:</strong>
+                    <span :class="getStatusBadgeClass(selectedOrder.status)">{{ getStatusText(selectedOrder.status) }}</span>
+                  </p>
+                  <p class="mb-0"><strong>Ngày tạo:</strong> {{ formatDate(selectedOrder.createdAt) }}</p>
+                </div>
+                <div class="col-md-4">
+                  <p class="mb-1" v-if="selectedOrder.totalPrice">
+                    <strong>Tổng giá trị:</strong>
+                    <span class="text-primary fw-bold">{{ formatCurrency(selectedOrder.totalPrice) }}</span>
+                  </p>
+                  <p class="mb-0" v-if="selectedOrder.depositAmount">
+                    <strong>{{ selectedOrder.status === 'AWAITING_REMAINING_PAYMENT' ? 'Còn lại cần TT:' : 'Cọc trước:' }}</strong>
+                    <span :class="selectedOrder.status === 'AWAITING_REMAINING_PAYMENT' ? 'text-danger fw-bold' : 'text-success fw-bold'">
+                      {{ selectedOrder.status === 'AWAITING_REMAINING_PAYMENT'
+                         ? formatCurrency(Number(selectedOrder.totalPrice) - Number(selectedOrder.depositAmount))
+                         : formatCurrency(selectedOrder.depositAmount) }}
+                    </span>
+                  </p>
+                </div>
+                <div class="col-md-4">
+                  <p class="mb-0"><strong>Số sản phẩm:</strong> {{ selectedOrder.items?.length || 0 }}</p>
+                </div>
               </div>
             </div>
 
@@ -334,122 +335,152 @@
               Lý do hủy: {{ selectedOrder.cancelReason }}
             </div>
 
-            <div class="mb-3">
-              <h6 class="mb-2">Lịch sử đơn hàng</h6>
-              <div v-if="isLoadingOrderHistory" class="small text-muted">
-                <span class="spinner-border spinner-border-sm me-2"></span>
-                Đang tải lịch sử đơn hàng...
-              </div>
-              <div v-else-if="orderHistoryEvents.length === 0" class="small text-muted border rounded py-2 px-3 bg-light">
-                Chưa có bản ghi lịch sử cho đơn hàng này.
-              </div>
-              <div v-else class="order-history-list">
-                <div
-                  v-for="event in orderHistoryEvents"
-                  :key="`history-${event.id}`"
-                  class="order-history-item"
-                >
-                  <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
-                    <div class="fw-semibold small">{{ getHistoryEventTitle(event) }}</div>
-                    <small class="text-muted">{{ formatDate(event.createdAt) }}</small>
+            <div class="modal-section-tabs mb-3" role="tablist" aria-label="Chi tiết đơn hàng">
+              <button
+                type="button"
+                role="tab"
+                :aria-selected="activeCustomerDetailTab === 'history'"
+                aria-controls="customer-history-panel"
+                class="modal-tab-btn"
+                :class="{ 'modal-tab-active': activeCustomerDetailTab === 'history' }"
+                @click="activeCustomerDetailTab = 'history'">
+                <i class="bi bi-clock-history me-1"></i>Lịch sử đơn hàng
+                <span class="badge rounded-pill text-bg-light ms-2">{{ sortedOrderHistoryEvents.length }}</span>
+              </button>
+              <button
+                type="button"
+                role="tab"
+                :aria-selected="activeCustomerDetailTab === 'materials'"
+                aria-controls="customer-materials-panel"
+                class="modal-tab-btn"
+                :class="{ 'modal-tab-active': activeCustomerDetailTab === 'materials' }"
+                @click="activeCustomerDetailTab = 'materials'">
+                <i class="bi bi-grid-1x2 me-1"></i>Chi tiết vật tư & Báo giá
+                <span class="badge rounded-pill text-bg-light ms-2">{{ selectedOrder.items?.length || 0 }}</span>
+              </button>
+            </div>
+
+            <transition name="modal-tab-fade" mode="out-in">
+              <div v-if="activeCustomerDetailTab === 'history'" id="customer-history-panel" key="customer-history" class="tab-panel tab-panel-history" role="tabpanel">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                  <h6 class="fw-bold m-0">Nhật ký xử lý đơn hàng</h6>
+                  <div class="small text-muted d-flex flex-wrap gap-3">
+                    <span>Tổng revision: {{ orderRevisionSummaries.length }}</span>
+                    <span>Tổng số lần hủy: {{ totalCancelAttempts }}</span>
                   </div>
-                  <div class="small text-muted">
-                    Người thao tác: {{ getHistoryActorText(event) }}
-                    <span v-if="event.revisionNo"> • Revision dữ liệu #{{ event.revisionNo }}</span>
-                    <span v-if="getCancelSequence(event) !== null"> • Lần hủy #{{ getCancelSequence(event) }}</span>
+                </div>
+
+                <div v-if="isLoadingOrderHistory" class="history-empty-state">
+                  <span class="spinner-border spinner-border-sm me-2"></span>
+                  Đang tải lịch sử đơn hàng...
+                </div>
+                <div v-else-if="sortedOrderHistoryEvents.length === 0" class="history-empty-state">
+                  Chưa có bản ghi lịch sử cho đơn hàng này.
+                </div>
+                <div v-else class="order-history-list history-timeline">
+                  <div
+                    v-for="event in sortedOrderHistoryEvents"
+                    :key="`history-${event.id}`"
+                    class="order-history-item"
+                  >
+                    <div class="history-bullet"></div>
+                    <div class="history-content">
+                      <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
+                        <div class="fw-semibold small">{{ getHistoryEventTitle(event) }}</div>
+                        <small class="text-muted">{{ formatDate(event.createdAt) }}</small>
+                      </div>
+                      <div class="small text-muted">
+                        Người thao tác: {{ getHistoryActorText(event) }}
+                        <span v-if="event.revisionNo"> • Revision dữ liệu #{{ event.revisionNo }}</span>
+                        <span v-if="getCancelSequence(event) !== null"> • Lần hủy #{{ getCancelSequence(event) }}</span>
+                      </div>
+                      <div v-if="event.note" class="small mt-1 fw-medium">{{ getHistoryNoteText(event) }}</div>
+                    </div>
                   </div>
-                  <div v-if="event.note" class="small mt-1">{{ getHistoryNoteText(event) }}</div>
                 </div>
               </div>
-              <div v-if="orderRevisionSummaries.length > 0" class="small text-muted mt-2">
-                Tổng số lần cập nhật dữ liệu: {{ orderRevisionSummaries.length }} revision.
-              </div>
-              <div class="small text-muted mt-1">
-                Tổng số lần hủy: {{ totalCancelAttempts }}.
-              </div>
-            </div>
 
-            <!-- Items Table - scrollable, same format as admin -->
-            <h6 class="mb-3 mt-2">Danh sách vật tư ({{ selectedOrder.items?.length || 0 }} items)</h6>
-            <div class="table-responsive" style="max-height: 450px; overflow-y: auto;">
-              <table class="table table-bordered table-sm table-hover align-middle mb-0 animated-table uniform-table" style="font-size: 0.85rem; table-layout: fixed; width: 100%;">
-                <thead class="table-light" style="position: sticky; top: 0; z-index: 1;">
-                  <tr>
-                    <th class="text-center cell-uniform" style="width: 4%">STT</th>
-                    <th class="cell-uniform" style="width: 14%">VNN_NO</th>
-                    <th class="cell-uniform" style="width: 10%">Item Code<br><small class="text-muted fw-normal">品目コード</small></th>
-                    <th class="cell-uniform" style="width: 10%">Drawing No.<br><small class="text-muted fw-normal">図番</small></th>
-                    <th class="cell-uniform" style="width: 18%">Parts Name<br><small class="text-muted fw-normal">品名</small></th>
-                    <th class="cell-uniform" style="width: 14%">Spec<br><small class="text-muted fw-normal">型式</small></th>
-                    <th class="cell-uniform" style="width: 8%">Material<br><small class="text-muted fw-normal">材質</small></th>
-                    <th class="text-center cell-uniform" style="width: 5%">QTY</th>
-                    <th class="text-end cell-uniform" style="width: 9%">Đơn giá<br><small class="text-muted fw-normal">VNĐ</small></th>
-                    <th class="text-end cell-uniform" style="width: 9%">Thành tiền<br><small class="text-muted fw-normal">VNĐ</small></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="(item, index) in selectedOrder.items" :key="item.id">
-                    <td class="text-center cell-uniform">{{ index + 1 }}</td>
-                    <td class="cell-uniform cell-truncate">{{ item.unit || '—' }}</td>
-                    <td class="cell-uniform cell-truncate">{{ item.itemCode || '—' }}</td>
-                    <td class="cell-uniform cell-truncate">{{ item.drawingNumber || '—' }}</td>
-                    <td class="cell-uniform">
-                      <div class="d-flex align-items-center justify-content-between gap-2">
-                        <span class="cell-truncate flex-grow-1">{{ item.itemName || '—' }}</span>
-                        <button
-                          type="button"
-                          class="btn btn-outline-secondary btn-sm item-note-btn"
-                          :disabled="selectedOrder.isTempImport"
-                          :title="selectedOrder.isTempImport ? 'Đơn import chờ duyệt chưa hỗ trợ ghi chú' : 'Ghi chú sản phẩm'"
-                          @click="openCustomerItemNoteModal(item)">
-                          <i class="bi bi-chat-left-text"></i>
-                        </button>
-                      </div>
-                    </td>
-                    <td class="cell-uniform cell-truncate">{{ item.specification || '—' }}</td>
-                    <td class="cell-uniform cell-truncate">{{ item.material || '—' }}</td>
-                    <td class="text-center fw-bold cell-uniform">{{ item.quantity }}</td>
-                    <td class="text-end cell-uniform">
-                      <span v-if="item.unitPrice">{{ formatNumber(item.unitPrice) }}</span>
-                      <span v-else class="text-muted">—</span>
-                    </td>
-                    <td class="text-end cell-uniform">
-                      <span v-if="item.totalItemPrice" class="fw-bold">{{ formatNumber(item.totalItemPrice) }}</span>
-                      <span v-else class="text-muted">—</span>
-                    </td>
-                  </tr>
-                </tbody>
-                <tfoot v-if="selectedOrder.totalPrice">
-                  <tr class="table-light">
-                    <td colspan="9" class="text-end fw-bold py-2">Tổng giá trị đơn hàng:</td>
-                    <td class="text-end fw-bold py-2 text-primary fs-6">{{ formatNumber(selectedOrder.totalPrice) }}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+              <div v-else id="customer-materials-panel" key="customer-materials" class="tab-panel tab-panel-materials" role="tabpanel">
+                <h6 class="mb-3 mt-1">Danh sách vật tư ({{ selectedOrder.items?.length || 0 }} items)</h6>
+                <div class="table-responsive" style="max-height: 450px; overflow-y: auto;">
+                  <table class="table table-bordered table-sm table-hover align-middle mb-0 animated-table uniform-table" style="font-size: 0.85rem; table-layout: fixed; width: 100%;">
+                    <thead class="table-light" style="position: sticky; top: 0; z-index: 1;">
+                      <tr>
+                        <th class="text-center cell-uniform" style="width: 4%">STT</th>
+                        <th class="cell-uniform" style="width: 14%">VNN_NO</th>
+                        <th class="cell-uniform" style="width: 10%">Item Code<br><small class="text-muted fw-normal">品目コード</small></th>
+                        <th class="cell-uniform" style="width: 10%">Drawing No.<br><small class="text-muted fw-normal">図番</small></th>
+                        <th class="cell-uniform" style="width: 18%">Parts Name<br><small class="text-muted fw-normal">品名</small></th>
+                        <th class="cell-uniform" style="width: 14%">Spec<br><small class="text-muted fw-normal">型式</small></th>
+                        <th class="cell-uniform" style="width: 8%">Material<br><small class="text-muted fw-normal">材質</small></th>
+                        <th class="text-center cell-uniform" style="width: 5%">QTY</th>
+                        <th class="text-end cell-uniform" style="width: 9%">Đơn giá<br><small class="text-muted fw-normal">VNĐ</small></th>
+                        <th class="text-end cell-uniform" style="width: 9%">Thành tiền<br><small class="text-muted fw-normal">VNĐ</small></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="(item, index) in selectedOrder.items" :key="item.id">
+                        <td class="text-center cell-uniform">{{ index + 1 }}</td>
+                        <td class="cell-uniform cell-truncate">{{ item.unit || '—' }}</td>
+                        <td class="cell-uniform cell-truncate">{{ item.itemCode || '—' }}</td>
+                        <td class="cell-uniform cell-truncate">{{ item.drawingNumber || '—' }}</td>
+                        <td class="cell-uniform">
+                          <div class="d-flex align-items-center justify-content-between gap-2">
+                            <span class="cell-truncate flex-grow-1">{{ item.itemName || '—' }}</span>
+                            <button
+                              type="button"
+                              class="btn btn-outline-secondary btn-sm item-note-btn"
+                              :disabled="selectedOrder.isTempImport"
+                              :title="selectedOrder.isTempImport ? 'Đơn import chờ duyệt chưa hỗ trợ ghi chú' : 'Ghi chú sản phẩm'"
+                              @click="openCustomerItemNoteModal(item)">
+                              <i class="bi bi-chat-left-text"></i>
+                            </button>
+                          </div>
+                        </td>
+                        <td class="cell-uniform cell-truncate">{{ item.specification || '—' }}</td>
+                        <td class="cell-uniform cell-truncate">{{ item.material || '—' }}</td>
+                        <td class="text-center fw-bold cell-uniform">{{ item.quantity }}</td>
+                        <td class="text-end cell-uniform">
+                          <span v-if="item.unitPrice">{{ formatNumber(item.unitPrice) }}</span>
+                          <span v-else class="text-muted">—</span>
+                        </td>
+                        <td class="text-end cell-uniform">
+                          <span v-if="item.totalItemPrice" class="fw-bold">{{ formatNumber(item.totalItemPrice) }}</span>
+                          <span v-else class="text-muted">—</span>
+                        </td>
+                      </tr>
+                    </tbody>
+                    <tfoot v-if="selectedOrder.totalPrice">
+                      <tr class="table-light">
+                        <td colspan="9" class="text-end fw-bold py-2">Tổng giá trị đơn hàng:</td>
+                        <td class="text-end fw-bold py-2 text-primary fs-6">{{ formatNumber(selectedOrder.totalPrice) }}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
 
-            <!-- Review Status Summary (if items have been reviewed) -->
-            <div v-if="hasReviewedItems" class="mt-3">
-              <h6 class="mb-2">Trạng thái review</h6>
-              <div class="d-flex gap-2 flex-wrap">
-                <span class="badge bg-success">Đã duyệt: {{ reviewCounts.approved }}</span>
-                <span v-if="reviewCounts.rejected > 0" class="badge bg-danger">Từ chối: {{ reviewCounts.rejected }}</span>
-                <span v-if="reviewCounts.discussion > 0" class="badge bg-warning text-dark">Cần trao đổi: {{ reviewCounts.discussion }}</span>
-                <span v-if="reviewCounts.pending > 0" class="badge bg-secondary">Chờ review: {{ reviewCounts.pending }}</span>
+                <div v-if="hasReviewedItems" class="mt-3">
+                  <h6 class="mb-2">Trạng thái review</h6>
+                  <div class="d-flex gap-2 flex-wrap">
+                    <span class="badge bg-success">Đã duyệt: {{ reviewCounts.approved }}</span>
+                    <span v-if="reviewCounts.rejected > 0" class="badge bg-danger">Từ chối: {{ reviewCounts.rejected }}</span>
+                    <span v-if="reviewCounts.discussion > 0" class="badge bg-warning text-dark">Cần trao đổi: {{ reviewCounts.discussion }}</span>
+                    <span v-if="reviewCounts.pending > 0" class="badge bg-secondary">Chờ review: {{ reviewCounts.pending }}</span>
+                  </div>
+                  <div class="d-flex flex-wrap gap-2 mt-2">
+                    <button
+                      v-for="item in selectedOrder.items"
+                      :key="'note-' + item.id"
+                      v-show="item.adminNote && (item.reviewStatus === 'REJECTED' || item.reviewStatus === 'NEED_DISCUSSION')"
+                      type="button"
+                      class="btn btn-outline-warning btn-sm note-quick-btn"
+                      @click="openCustomerItemNoteModal(item)">
+                      <i class="bi bi-chat-left-text me-1"></i>{{ item.itemName || 'Sản phẩm' }}
+                    </button>
+                  </div>
+                </div>
               </div>
-              <!-- Rejected/Discussion notes visible to customer -->
-              <div class="d-flex flex-wrap gap-2 mt-2">
-                <button
-                  v-for="item in selectedOrder.items"
-                  :key="'note-' + item.id"
-                  v-show="item.adminNote && (item.reviewStatus === 'REJECTED' || item.reviewStatus === 'NEED_DISCUSSION')"
-                  type="button"
-                  class="btn btn-outline-warning btn-sm note-quick-btn"
-                  @click="openCustomerItemNoteModal(item)">
-                  <i class="bi bi-chat-left-text me-1"></i>{{ item.itemName || 'Sản phẩm' }}
-                </button>
-              </div>
-            </div>
+            </transition>
           </div>
 
           <div class="modal-footer">
@@ -688,6 +719,7 @@ const bypassComplaintHideGuard = ref(false)
 const orderHistoryEvents = ref([])
 const orderRevisionSummaries = ref([])
 const isLoadingOrderHistory = ref(false)
+const activeCustomerDetailTab = ref('materials')
 let bsModal = null
 let bsPaymentModal = null
 let bsComplaintModal = null
@@ -1279,6 +1311,7 @@ const openDetailModal = async (order) => {
     const detailUrl = order?.isTempImport ? `/orders/imports/${order.id}` : `/orders/${order.id}`
     const response = await apiClient.get(detailUrl)
     selectedOrder.value = { ...response.data, isTempImport: !!order?.isTempImport }
+    activeCustomerDetailTab.value = 'materials'
     await nextTick()
 
     if (!bsModal && detailModalRef.value) {
@@ -1421,6 +1454,17 @@ const getCancelSequence = (event) => {
 
 const totalCancelAttempts = computed(() => {
   return (orderHistoryEvents.value || []).filter((event) => isCancelEventType(event?.eventType)).length
+})
+
+const sortedOrderHistoryEvents = computed(() => {
+  const source = Array.isArray(orderHistoryEvents.value) ? [...orderHistoryEvents.value] : []
+  source.sort((a, b) => {
+    const ta = a?.createdAt ? new Date(a.createdAt).getTime() : 0
+    const tb = b?.createdAt ? new Date(b.createdAt).getTime() : 0
+    if (ta !== tb) return tb - ta
+    return Number(b?.id || 0) - Number(a?.id || 0)
+  })
+  return source
 })
 
 const hasReviewedItems = computed(() => {
@@ -2141,6 +2185,66 @@ const openRemainingPaymentModal = (order) => {
   max-width: 100%;
 }
 
+.order-summary-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.9rem 1rem;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.modal-section-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.modal-tab-btn {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  border-radius: 999px;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.86rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.modal-tab-btn:hover {
+  border-color: #93c5fd;
+  color: #1d4ed8;
+  background: #eff6ff;
+}
+
+.modal-tab-active {
+  border-color: #2563eb;
+  color: #1e3a8a;
+  background: #dbeafe;
+  box-shadow: inset 0 0 0 1px #93c5fd;
+}
+
+.tab-panel {
+  border-radius: 12px;
+  border: 1px solid #dbe3ef;
+  padding: 0.85rem;
+}
+
+.tab-panel-history {
+  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+}
+
+.tab-panel-materials {
+  background: #ffffff;
+}
+
+.history-empty-state {
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  padding: 0.65rem 0.8rem;
+  color: #64748b;
+  background: #f8fafc;
+  font-size: 0.86rem;
+}
+
 /* ── Type Tabs ── */
 .type-tabs-wrap {
   display: flex;
@@ -2262,7 +2366,7 @@ const openRemainingPaymentModal = (order) => {
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   background: #fff;
-  max-height: 220px;
+  max-height: 340px;
   overflow-y: auto;
 }
 
@@ -2273,5 +2377,36 @@ const openRemainingPaymentModal = (order) => {
 
 .order-history-item:last-child {
   border-bottom: none;
+}
+
+.history-timeline .order-history-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.history-bullet {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #2563eb;
+  margin-top: 7px;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
+  flex-shrink: 0;
+}
+
+.history-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.modal-tab-fade-enter-active,
+.modal-tab-fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.modal-tab-fade-enter-from,
+.modal-tab-fade-leave-to {
+  opacity: 0;
 }
 </style>

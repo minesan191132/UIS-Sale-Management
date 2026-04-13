@@ -12,7 +12,7 @@
       
       <div class="filter-bar bg-white p-3 rounded-pill shadow-sm mb-4 d-flex gap-3 align-items-center">
         <div style="width: 180px;">
-          <select v-model="filters.role" @change="fetchUsers" class="form-select border-0 bg-light rounded-pill shadow-none fw-medium text-secondary py-2 px-4">
+          <select v-model="filters.role" @change="fetchUsers" class="form-select modern-admin-select shadow-none fw-medium text-secondary py-2 px-4">
             <option value="all">Vai trò: Tất cả</option>
             <option value="ADMIN">Admin</option>
             <option value="CUSTOMER">Customer</option>
@@ -37,6 +37,7 @@
           <i class="bi bi-funnel-fill me-1"></i> Lọc
         </button>
       </div>
+    </div>
 
       <div v-if="loading" class="text-center py-5 flex-grow-1 d-flex flex-column justify-content-center">
         <div class="spinner-grow text-primary mx-auto" role="status" style="width: 3rem; height: 3rem;"></div>
@@ -249,7 +250,6 @@
         </div>
       </div>
     </div>
-  </div>
 </template>
 
 <script setup>
@@ -387,14 +387,14 @@ onMounted(fetchUsers);
 
 <style scoped>
 /* 1. MÀU SẮC CƠ BẢN */
-.text-navy { color: #0b2e59 !important; }
-.bg-navy { background-color: #0b2e59 !important; }
+.text-navy { color: #1e3a8a !important; }
+.bg-navy { background-color: #3b82f6 !important; }
 .bg-slate-50 { background-color: #f8fafc !important; }
-.btn-navy { background-color: #0b2e59; color: #fff; border: none; transition: 0.3s; }
-.btn-navy:hover { background-color: #173b6c; color: #fff; box-shadow: 0 4px 10px rgba(11, 46, 89, 0.2); }
+.btn-navy { background-color: #3b82f6; color: #fff; border: none; transition: 0.3s; }
+.btn-navy:hover { background-color: #2563eb; color: #fff; box-shadow: 0 4px 10px rgba(59, 130, 246, 0.25); }
 
-.btn-gradient-primary { background: linear-gradient(135deg, #0b2e59 0%, #2563eb 100%); color: white; border: none; transition: 0.3s; }
-.btn-gradient-primary:hover { background: linear-gradient(135deg, #173b6c 0%, #1d4ed8 100%); box-shadow: 0 8px 20px rgba(37,99,235,0.3) !important; color: white; }
+.btn-gradient-primary { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; border: none; transition: 0.3s; }
+.btn-gradient-primary:hover { background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); box-shadow: 0 8px 20px rgba(37,99,235,0.3) !important; color: white; }
 
 /* Hiệu ứng Hover chung */
 .hover-lift { transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s; }
@@ -429,7 +429,7 @@ onMounted(fetchUsers);
 
 /* Form Inputs Modal */
 .custom-input { border: 1px solid #cbd5e1; border-radius: 10px; padding: 0.6rem 1rem; transition: 0.2s; }
-.custom-input:focus, .search-box input:focus { border-color: #0b2e59 !important; box-shadow: 0 0 0 3px rgba(11, 46, 89, 0.1) !important; background-color: #fff !important; }
+.custom-input:focus, .search-box input:focus { border-color: #3b82f6 !important; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15) !important; background-color: #fff !important; }
 
 /* 3. MODAL FULLPAGE */
 .modal-overlay {

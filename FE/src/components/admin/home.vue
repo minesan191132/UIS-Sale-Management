@@ -1,25 +1,25 @@
 <template>
-  <div class="p-4 min-vh-100 d-flex flex-column w-100" style="background-color: #f8f9fa; max-width: 100%;">
-    
-    <div class="d-flex justify-content-between align-items-center mb-4 pb-2">
-      <div>
-        <h2 class="fw-bolder mb-1 text-dark fs-3 text-uppercase">
-          <i class="bi bi-layers-fill me-2 text-primary"></i>Tổng Kho Vật Tư
-        </h2>
-        <p class="text-muted mb-0">Tổng hợp vật tư theo mã bản vẽ — dữ liệu khối lượng từ V4 seed</p>
-      </div>
-      
-      <div class="d-flex gap-3 align-items-center">
-        <div class="d-flex gap-2 bg-white p-2 rounded-pill shadow-sm border">
-          <select v-model="companyFilter" @change="loadData" class="form-select border-0 bg-transparent shadow-none fw-medium text-secondary" style="width: 180px">
-            <option value="">Tất cả công ty</option>
-            <option v-for="c in companies" :key="c.id" :value="c.id">{{ c.name }}</option>
-          </select>
-          <div class="vr text-muted opacity-25 my-1"></div>
-          <div class="search-box position-relative" style="width: 250px;">
-            <i class="bi bi-search position-absolute text-muted" style="top: 50%; left: 10px; transform: translateY(-50%);"></i>
-            <input type="text" class="form-control border-0 bg-transparent shadow-none ps-4 fw-medium"
-              placeholder="Tìm mã bản vẽ, linh kiện..." v-model="search" @input="onSearch">
+  <div class="inventory-page p-4 min-vh-100 d-flex flex-column w-100">
+    <div class="card border-0 shadow-sm mb-4 inventory-hero">
+      <div class="card-body">
+        <div class="d-flex flex-column flex-xl-row justify-content-between align-items-start align-items-xl-center gap-3">
+          <div>
+            <h2 class="fw-bolder mb-1 text-dark fs-3 text-uppercase">
+              <i class="bi bi-layers-fill me-2 text-primary"></i>Tổng Kho Vật Tư
+            </h2>
+            <p class="text-muted mb-0">Tổng hợp vật tư theo mã bản vẽ, quản lý nhanh khối lượng và tồn kho từng mã.</p>
+          </div>
+
+          <div class="inventory-toolbar d-flex flex-column flex-md-row gap-2 align-items-stretch align-items-md-center">
+            <select v-model="companyFilter" @change="loadData" class="form-select company-select modern-admin-select">
+              <option value="">Tất cả công ty</option>
+              <option v-for="c in companies" :key="c.id" :value="c.id">{{ c.name }}</option>
+            </select>
+            <div class="search-box position-relative">
+              <i class="bi bi-search position-absolute text-muted search-icon"></i>
+              <input type="text" class="form-control search-input"
+                placeholder="Tìm mã bản vẽ, linh kiện..." v-model="search" @input="onSearch">
+            </div>
           </div>
         </div>
       </div>
@@ -27,7 +27,7 @@
 
     <div class="row g-3 mb-4">
       <div class="col-md-3" v-for="(stat, i) in stats" :key="i">
-        <div class="card border-0 shadow-sm rounded-4 p-3 h-100 stat-card hover-lift">
+        <div class="card border-0 shadow-sm rounded-4 p-3 h-100 inventory-stat-card hover-lift">
           <div class="d-flex align-items-center gap-3">
             <div class="stat-icon" :style="stat.style">
               <i :class="stat.icon" class="fs-4"></i>
@@ -54,7 +54,7 @@
       </div>
     </div>
 
-    <div v-else class="card border-0 shadow-sm rounded-4 overflow-hidden flex-grow-1">
+    <div v-else class="card border-0 shadow-sm rounded-4 overflow-hidden flex-grow-1 inventory-table-card">
       <div class="table-responsive">
         <table class="table table-hover align-middle mb-0 modern-table" style="table-layout: fixed; width: 100%;">
           <thead class="bg-light">
@@ -109,7 +109,7 @@
 
               <tr v-if="expandedDrawing === item.drawingNumber">
                 <td colspan="9" class="p-0 border-0">
-                  <div class="expand-content bg-white border-start border-4 border-primary ms-4 p-3 my-2 rounded-3 shadow-sm">
+                  <div class="expand-content inventory-expand-panel bg-white border-start border-4 border-primary ms-4 p-3 my-2 rounded-3 shadow-sm">
                     <div class="fw-bold small mb-2 text-muted d-flex align-items-center">
                       <i class="bi bi-diagram-3 me-2 fs-5"></i>
                       {{ item.drawingNumber }} — {{ item.partName || '—' }}
@@ -277,11 +277,63 @@ const formatDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '';
 </script>
 
 <style scoped>
-/* Màu thương hiệu & Nút */
-.text-navy { color: #0b2e59 !important; }
-.bg-navy { background-color: #0b2e59 !important; }
-.btn-navy { background-color: #0b2e59; color: #fff; border: none; transition: 0.3s; }
-.btn-navy:hover { background-color: #173b6c; color: #fff; transform: translateY(-2px); box-shadow: 0 6px 15px rgba(11, 46, 89, 0.2); }
+.inventory-page {
+  background: linear-gradient(180deg, #f3f7ff 0%, #f8fafc 45%, #f3f4f6 100%);
+}
+
+.inventory-hero {
+  border: 1px solid #dbeafe;
+  background: radial-gradient(circle at top right, rgba(59, 130, 246, 0.1), transparent 45%), #ffffff;
+}
+
+.inventory-toolbar {
+  width: 100%;
+}
+
+.company-select {
+  width: 180px;
+  min-width: 160px;
+  max-width: 210px;
+  flex: 0 0 auto;
+  font-weight: 500;
+}
+
+.search-box {
+  width: 100%;
+  min-width: 280px;
+}
+
+.search-icon {
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+}
+
+.search-input {
+  padding-left: 32px;
+  border-color: #cbd5e1;
+  font-weight: 500;
+}
+
+.search-input:focus,
+.company-select:focus {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 0.2rem rgba(59, 130, 246, 0.15);
+}
+
+.inventory-stat-card {
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+
+.inventory-table-card {
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+
+.inventory-expand-panel {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
 
 /* Animation Chung */
 .hover-lift { transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s; }
@@ -292,7 +344,7 @@ const formatDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '';
 .modern-table td { border-bottom: 1px solid #f1f5f9; padding-top: 12px; padding-bottom: 12px; }
 
 .cursor-pointer { cursor: pointer; }
-.table-active-row { background-color: #f8fafc !important; border-left: 4px solid #0b2e59 !important; }
+.table-active-row { background-color: #f8fafc !important; border-left: 4px solid #3b82f6 !important; }
 .group-bg-even td { background-color: #f8fafc; }
 .group-bg-odd td { background-color: #ffffff; }
 
@@ -312,10 +364,26 @@ const formatDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '';
   color: #334155;
 }
 .inline-input:hover { border-color: #cbd5e1; background: #fff; }
-.inline-input:focus { outline: none; border-color: #0b2e59; background: #fff; box-shadow: 0 0 0 3px rgba(11, 46, 89, 0.1); }
+.inline-input:focus { outline: none; border-color: #3b82f6; background: #fff; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
 
 .weight-input { color: #0ea5e9; }
 .weight-empty { border: 1px dashed #f59e0b !important; background: rgba(245,158,11,.05); color: #f59e0b; }
 .weight-empty::placeholder { color: #f59e0b; opacity: 0.8; font-size: 0.8rem; }
 .stock-input { color: #059669; }
+
+@media (max-width: 768px) {
+  .search-box {
+    min-width: 100%;
+  }
+
+  .company-select {
+    min-width: 100%;
+  }
+}
+
+@media (max-width: 992px) {
+  .inventory-toolbar {
+    width: 100%;
+  }
+}
 </style>
