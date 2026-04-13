@@ -9,6 +9,7 @@ import org.example.features.complaint.dto.OrderComplaintResponseDTO;
 import org.example.features.complaint.service.OrderComplaintService;
 import org.example.features.order.dto.CancelOrderRequestDTO;
 import org.example.features.order.dto.DelayDeliveryRequestDTO;
+import org.example.features.order.dto.ItemNotesUpdateRequestDTO;
 import org.example.features.order.dto.ItemReviewRequestDTO;
 import org.example.features.order.dto.OrderHistoryEventDTO;
 import org.example.features.order.dto.OrderRevisionSummaryDTO;
@@ -665,6 +666,35 @@ public class OrderController {
             log.error("Error reviewing order item", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Failed to review item"));
+        }
+    }
+
+    /**
+     * Customer/Admin: update note on one order item
+     * PUT /api/orders/{orderId}/items/{itemId}/notes
+     */
+    @PutMapping("/{orderId}/items/{itemId}/notes")
+    public ResponseEntity<?> updateOrderItemNotes(
+            @PathVariable Long orderId,
+            @PathVariable Long itemId,
+            @RequestBody(required = false) ItemNotesUpdateRequestDTO request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        try {
+            OrderResponseDTO order = orderService.updateOrderItemNotes(
+                    orderId,
+                    itemId,
+                    request != null ? request.getNotes() : null,
+                    userDetails != null ? userDetails.getUserId() : null,
+                    userDetails != null ? userDetails.getRole() : null);
+            return ResponseEntity.ok(order);
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error updating order item notes", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to update item notes"));
         }
     }
 
