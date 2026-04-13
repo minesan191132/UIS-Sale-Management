@@ -23,6 +23,18 @@ Backend now supports environment-driven URLs so the same codebase works for both
 - `APP_CORS_ALLOWED_ORIGINS=http://localhost:5173,https://uis-sale-management.vercel.app`
 - `APP_CORS_ALLOWED_ORIGIN_PATTERNS=https://*.vercel.app`
 
+### Redis variables (Railway)
+
+Backend now supports both custom and Railway-style Redis env names:
+
+- Host: `REDIS_HOST` or `REDISHOST`
+- Port: `REDIS_PORT` or `REDISPORT`
+- Password: `REDIS_PASSWORD` or `REDISPASSWORD`
+- Optional username: `REDIS_USERNAME` or `REDISUSER`
+- Optional TLS flag: `REDIS_SSL_ENABLED` or `REDIS_TLS_ENABLED`
+
+If registration returns Redis connection errors, confirm the Redis service is healthy and these variables are present in the backend service environment.
+
 These values prevent localhost hardcode issues while preserving local development defaults.
 
 ## Excel Import Header Format
