@@ -104,6 +104,10 @@ const isProcessingActive = computed(() => {
   return processingPaths.some(p => route.path.includes(p))
 })
 
+const isProcessingMenuActive = computed(() => {
+  return processingPaths.some((path) => route.path.startsWith(path))
+})
+
 const toggleProcessingDropdown = () => {
   isProcessingDropdownOpen.value = !isProcessingDropdownOpen.value
 }
@@ -144,6 +148,15 @@ watch(() => route.path, () => {
     isProcessingDropdownOpen.value = false 
   }
 })
+
+watch(
+  () => route.path,
+  (path) => {
+    if (processingPaths.some((candidate) => path.startsWith(candidate))) {
+      isProcessingDropdownOpen.value = true
+    }
+  },
+)
 </script>
 
 <style scoped>

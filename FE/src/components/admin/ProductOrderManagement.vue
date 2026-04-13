@@ -1,10 +1,30 @@
 <template>
-  <div class="p-4 bg-light min-vh-100">
-    <h2 class="fw-bold mb-1 text-uppercase">Quản lý đơn hàng sản phẩm</h2>
-    <p class="text-muted small mb-4">Chỉ hiển thị các đơn hàng mua sản phẩm catalog (mã ORD-...)</p>
+  <div class="catalog-order-page p-4 min-vh-100">
+    <div class="card border-0 shadow-sm mb-4 catalog-order-hero">
+      <div class="card-body d-flex flex-column flex-lg-row justify-content-between align-items-start align-items-lg-center gap-3">
+        <div>
+          <h2 class="fw-bold mb-1 text-uppercase">Quản lý đơn hàng sản phẩm</h2>
+          <p class="text-muted small mb-0">Theo dõi đơn catalog, xác nhận thanh toán và điều phối giao hàng theo trạng thái.</p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+          <span class="badge rounded-pill text-primary bg-primary-subtle border border-primary-subtle px-3 py-2">
+            Đơn hiển thị: {{ orders.length }}
+          </span>
+          <span class="badge rounded-pill text-info bg-info-subtle border border-info-subtle px-3 py-2">
+            Chờ thanh toán: {{ catalogSummary.awaitingPayment }}
+          </span>
+          <span class="badge rounded-pill text-warning bg-warning-subtle border border-warning-subtle px-3 py-2">
+            Đang chuẩn bị: {{ catalogSummary.processing }}
+          </span>
+          <span class="badge rounded-pill text-primary bg-primary-subtle border border-primary-subtle px-3 py-2">
+            Đang giao: {{ catalogSummary.shipping }}
+          </span>
+        </div>
+      </div>
+    </div>
 
     <!-- Filters -->
-    <div class="card border-0 shadow-sm p-3 mb-4">
+    <div class="card border-0 shadow-sm p-3 mb-4 catalog-filter-card">
       <div class="row g-3 align-items-end justify-content-between">
         <div class="col-md-9">
           <div class="row g-2">
@@ -15,7 +35,7 @@
             </div>
             <div class="col-md-3">
               <label class="small fw-bold text-muted mb-1">Trạng thái</label>
-              <select class="form-select form-select-sm" v-model="filterStatus" @change="loadOrders(0)">
+              <select class="form-select form-select-sm modern-admin-select" v-model="filterStatus" @change="loadOrders(0)">
                 <option value="">Tất cả</option>
                 <option value="AWAITING_PAYMENT">Chờ thanh toán</option>
                 <option value="DEPOSITED">Đã thanh toán</option>
@@ -34,7 +54,7 @@
             </div>
           </div>
         </div>
-        <div class="col-md-3 d-flex gap-2 justify-content-end">
+        <div class="col-md-3 d-flex gap-2 justify-content-md-end">
           <button class="btn btn-primary btn-sm px-3" @click="loadOrders(0)">Tìm kiếm</button>
           <button class="btn btn-outline-secondary btn-sm px-3" @click="resetFilters">Đặt lại</button>
         </div>
@@ -56,8 +76,8 @@
     </div>
 
     <!-- Orders Table -->
-    <div v-else class="card border-0 shadow-sm rounded-4 overflow-hidden">
-      <table class="table align-middle mb-0" style="table-layout: fixed;">
+    <div v-else class="card border-0 shadow-sm rounded-4 overflow-hidden catalog-table-card">
+      <table class="table align-middle mb-0 custom-hover-table" style="table-layout: fixed;">
         <thead class="bg-light">
           <tr class="small text-muted text-uppercase">
             <th style="width: 200px;">Mã đơn</th>
@@ -70,7 +90,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="order in orders" :key="order.id">
+          <tr v-for="order in orders" :key="order.id" class="catalog-order-row">
             <td class="fw-bold text-primary">{{ order.orderNumber }}</td>
             <td>
               <div>{{ order.userName }}</div>
@@ -87,15 +107,15 @@
             <td class="fw-semibold">{{ formatCurrency(order.totalPrice) }}</td>
             <td class="text-muted small">{{ formatDate(order.createdAt) }}</td>
             <td>
-              <div class="btn-group btn-group-sm">
+              <div class="d-flex flex-wrap gap-1 action-group-wrap">
                 <!-- View detail -->
-                <button @click="openDetail(order)" class="btn btn-outline-primary btn-sm" title="Xem chi tiết">
+                <button @click="openDetail(order)" class="btn btn-outline-primary btn-sm btn-action-circle" title="Xem chi tiết">
                   <i class="bi bi-eye"></i>
                 </button>
                 <button
                   v-if="canAdminCancelOrder(order)"
                   @click="cancelOrderByAdmin(order)"
-                  class="btn btn-outline-danger btn-sm"
+                  class="btn btn-outline-danger btn-sm btn-action-circle"
                   title="Hủy đơn"
                 >
                   <i class="bi bi-slash-circle"></i>
@@ -104,46 +124,46 @@
                 <button
                   v-if="order.status === 'AWAITING_PAYMENT'"
                   @click="confirmPayment(order)"
-                  class="btn btn-outline-success btn-sm"
+                  class="btn btn-outline-success btn-sm btn-action-circle"
                   title="Xác nhận đã thanh toán"
                 >
-                  <i class="bi bi-check-circle"></i> Xác nhận TT
+                  <i class="bi bi-check-circle"></i>
                 </button>
                 <!-- Start preparation (DEPOSITED -> PROCESSING) -->
                 <button
                   v-if="order.status === 'DEPOSITED'"
                   @click="startPreparation(order)"
-                  class="btn btn-success btn-sm"
+                  class="btn btn-success btn-sm btn-action-circle"
                   title="Bắt đầu chuẩn bị đơn"
                 >
-                  <i class="bi bi-box-seam me-1"></i>Chuẩn bị
+                  <i class="bi bi-box-seam"></i>
                 </button>
                 <!-- Delay delivery (PROCESSING: báo trễ hẹn) -->
                 <button
                   v-if="order.status === 'PROCESSING' && order.deliveryDate"
                   @click="openDelayModal(order)"
-                  class="btn btn-outline-warning btn-sm"
+                  class="btn btn-outline-warning btn-sm btn-action-circle"
                   title="Báo trễ hẹn"
                 >
-                  <i class="bi bi-calendar-x me-1"></i>Trễ hẹn
+                  <i class="bi bi-calendar-x"></i>
                 </button>
                 <!-- Ship order (PROCESSING -> SHIPPING) -->
                 <button
                   v-if="order.status === 'PROCESSING' && isFullyPaid(order)"
                   @click="shipOrder(order)"
-                  class="btn btn-outline-info btn-sm"
+                  class="btn btn-outline-info btn-sm btn-action-circle"
                   title="Giao cho ĐVVC"
                 >
-                  <i class="bi bi-truck me-1"></i>Giao hàng
+                  <i class="bi bi-truck"></i>
                 </button>
                 <!-- Mark delivered (SHIPPING -> COMPLETED) -->
                 <button
                   v-if="order.status === 'SHIPPING'"
                   @click="completeOrder(order)"
-                  class="btn btn-primary btn-sm"
+                  class="btn btn-primary btn-sm btn-action-circle"
                   title="Xác nhận đã giao"
                 >
-                  <i class="bi bi-check-lg me-1"></i>Hoàn thành
+                  <i class="bi bi-check-lg"></i>
                 </button>
               </div>
             </td>
@@ -181,7 +201,7 @@
           </div>
           <div class="modal-body">
             <!-- Order summary -->
-            <div class="row mb-4">
+            <div class="row mb-4 detail-summary-card">
               <div class="col-md-4">
                 <p class="mb-1"><strong>Khách hàng:</strong> {{ selectedOrder.userName }}</p>
                 <p class="mb-1"><strong>Công ty:</strong> {{ selectedOrder.companyName }}</p>
@@ -207,8 +227,8 @@
             </div>
 
             <!-- Items table -->
-            <div class="table-responsive">
-              <table class="table table-bordered table-sm align-middle">
+            <div class="table-responsive detail-items-table-wrapper">
+              <table class="table table-bordered table-sm align-middle detail-items-table">
                 <thead class="table-light">
                   <tr>
                     <th>STT</th>
@@ -323,7 +343,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick } from 'vue'
+import { computed, ref, onMounted, nextTick } from 'vue'
 import Swal from 'sweetalert2'
 import apiClient from '../../services/api'
 import { Modal } from 'bootstrap'
@@ -343,6 +363,22 @@ const delayDeliveryForm = ref({ newDate: '', reason: '' })
 const submittingDelay = ref(false)
 let bsModal = null
 let bsDelayModal = null
+
+const catalogSummary = computed(() => {
+  const base = {
+    awaitingPayment: 0,
+    processing: 0,
+    shipping: 0,
+  }
+
+  for (const order of orders.value) {
+    if (order.status === 'AWAITING_PAYMENT') base.awaitingPayment += 1
+    if (order.status === 'PROCESSING') base.processing += 1
+    if (order.status === 'SHIPPING') base.shipping += 1
+  }
+
+  return base
+})
 
 onMounted(() => loadOrders())
 
@@ -628,3 +664,86 @@ const formatCurrency = (n) => n
   ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n)
   : '—'
 </script>
+
+<style scoped>
+.catalog-order-page {
+  background: linear-gradient(180deg, #f3f7ff 0%, #f8fafc 45%, #f3f4f6 100%);
+}
+
+.catalog-order-hero {
+  border: 1px solid #dbeafe;
+  background: radial-gradient(circle at top right, rgba(59, 130, 246, 0.12), transparent 48%), #ffffff;
+}
+
+.catalog-filter-card,
+.catalog-table-card {
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+
+.custom-hover-table tbody tr:hover {
+  background: #eff6ff;
+}
+
+.catalog-order-row td {
+  vertical-align: middle;
+}
+
+.detail-summary-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.85rem 0.75rem;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.detail-items-table-wrapper {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+}
+
+.detail-items-table {
+  margin-bottom: 0;
+}
+
+.detail-items-table thead th {
+  white-space: nowrap;
+  color: #475569;
+}
+
+.action-group-wrap {
+  min-width: 0;
+}
+
+.btn-action-circle {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+}
+
+.btn-action-circle:hover {
+  transform: scale(1.08);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+@media (max-width: 992px) {
+  .catalog-order-hero .card-body {
+    align-items: stretch !important;
+  }
+
+  .catalog-filter-card .col-md-3.d-flex {
+    justify-content: flex-start !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .action-group-wrap .btn {
+    flex: 1 1 auto;
+  }
+}
+</style>
