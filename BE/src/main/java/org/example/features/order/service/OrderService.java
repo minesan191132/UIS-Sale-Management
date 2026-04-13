@@ -159,6 +159,23 @@ public class OrderService {
         return trimmed;
     }
 
+    private String normalizeItemNotes(String notes) {
+        if (notes == null) {
+            return null;
+        }
+
+        String trimmed = notes.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+
+        if (trimmed.length() > 2000) {
+            throw new IllegalArgumentException("Ghi chú sản phẩm không được vượt quá 2000 ký tự");
+        }
+
+        return trimmed;
+    }
+
     /**
      * Import order from Excel file
      */
@@ -1123,6 +1140,38 @@ public class OrderService {
 
         orderItemRepository.save(item);
         log.info("Item {} in order {} reviewed as {}", itemId, order.getOrderNumber(), request.getReviewStatus());
+
+        return mapToDTO(order);
+    }
+
+    /**
+     * Customer/Admin updates free-form note on an individual order item.
+     */
+    @Transactional
+    public OrderResponseDTO updateOrderItemNotes(Long orderId,
+                                                 Long itemId,
+                                                 String notes,
+                                                 Long requestingUserId,
+                                                 String requestingRole) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found"));
+
+        boolean isAdmin = "ADMIN".equalsIgnoreCase(requestingRole);
+        if (!isAdmin) {
+            Long ownerId = order.getUser() != null ? order.getUser().getId() : null;
+            if (requestingUserId == null || ownerId == null || !ownerId.equals(requestingUserId)) {
+                throw new SecurityException("Unauthorized access to order");
+            }
+        }
+
+        OrderItem item = order.getItems().stream()
+                .filter(i -> i.getId().equals(itemId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Item not found in this order"));
+
+        item.setNotes(normalizeItemNotes(notes));
+        orderItemRepository.save(item);
+        log.info("Item {} notes in order {} updated by {}", itemId, order.getOrderNumber(), requestingRole);
 
         return mapToDTO(order);
     }

@@ -393,7 +393,19 @@
                     <td class="cell-uniform cell-truncate">{{ item.unit || '—' }}</td>
                     <td class="cell-uniform cell-truncate">{{ item.itemCode || '—' }}</td>
                     <td class="cell-uniform cell-truncate">{{ item.drawingNumber || '—' }}</td>
-                    <td class="cell-uniform cell-truncate">{{ item.itemName || '—' }}</td>
+                    <td class="cell-uniform">
+                      <div class="d-flex align-items-center justify-content-between gap-2">
+                        <span class="cell-truncate flex-grow-1">{{ item.itemName || '—' }}</span>
+                        <button
+                          type="button"
+                          class="btn btn-outline-secondary btn-sm item-note-btn"
+                          :disabled="selectedOrder.isTempImport"
+                          :title="selectedOrder.isTempImport ? 'Đơn import chờ duyệt chưa hỗ trợ ghi chú' : 'Ghi chú sản phẩm'"
+                          @click="openCustomerItemNoteModal(item)">
+                          <i class="bi bi-chat-left-text"></i>
+                        </button>
+                      </div>
+                    </td>
                     <td class="cell-uniform cell-truncate">{{ item.specification || '—' }}</td>
                     <td class="cell-uniform cell-truncate">{{ item.material || '—' }}</td>
                     <td class="text-center fw-bold cell-uniform">{{ item.quantity }}</td>
@@ -426,13 +438,16 @@
                 <span v-if="reviewCounts.pending > 0" class="badge bg-secondary">Chờ review: {{ reviewCounts.pending }}</span>
               </div>
               <!-- Rejected/Discussion notes visible to customer -->
-              <div v-for="item in selectedOrder.items" :key="'note-' + item.id" class="mt-1">
-                <div v-if="item.adminNote && (item.reviewStatus === 'REJECTED' || item.reviewStatus === 'NEED_DISCUSSION')" 
-                  class="alert py-1 px-2 mb-1"
-                  :class="item.reviewStatus === 'REJECTED' ? 'alert-danger' : 'alert-warning'"
-                  style="font-size: 0.8rem">
-                  <strong>{{ item.itemName }}:</strong> {{ item.adminNote }}
-                </div>
+              <div class="d-flex flex-wrap gap-2 mt-2">
+                <button
+                  v-for="item in selectedOrder.items"
+                  :key="'note-' + item.id"
+                  v-show="item.adminNote && (item.reviewStatus === 'REJECTED' || item.reviewStatus === 'NEED_DISCUSSION')"
+                  type="button"
+                  class="btn btn-outline-warning btn-sm note-quick-btn"
+                  @click="openCustomerItemNoteModal(item)">
+                  <i class="bi bi-chat-left-text me-1"></i>{{ item.itemName || 'Sản phẩm' }}
+                </button>
               </div>
             </div>
           </div>
@@ -1424,6 +1439,98 @@ const reviewCounts = computed(() => {
   }
 })
 
+const escapeHtml = (value) => {
+  if (value == null) return ''
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+const syncOrderAfterItemNoteUpdate = (updatedOrder) => {
+  if (!updatedOrder?.id || !selectedOrder.value?.id) return
+
+  const currentOrderId = selectedOrder.value.id
+  const wasTempImport = !!selectedOrder.value.isTempImport
+
+  selectedOrder.value = { ...updatedOrder, isTempImport: wasTempImport }
+
+  const orderIndex = orders.value.findIndex((order) => {
+    return order.id === currentOrderId && !!order.isTempImport === wasTempImport
+  })
+
+  if (orderIndex !== -1) {
+    orders.value[orderIndex] = {
+      ...orders.value[orderIndex],
+      ...updatedOrder,
+      isTempImport: wasTempImport,
+    }
+  }
+}
+
+const openCustomerItemNoteModal = async (item) => {
+  if (!selectedOrder.value?.id || !item?.id) return
+
+  if (selectedOrder.value.isTempImport) {
+    await Swal.fire('Chưa hỗ trợ', 'Đơn import chờ duyệt chưa thể cập nhật ghi chú theo sản phẩm.', 'info')
+    return
+  }
+
+  const orderId = selectedOrder.value.id
+  const adminNote = item?.adminNote ? String(item.adminNote).trim() : ''
+  const currentCustomerNote = item?.notes ? String(item.notes).trim() : ''
+  const itemName = item?.itemName ? String(item.itemName).trim() : 'Sản phẩm'
+
+  const adminNoteBlock = adminNote
+    ? `<div class="alert alert-warning text-start py-2 px-3 mb-3"><div class="fw-semibold mb-1">Ghi chú từ admin</div><div style="white-space: pre-wrap; word-break: break-word;">${escapeHtml(adminNote)}</div></div>`
+    : '<div class="text-muted small text-start mb-3">Chưa có ghi chú từ admin cho sản phẩm này.</div>'
+
+  const result = await Swal.fire({
+    title: `Ghi chú - ${itemName}`,
+    html: `
+      ${adminNoteBlock}
+      <label for="customer-item-note-input" class="form-label fw-semibold text-start w-100 mb-1">Ghi chú của bạn</label>
+      <textarea id="customer-item-note-input" class="swal2-textarea" style="display:block;width:100%;min-height:130px;margin:0;" maxlength="2000" placeholder="Nhập ghi chú cho sản phẩm này...">${escapeHtml(currentCustomerNote)}</textarea>
+    `,
+    focusConfirm: false,
+    showCancelButton: true,
+    confirmButtonText: 'Lưu ghi chú',
+    cancelButtonText: 'Đóng',
+    confirmButtonColor: '#0d6efd',
+    preConfirm: () => {
+      const input = document.getElementById('customer-item-note-input')
+      if (!input) return ''
+      const nextValue = String(input.value || '')
+      if (nextValue.trim().length > 2000) {
+        Swal.showValidationMessage('Ghi chú không được vượt quá 2000 ký tự')
+        return false
+      }
+      return nextValue
+    },
+  })
+
+  if (!result.isConfirmed) return
+
+  const nextCustomerNote = String(result.value || '').trim()
+  if (nextCustomerNote === currentCustomerNote) return
+
+  try {
+    const updatedOrder = await ordersAPI.updateItemNotes(orderId, item.id, nextCustomerNote || null)
+    syncOrderAfterItemNoteUpdate(updatedOrder)
+    await Swal.fire({
+      icon: 'success',
+      title: 'Đã lưu ghi chú',
+      timer: 1600,
+      showConfirmButton: false,
+    })
+  } catch (error) {
+    const msg = error.response?.data?.error || 'Không thể lưu ghi chú sản phẩm'
+    await Swal.fire('Lỗi', msg, 'error')
+  }
+}
+
 const openPaymentModal = async (order) => {
   selectedPaymentOrderId.value = order.id
   await nextTick()
@@ -2024,6 +2131,14 @@ const openRemainingPaymentModal = (order) => {
 .cell-truncate:hover {
   white-space: normal;
   word-break: break-word;
+}
+
+.item-note-btn {
+  white-space: nowrap;
+}
+
+.note-quick-btn {
+  max-width: 100%;
 }
 
 /* ── Type Tabs ── */

@@ -382,8 +382,7 @@
                     <th class="text-center" style="min-width: 95px">Review</th>
                     <th class="text-center" style="min-width: 130px">Đơn giá</th>
                     <th class="text-center" style="min-width: 130px">Thành tiền</th>
-                    <th style="min-width: 190px">Ghi chú</th>
-                    <th class="text-center sticky-col-right-actions" style="min-width: 120px">Thao tác</th>
+                    <th class="text-center sticky-col-right-actions" style="min-width: 140px">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -423,35 +422,45 @@
                       <span v-if="item.totalItemPrice" class="fw-bold">{{ formatNumber(item.totalItemPrice) }}</span>
                       <span v-else class="text-muted"></span>
                     </td>
-                      <td>
-                        <textarea
+                    <td class="text-center sticky-col-right-actions">
+                      <div class="d-flex flex-column align-items-center gap-1">
+                        <div v-if="selectedOrder.status === 'PENDING_QUOTE'" class="btn-group btn-group-sm">
+                          <button @click="reviewItem(item, 'APPROVED')" class="btn btn-outline-success btn-sm" title="Duyệt">
+                            <i class="bi bi-check-lg"></i>
+                          </button>
+                          <button @click="reviewItem(item, 'REJECTED')" class="btn btn-outline-danger btn-sm" title="Từ chối">
+                            <i class="bi bi-x-lg"></i>
+                          </button>
+                          <button @click="reviewItem(item, 'NEED_DISCUSSION')" class="btn btn-outline-warning btn-sm" title="Cần trao đổi">
+                            <i class="bi bi-chat-dots"></i>
+                          </button>
+                        </div>
+
+                        <button
                           v-if="selectedOrder.status === 'PENDING_QUOTE'"
-                          class="form-control form-control-sm"
-                          rows="2"
-                          :value="getReviewDraft(item).adminNote || ''"
-                          @input="setDraftNote(item, $event.target.value)"
-                          placeholder="Ghi chú / lý do"></textarea>
-                        <span v-else class="small">{{ item.adminNote || '' }}</span>
-                      </td>
-                      <td class="text-center sticky-col-right-actions">
-                      <div v-if="selectedOrder.status === 'PENDING_QUOTE'" class="btn-group btn-group-sm">
-                        <button @click="reviewItem(item, 'APPROVED')" class="btn btn-outline-success btn-sm" title="Duyệt">
-                          <i class="bi bi-check-lg"></i>
+                          type="button"
+                          class="btn btn-outline-secondary btn-sm note-action-btn"
+                          @click="openAdminNoteEditor(item)">
+                          <i class="bi bi-chat-left-text me-1"></i>
+                          {{ getReviewDraft(item).adminNote ? 'Sửa ghi chú' : 'Ghi chú' }}
                         </button>
-                        <button @click="reviewItem(item, 'REJECTED')" class="btn btn-outline-danger btn-sm" title="Từ chối">
-                          <i class="bi bi-x-lg"></i>
+
+                        <button
+                          v-else-if="item.adminNote"
+                          type="button"
+                          class="btn btn-outline-secondary btn-sm note-action-btn"
+                          @click="openItemNotePopup(item)">
+                          <i class="bi bi-chat-left-text me-1"></i>Xem ghi chú
                         </button>
-                        <button @click="reviewItem(item, 'NEED_DISCUSSION')" class="btn btn-outline-warning btn-sm" title="Cần trao đổi">
-                          <i class="bi bi-chat-dots"></i>
-                        </button>
+
+                        <span v-else class="text-muted small">—</span>
                       </div>
-                      <span v-else class="text-muted small"></span>
                     </td>
                   </tr>
                 </tbody>
                 <tfoot v-if="calculatedTotal > 0">
                   <tr class="table-light fw-bold">
-                    <td colspan="13" class="text-end">Tổng (sản phẩm đã duyệt):</td>
+                    <td colspan="12" class="text-end">Tổng (sản phẩm đã duyệt):</td>
                     <td class="text-end">{{ formatNumber(calculatedTotal) }}</td>
                     <td></td>
                   </tr>
@@ -460,10 +469,18 @@
             </div>
 
             <!-- Admin notes -->
-            <div v-for="item in selectedOrder.items" :key="'note-' + item.id">
-              <div v-if="item.adminNote" class="alert alert-sm py-1 px-2 mb-1"
-                :class="item.reviewStatus === 'REJECTED' ? 'alert-danger' : 'alert-warning'">
-                <small><strong>{{ item.itemName }}:</strong> {{ item.adminNote }}</small>
+            <div v-if="selectedOrder.items?.some(item => item.adminNote)" class="mt-3">
+              <div class="small text-muted mb-2">Ghi chú sản phẩm:</div>
+              <div class="d-flex flex-wrap gap-2">
+                <button
+                  v-for="item in selectedOrder.items"
+                  :key="'note-' + item.id"
+                  v-show="item.adminNote"
+                  type="button"
+                  class="btn btn-outline-secondary btn-sm"
+                  @click="openItemNotePopup(item)">
+                  <i class="bi bi-chat-left-text me-1"></i>{{ item.itemName || 'Sản phẩm' }}
+                </button>
               </div>
             </div>
           </div>
@@ -1418,6 +1435,47 @@ const getItemRowClass = (item) => {
   return map[item.reviewStatus] || '';
 };
 
+const openAdminNoteEditor = async (item) => {
+  if (selectedOrder.value?.status !== 'PENDING_QUOTE') return;
+
+  const draft = ensureDraft(item);
+  const itemName = item?.itemName ? String(item.itemName).trim() : 'Sản phẩm';
+
+  const { value } = await Swal.fire({
+    title: `Ghi chú - ${itemName}`,
+    input: 'textarea',
+    inputLabel: 'Nội dung ghi chú / lý do cho sản phẩm',
+    inputPlaceholder: 'Nhập ghi chú để trao đổi với khách hàng...',
+    inputValue: draft.adminNote || '',
+    inputAttributes: {
+      maxlength: '2000',
+      'aria-label': 'Ghi chú sản phẩm',
+    },
+    showCancelButton: true,
+    confirmButtonText: 'Lưu',
+    cancelButtonText: 'Đóng',
+    confirmButtonColor: '#0d6efd',
+  });
+
+  if (value === undefined) return;
+  setDraftNote(item, value);
+};
+
+const openItemNotePopup = async (item) => {
+  const note = item?.adminNote ? String(item.adminNote).trim() : '';
+  if (!note) return;
+
+  const itemName = item?.itemName ? String(item.itemName).trim() : 'Sản phẩm';
+
+  await Swal.fire({
+    title: `Ghi chú - ${itemName}`,
+    html: `<div style="white-space: pre-wrap; word-break: break-word; text-align: left;">${escapeHtml(note)}</div>`,
+    width: 650,
+    confirmButtonText: 'Đóng',
+    confirmButtonColor: '#0d6efd',
+  });
+};
+
 const getStatusText = (status) => {
   return getOrderStatusLabel(status, { DEPOSITED: 'Đã cọc 💳' });
 };
@@ -1531,6 +1589,10 @@ const formatWeight = (weight) => {
 
 .review-table .btn-group .btn {
   min-width: 34px;
+}
+
+.review-table .note-action-btn {
+  white-space: nowrap;
 }
 
 .review-table .badge {

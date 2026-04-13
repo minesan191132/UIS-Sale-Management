@@ -325,6 +325,14 @@ export const ordersAPI = {
   },
 
   /**
+   * Update note for one order item (customer/admin)
+   */
+  updateItemNotes: async (orderId, itemId, notes) => {
+    const response = await apiClient.put(`/orders/${orderId}/items/${itemId}/notes`, { notes });
+    return response.data;
+  },
+
+  /**
    * Get current user's complaint for one order
    */
   getMyComplaint: async (orderId) => {
