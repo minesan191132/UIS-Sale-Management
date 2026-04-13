@@ -1,72 +1,73 @@
 <template>
-  <div class="p-4 bg-light min-vh-100">
-    <!-- Header -->
-    <div class="d-flex justify-content-between align-items-start mb-4">
+  <div class="p-4 min-vh-100 d-flex flex-column w-100" style="background-color: #f8f9fa; max-width: 100%;">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4 pb-2">
       <div>
-        <h2 class="fw-bold text-dark m-0 fs-4">
-          <i class="bi bi-box-seam me-2"></i>TỔNG KHO VẬT TƯ
+        <h2 class="fw-bolder mb-1 text-dark fs-3 text-uppercase">
+          <i class="bi bi-layers-fill me-2 text-primary"></i>Tổng Kho Vật Tư
         </h2>
-        <p class="text-muted small mb-0 mt-1">Tổng hợp vật tư theo mã bản vẽ — dữ liệu khối lượng từ V4 seed</p>
+        <p class="text-muted mb-0">Tổng hợp vật tư theo mã bản vẽ — dữ liệu khối lượng từ V4 seed</p>
       </div>
-      <div class="d-flex gap-2 align-items-center">
-        <select v-model="companyFilter" @change="loadData" class="form-select form-select-sm" style="width: 180px">
-          <option value="">Tất cả công ty</option>
-          <option v-for="c in companies" :key="c.id" :value="c.id">{{ c.name }}</option>
-        </select>
-        <div class="input-group" style="width: 280px;">
-          <span class="input-group-text bg-white border-end-0 py-1"><i class="bi bi-search"></i></span>
-          <input type="text" class="form-control border-start-0 py-1 shadow-none"
-            placeholder="Tìm mã bản vẽ, linh kiện..." v-model="search" @input="onSearch">
+      
+      <div class="d-flex gap-3 align-items-center">
+        <div class="d-flex gap-2 bg-white p-2 rounded-pill shadow-sm border">
+          <select v-model="companyFilter" @change="loadData" class="form-select border-0 bg-transparent shadow-none fw-medium text-secondary" style="width: 180px">
+            <option value="">Tất cả công ty</option>
+            <option v-for="c in companies" :key="c.id" :value="c.id">{{ c.name }}</option>
+          </select>
+          <div class="vr text-muted opacity-25 my-1"></div>
+          <div class="search-box position-relative" style="width: 250px;">
+            <i class="bi bi-search position-absolute text-muted" style="top: 50%; left: 10px; transform: translateY(-50%);"></i>
+            <input type="text" class="form-control border-0 bg-transparent shadow-none ps-4 fw-medium"
+              placeholder="Tìm mã bản vẽ, linh kiện..." v-model="search" @input="onSearch">
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Stats -->
     <div class="row g-3 mb-4">
       <div class="col-md-3" v-for="(stat, i) in stats" :key="i">
-        <div class="card border-0 shadow-sm p-3 h-100">
+        <div class="card border-0 shadow-sm rounded-4 p-3 h-100 stat-card hover-lift">
           <div class="d-flex align-items-center gap-3">
             <div class="stat-icon" :style="stat.style">
-              <i :class="stat.icon"></i>
+              <i :class="stat.icon" class="fs-4"></i>
             </div>
             <div>
-              <div class="text-muted small fw-bold text-uppercase" style="font-size:0.72rem;">{{ stat.label }}</div>
-              <div class="fw-bold fs-5">{{ stat.value }}<small v-if="stat.unit" class="text-muted ms-1">{{ stat.unit }}</small></div>
+              <div class="text-muted small fw-bolder text-uppercase" style="font-size:0.75rem; letter-spacing: 0.5px;">{{ stat.label }}</div>
+              <div class="fw-bolder fs-4 text-dark">{{ stat.value }}<small v-if="stat.unit" class="text-muted ms-1 fs-6">{{ stat.unit }}</small></div>
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Loading -->
-    <div v-if="loading" class="text-center py-5">
-      <div class="spinner-border text-primary"></div>
-      <p class="text-muted mt-2">Đang tải dữ liệu kho...</p>
+    <div v-if="loading" class="text-center py-5 flex-grow-1 d-flex flex-column justify-content-center">
+      <div class="spinner-grow text-primary mx-auto" role="status" style="width: 3rem; height: 3rem;"></div>
+      <p class="text-muted mt-3 fw-bold">Đang tải dữ liệu tổng kho...</p>
     </div>
 
-    <!-- Empty -->
-    <div v-else-if="filteredItems.length === 0" class="card border-0 shadow-sm">
-      <div class="card-body text-center py-5">
-        <i class="bi bi-inbox fs-1 text-muted"></i>
-        <p class="text-muted mt-3">Chưa có dữ liệu vật tư. Hãy import đơn hàng trước!</p>
+    <div v-else-if="filteredItems.length === 0" class="card border-0 shadow-sm rounded-4 flex-grow-1">
+      <div class="card-body text-center py-5 d-flex flex-column align-items-center justify-content-center">
+        <i class="bi bi-inbox fs-1 text-muted opacity-50 mb-3"></i>
+        <h5 class="fw-bold text-muted">Kho dữ liệu trống</h5>
+        <p class="text-muted mt-1">Chưa có dữ liệu vật tư. Hãy import đơn hàng trước!</p>
       </div>
     </div>
 
-    <!-- Table -->
-    <div v-else class="card border-0 shadow-sm rounded-4 overflow-hidden">
+    <div v-else class="card border-0 shadow-sm rounded-4 overflow-hidden flex-grow-1">
       <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0" style="table-layout: fixed; width: 100%;">
+        <table class="table table-hover align-middle mb-0 modern-table" style="table-layout: fixed; width: 100%;">
           <thead class="bg-light">
-            <tr class="text-dark fw-bold small">
-              <th style="width: 45px;" class="ps-3 text-center">STT</th>
-              <th style="width: 14%;">DRAWING NO</th>
-              <th style="width: 22%;">PARTS NAME</th>
-              <th style="width: 12%;">SPEC</th>
-              <th style="width: 10%;">MATERIAL</th>
-              <th style="width: 10%;" class="text-center">TỔNG QTY</th>
-              <th style="width: 11%;" class="text-center">KL (kg)</th>
-              <th style="width: 9%;" class="text-center">TỒN KHO</th>
-              <th style="width: 7%;" class="text-center">SỐ ĐƠN</th>
+            <tr>
+              <th style="width: 45px;" class="ps-3 text-center text-muted fw-bold small text-uppercase">STT</th>
+              <th style="width: 14%;" class="text-muted fw-bold small text-uppercase">DRAWING NO</th>
+              <th style="width: 22%;" class="text-muted fw-bold small text-uppercase">PARTS NAME</th>
+              <th style="width: 12%;" class="text-muted fw-bold small text-uppercase">SPEC</th>
+              <th style="width: 10%;" class="text-muted fw-bold small text-uppercase">MATERIAL</th>
+              <th style="width: 10%;" class="text-center text-muted fw-bold small text-uppercase">TỔNG QTY</th>
+              <th style="width: 11%;" class="text-center text-muted fw-bold small text-uppercase">KL (kg)</th>
+              <th style="width: 9%;" class="text-center text-muted fw-bold small text-uppercase">TỒN KHO</th>
+              <th style="width: 7%;" class="text-center text-muted fw-bold small text-uppercase">SỐ ĐƠN</th>
             </tr>
           </thead>
           <tbody>
@@ -77,15 +78,15 @@
                   'group-bg-even': item._groupIdx % 2 === 0,
                   'group-bg-odd': item._groupIdx % 2 !== 0
                 }">
-                <td class="ps-3 text-center text-muted">{{ index + 1 }}</td>
+                <td class="ps-3 text-center text-muted fw-medium">{{ index + 1 }}</td>
                 <td class="fw-bold text-primary text-truncate">{{ item.drawingNumber }}</td>
-                <td class="fw-medium text-truncate" v-html="item._highlightedName || item.partName || '—'"></td>
-                <td class="text-muted text-truncate">{{ item.specification || '' }}</td>
+                <td class="fw-bold text-dark text-truncate" v-html="item._highlightedName || item.partName || '—'"></td>
+                <td class="text-secondary fw-medium text-truncate">{{ item.specification || '' }}</td>
                 <td>
-                  <span class="badge bg-light text-dark border-0 fw-normal px-2 py-1">{{ item.material || '' }}</span>
+                  <span class="badge bg-light text-secondary border fw-medium px-2 py-1">{{ item.material || '' }}</span>
                 </td>
                 <td class="text-center">
-                  <span class="badge bg-primary-subtle text-primary px-3 py-1 fw-bold">{{ item.totalQty }}</span>
+                  <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-3 py-2 fw-bolder">{{ item.totalQty }}</span>
                 </td>
                 <td class="text-center" @click.stop>
                   <input type="number" step="0.1" min="0"
@@ -97,33 +98,32 @@
                 </td>
                 <td class="text-center" @click.stop>
                   <input type="number" step="1" min="0"
-                    class="inline-input stock-input"
+                    class="inline-input stock-input fw-bolder fs-6"
                     :value="item.stock"
                     @change="updateMeta(item.drawingNumber, 'stock', $event.target.value)">
                 </td>
                 <td class="text-center">
-                  <span class="badge bg-success-subtle text-success px-2 py-1">{{ item.orderCount }}</span>
+                  <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-1 fw-bold">{{ item.orderCount }}</span>
                 </td>
               </tr>
 
-              <!-- Expanded order breakdown -->
               <tr v-if="expandedDrawing === item.drawingNumber">
                 <td colspan="9" class="p-0 border-0">
-                  <div class="expand-content bg-white border-start border-4 border-primary ms-4 p-3 my-1 rounded shadow-sm">
-                    <div class="fw-bold small mb-2 text-muted">
-                      <i class="bi bi-diagram-3 me-1"></i>
+                  <div class="expand-content bg-white border-start border-4 border-primary ms-4 p-3 my-2 rounded-3 shadow-sm">
+                    <div class="fw-bold small mb-2 text-muted d-flex align-items-center">
+                      <i class="bi bi-diagram-3 me-2 fs-5"></i>
                       {{ item.drawingNumber }} — {{ item.partName || '—' }}
-                      <span class="ms-2">Tổng: <strong class="text-primary">{{ item.totalQty }}</strong></span>
-                      <span class="ms-2" v-if="item.weight != null">| KL: <strong class="text-info">{{ item.weight }} kg</strong></span>
-                      <span class="ms-2 text-warning fst-italic" v-else>| KL: Chưa có</span>
+                      <span class="ms-3 badge bg-light text-dark border">Tổng: <strong class="text-primary">{{ item.totalQty }}</strong></span>
+                      <span class="ms-2 badge bg-light text-dark border" v-if="item.weight != null">KL: <strong class="text-info">{{ item.weight }} kg</strong></span>
+                      <span class="ms-2 badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 fst-italic" v-else>Chưa có KL</span>
                     </div>
-                    <div v-for="ord in item.orders" :key="ord.orderId" class="d-flex align-items-center gap-2 py-1 small text-secondary">
-                      <i class="bi bi-arrow-return-right text-muted" style="font-size:0.7rem;"></i>
-                      <span class="fw-bold text-primary">{{ ord.orderNumber }}</span>
-                      <span class="fw-medium">{{ ord.quantity }} cái</span>
-                      <span v-if="ord.createdAt" class="text-muted" style="font-size:0.78rem;">{{ formatDate(ord.createdAt) }}</span>
+                    <div v-for="ord in item.orders" :key="ord.orderId" class="d-flex align-items-center gap-3 py-2 small text-secondary border-bottom border-light">
+                      <i class="bi bi-arrow-return-right text-muted"></i>
+                      <span class="badge bg-light text-dark border px-2 py-1 font-monospace fw-bold">{{ ord.orderNumber }}</span>
+                      <span class="fw-bold text-primary">{{ ord.quantity }} cái</span>
+                      <span v-if="ord.createdAt" class="text-muted ms-auto"><i class="bi bi-clock me-1"></i>{{ formatDate(ord.createdAt) }}</span>
                     </div>
-                    <div v-if="!item.orders?.length" class="text-muted small fst-italic">Không có dữ liệu đơn hàng</div>
+                    <div v-if="!item.orders?.length" class="text-muted small fst-italic py-2">Không có dữ liệu đơn hàng chi tiết</div>
                   </div>
                 </td>
               </tr>
@@ -250,10 +250,10 @@ const stats = computed(() => {
   const totalWeight = items.reduce((sum, i) => sum + ((i.weight || 0) * (i.totalQty || 0)), 0);
 
   return [
-    { label: 'Mã bản vẽ', value: items.length, icon: 'bi bi-grid-3x3-gap', style: 'background:#e8f4fd;color:#0d6efd;' },
-    { label: 'Tổng sản phẩm', value: totalQty.toLocaleString(), icon: 'bi bi-box', style: 'background:#e8f8e8;color:#198754;' },
-    { label: 'Số đơn hàng', value: orderIds.size, icon: 'bi bi-file-earmark-text', style: 'background:#fff3e0;color:#fd7e14;' },
-    { label: 'Tổng khối lượng', value: totalWeight.toFixed(1), unit: 'kg', icon: 'bi bi-speedometer2', style: 'background:#fce4ec;color:#dc3545;' }
+    { label: 'Mã bản vẽ', value: items.length, icon: 'bi bi-grid-3x3-gap-fill', style: 'background:#e0f2fe;color:#2563eb;' },
+    { label: 'Tổng sản phẩm', value: totalQty.toLocaleString(), icon: 'bi bi-box-fill', style: 'background:#dcfce7;color:#059669;' },
+    { label: 'Số đơn hàng', value: orderIds.size, icon: 'bi bi-file-earmark-text-fill', style: 'background:#fef3c7;color:#d97706;' },
+    { label: 'Tổng khối lượng', value: totalWeight.toFixed(1), unit: 'kg', icon: 'bi bi-speedometer2', style: 'background:#fee2e2;color:#dc2626;' }
   ];
 });
 
@@ -277,28 +277,45 @@ const formatDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '';
 </script>
 
 <style scoped>
+/* Màu thương hiệu & Nút */
+.text-navy { color: #0b2e59 !important; }
+.bg-navy { background-color: #0b2e59 !important; }
+.btn-navy { background-color: #0b2e59; color: #fff; border: none; transition: 0.3s; }
+.btn-navy:hover { background-color: #173b6c; color: #fff; transform: translateY(-2px); box-shadow: 0 6px 15px rgba(11, 46, 89, 0.2); }
+
+/* Animation Chung */
+.hover-lift { transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s; }
+.hover-lift:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.06) !important; }
+
+/* Bảng Dữ Liệu */
+.modern-table th { border-bottom: 2px solid #f1f5f9; padding-bottom: 12px; }
+.modern-table td { border-bottom: 1px solid #f1f5f9; padding-top: 12px; padding-bottom: 12px; }
+
 .cursor-pointer { cursor: pointer; }
-.table-active-row { background-color: #e3f2fd !important; border-left: 4px solid #0d6efd !important; }
-.group-bg-even td { background-color: #e8edf5; }
+.table-active-row { background-color: #f8fafc !important; border-left: 4px solid #0b2e59 !important; }
+.group-bg-even td { background-color: #f8fafc; }
 .group-bg-odd td { background-color: #ffffff; }
 
+/* Thống kê Icon */
 .stat-icon {
-  width: 44px; height: 44px; border-radius: 12px;
+  width: 50px; height: 50px; border-radius: 14px;
   display: flex; align-items: center; justify-content: center;
-  font-size: 1.1rem; flex-shrink: 0;
+  flex-shrink: 0;
 }
 
+/* Form Input Tùy chỉnh trực tiếp trong bảng */
 .inline-input {
-  width: 75px; padding: 3px 6px;
-  border: 1px solid transparent; border-radius: 6px;
-  text-align: center; font-size: 0.85rem; font-weight: 500;
-  background: transparent; transition: all 0.15s;
-  color: #333;
+  width: 80px; padding: 6px 8px;
+  border: 1px solid transparent; border-radius: 8px;
+  text-align: center; font-size: 0.9rem; font-weight: 600;
+  background: #f8fafc; transition: all 0.2s;
+  color: #334155;
 }
-.inline-input:hover { border-color: #dee2e6; background: #fff; }
-.inline-input:focus { outline: none; border-color: #86b7fe; background: #fff; box-shadow: 0 0 0 2px rgba(13,110,253,.1); }
-.weight-input { color: #0dcaf0; }
-.weight-empty { border: 1px dashed #ffc107 !important; background: rgba(255,193,7,.05); color: #ffc107; }
-.weight-empty::placeholder { color: #ffc107; opacity: 0.7; font-size: 0.75rem; }
-.stock-input { color: #198754; }
+.inline-input:hover { border-color: #cbd5e1; background: #fff; }
+.inline-input:focus { outline: none; border-color: #0b2e59; background: #fff; box-shadow: 0 0 0 3px rgba(11, 46, 89, 0.1); }
+
+.weight-input { color: #0ea5e9; }
+.weight-empty { border: 1px dashed #f59e0b !important; background: rgba(245,158,11,.05); color: #f59e0b; }
+.weight-empty::placeholder { color: #f59e0b; opacity: 0.8; font-size: 0.8rem; }
+.stock-input { color: #059669; }
 </style>
