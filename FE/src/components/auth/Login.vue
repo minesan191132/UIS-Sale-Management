@@ -66,12 +66,6 @@
             </button>
           </div>
 
-          <div class="d-grid gap-2 mb-4">
-            <button type="button" class="btn btn-orange text-white py-2">
-              Login with Google
-            </button>
-          </div>
-
           <div class="text-center text-secondary mt-4 footer-links d-flex flex-wrap justify-content-center">
             <router-link class="text-decoration-none text-secondary custom-link" to="/forgot-password">Forgot password?</router-link>
             <span class="mx-2 d-none d-sm-inline">|</span>

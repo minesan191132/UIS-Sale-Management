@@ -40,11 +40,24 @@
             </button>
           </div>
 
-          <div class="text-center text-secondary mt-4 footer-links d-flex flex-wrap justify-content-center">
-            <router-link class="text-decoration-none text-secondary custom-link" to="/forgot-password">
-              <i class="bi bi-envelope me-1"></i> Gửi lại mã OTP
-            </router-link>
-            <span class="mx-2">|</span>
+          <div class="text-center mt-3">
+            <button
+              type="button"
+              class="btn btn-resend"
+              :disabled="countdown > 0 || isResending"
+              @click="handleResendOtp"
+            >
+              <span v-if="isResending" class="spinner-border spinner-border-sm me-1" role="status"></span>
+              <span v-if="countdown > 0">
+                <i class="bi bi-clock me-1"></i>Gửi lại sau {{ countdown }} giây
+              </span>
+              <span v-else>
+                <i class="bi bi-envelope me-1"></i>Gửi lại mã OTP
+              </span>
+            </button>
+          </div>
+
+          <div class="text-center text-secondary mt-3 footer-links d-flex flex-wrap justify-content-center">
             <router-link class="text-decoration-none text-secondary custom-link" to="/login">
               <i class="bi bi-arrow-left me-1"></i> Quay lại Đăng nhập
             </router-link>
@@ -57,7 +70,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import Swal from 'sweetalert2';
 import { authAPI } from '../../services/api';
@@ -68,8 +81,35 @@ const route = useRoute();
 const email = route.query.email || '';
 const otp = ref('');
 const isLoading = ref(false);
+const isResending = ref(false);
 const errors = ref({});
 
+// === Đếm ngược ===
+const COUNTDOWN_SECONDS = 60;
+const countdown = ref(COUNTDOWN_SECONDS);
+let countdownTimer = null;
+
+const startCountdown = () => {
+  clearInterval(countdownTimer);
+  countdown.value = COUNTDOWN_SECONDS;
+  countdownTimer = setInterval(() => {
+    if (countdown.value > 0) {
+      countdown.value--;
+    } else {
+      clearInterval(countdownTimer);
+    }
+  }, 1000);
+};
+
+onMounted(() => {
+  startCountdown();
+});
+
+onUnmounted(() => {
+  clearInterval(countdownTimer);
+});
+
+// === Xác thực OTP ===
 const handleVerifyOtp = async () => {
   errors.value = {};
   if (!otp.value || otp.value.length !== 6) {
@@ -91,6 +131,39 @@ const handleVerifyOtp = async () => {
     });
   } finally {
     isLoading.value = false;
+  }
+};
+
+// === Gửi lại OTP ===
+const handleResendOtp = async () => {
+  if (countdown.value > 0 || isResending.value) return;
+
+  isResending.value = true;
+  try {
+    await authAPI.forgotPassword(email);
+
+    // Xóa trắng ô OTP để không nhập lại mã cũ
+    otp.value = '';
+    errors.value = {};
+
+    // Reset đếm ngược
+    startCountdown();
+
+    Swal.fire({
+      icon: 'success',
+      title: 'Đã gửi lại mã OTP!',
+      text: `Mã OTP mới đã được gửi đến ${email}. Vui lòng kiểm tra hộp thư.`,
+      timer: 3000,
+      showConfirmButton: false,
+    });
+  } catch (error) {
+    Swal.fire({
+      icon: 'error',
+      title: 'Gửi lại thất bại',
+      text: error.response?.data?.message || 'Không thể gửi lại mã OTP. Vui lòng thử lại.',
+    });
+  } finally {
+    isResending.value = false;
   }
 };
 </script>
@@ -156,6 +229,28 @@ const handleVerifyOtp = async () => {
 .btn-brown:hover {
   background-color: #182f6e;
   color: #fff;
+}
+
+/* Nút gửi lại OTP */
+.btn-resend {
+  background: none;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  color: #6c757d;
+  font-size: 0.9rem;
+  padding: 6px 16px;
+  transition: all 0.2s;
+}
+
+.btn-resend:not(:disabled):hover {
+  border-color: #1e3a8a;
+  color: #1e3a8a;
+  background-color: #f0f4ff;
+}
+
+.btn-resend:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
 
 .footer-links {

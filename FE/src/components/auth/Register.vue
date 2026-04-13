@@ -38,6 +38,19 @@
             </span>
           </div>
 
+          <div class="mb-3 text-start">
+            <label class="form-label text-muted">Số điện thoại cá nhân*</label>
+            <input 
+              type="tel" 
+              class="form-control" 
+              :class="{ 'is-invalid': errors.phone }"
+              v-model="form.phone"
+            >
+            <span v-if="errors.phone" class="text-danger small mt-1 d-block">
+              {{ errors.phone }}
+            </span>
+          </div>
+
           <div class="row mb-3">
             <div class="col-md-6 text-start">
               <label class="form-label text-muted">Mã số thuế công ty*</label>
@@ -136,12 +149,6 @@
             </button>
           </div>
 
-          <div class="d-grid gap-2 mb-4">
-            <button type="button" class="btn btn-orange text-white py-2">
-              Register with Google
-            </button>
-          </div>
-
           <div class="text-center text-secondary mt-4 footer-links">
             <span class="footer-link">Already have an account? </span>
             <span>|</span>
@@ -166,6 +173,7 @@ const showConfirmPassword = ref(false);
 const form = reactive({
   fullName: '',
   email: '',
+  phone: '',
   taxCode: '',
   companyPhone: '',
   companyEmail: '',
@@ -186,6 +194,13 @@ const handleRegister = async () => {
   }
   if (!form.email) {
     errors.value.email = 'Vui lòng nhập email';
+    hasError = true;
+  }
+  if (!form.phone) {
+    errors.value.phone = 'Vui lòng nhập số điện thoại cá nhân';
+    hasError = true;
+  } else if (!/^0[0-9]{9}$/.test(form.phone)) {
+    errors.value.phone = 'Số điện thoại phải bắt đầu bằng số 0 và có đúng 10 chữ số';
     hasError = true;
   }
   if (!form.taxCode) {
@@ -225,6 +240,7 @@ const handleRegister = async () => {
       email: form.email,
       password: form.password,
       fullName: form.fullName,
+      phone: form.phone,
       taxCode: form.taxCode,
       companyPhone: form.companyPhone,
       companyEmail: form.companyEmail || null

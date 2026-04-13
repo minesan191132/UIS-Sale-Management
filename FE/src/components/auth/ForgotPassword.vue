@@ -23,7 +23,7 @@
               :class="{ 'is-invalid': errors.email }"
               id="email"
               v-model="email"
-              placeholder="Ví dụ: admin@congty.com"
+              placeholder="Ví dụ: abc@gmail.com"
             >
             <span v-if="errors.email" class="text-danger small mt-1 d-block">{{ errors.email }}</span>
           </div>

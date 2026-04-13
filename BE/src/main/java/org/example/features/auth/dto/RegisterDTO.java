@@ -29,6 +29,10 @@ public class RegisterDTO {
     @NotBlank(message = "Họ và tên không được để trống")
     private String fullName;
 
+    @NotBlank(message = "Số điện thoại không được để trống")
+    @Pattern(regexp = "^0[0-9]{9}$", message = "Số điện thoại phải bắt đầu bằng số 0 và có đúng 10 chữ số.")
+    private String phone; // REQUIRED - personal phone number of the user
+
     // ==================== COMPANY INFORMATION ====================
 
     @NotBlank(message = "Mã số thuế không được để trống")
@@ -36,7 +40,7 @@ public class RegisterDTO {
     private String taxCode;
 
     @NotBlank(message = "Số điện thoại công ty không được để trống")
-    @Pattern(regexp = "^0[0-9]{9,10}$", message = "Số điện thoại phải bắt đầu bằng số 0 và có từ 10 đến 11 chữ số.")
+    @Pattern(regexp = "^0[0-9]{9}$", message = "Số điện thoại phải bắt đầu bằng số 0 và có đúng 10 chữ số.")
     private String companyPhone; // REQUIRED - company contact number
 
     @Email(message = "Email công ty (nếu có) phải đúng định dạng hợp lệ")
