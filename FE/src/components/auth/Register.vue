@@ -1,159 +1,110 @@
 <template>
-  <div class="register-container">
-    <a href="/" class="home-icon text-white">
-      <i class="bi bi-house-door-fill fs-2"></i>
+  <div class="auth-bg">
+    <a href="/" class="home-btn">
+      <i class="bi bi-house-door-fill"></i>
     </a>
 
-    <div class="card shadow register-card">
-      <div class="card-body p-4 p-md-5">
-        
-        <h2 class="text-center mb-4 register-title">Register</h2>
-        <hr class="mb-4">
+    <div class="auth-card">
+      <!-- Card Header -->
+      <div class="card-header-bar">
+        <div class="brand-logo">UIS</div>
+        <div class="brand-sub">Tạo tài khoản mới</div>
+      </div>
 
+      <div class="card-body-inner">
         <form @submit.prevent="handleRegister" novalidate>
-          
-          <div class="mb-3 text-start">
-            <label class="form-label text-muted">Họ và Tên*</label>
-            <input 
-              type="text" 
-              class="form-control" 
-              :class="{ 'is-invalid': errors.fullName }"
-              v-model="form.fullName"
-            >
-            <span v-if="errors.fullName" class="text-danger small mt-1 d-block">
-              {{ errors.fullName }}
-            </span>
+
+          <!-- Thông tin cá nhân -->
+          <div class="section-label">Thông tin cá nhân</div>
+
+          <div class="field-group">
+            <label class="field-label">Họ và Tên <span class="required">*</span></label>
+            <input type="text" class="field-input" :class="{ 'input-error': errors.fullName }"
+              v-model="form.fullName" placeholder="Nguyễn Văn A">
+            <span v-if="errors.fullName" class="error-msg">{{ errors.fullName }}</span>
           </div>
 
-          <div class="mb-3 text-start">
-            <label class="form-label text-muted">Email*</label>
-            <input 
-              type="email" 
-              class="form-control" 
-              :class="{ 'is-invalid': errors.email }"
-              v-model="form.email"
-            >
-            <span v-if="errors.email" class="text-danger small mt-1 d-block">
-              {{ errors.email }}
-            </span>
-          </div>
-
-          <div class="mb-3 text-start">
-            <label class="form-label text-muted">Số điện thoại cá nhân*</label>
-            <input 
-              type="tel" 
-              class="form-control" 
-              :class="{ 'is-invalid': errors.phone }"
-              v-model="form.phone"
-            >
-            <span v-if="errors.phone" class="text-danger small mt-1 d-block">
-              {{ errors.phone }}
-            </span>
-          </div>
-
-          <div class="row mb-3">
-            <div class="col-md-6 text-start">
-              <label class="form-label text-muted">Mã số thuế công ty*</label>
-              <input 
-                type="text" 
-                class="form-control" 
-                :class="{ 'is-invalid': errors.taxCode }"
-                v-model="form.taxCode"
-              >
-              <span v-if="errors.taxCode" class="text-danger small mt-1 d-block">
-                {{ errors.taxCode }}
-              </span>
+          <div class="field-row">
+            <div class="field-group">
+              <label class="field-label">Email <span class="required">*</span></label>
+              <input type="email" class="field-input" :class="{ 'input-error': errors.email }"
+                v-model="form.email" placeholder="abc@gmail.com">
+              <span v-if="errors.email" class="error-msg">{{ errors.email }}</span>
             </div>
-            <div class="col-md-6 text-start">
-              <label class="form-label text-muted">Số điện thoại công ty*</label>
-              <input 
-                type="tel" 
-                class="form-control" 
-                :class="{ 'is-invalid': errors.companyPhone }"
-                v-model="form.companyPhone"
-              >
-              <span v-if="errors.companyPhone" class="text-danger small mt-1 d-block">
-                {{ errors.companyPhone }}
-              </span>
+            <div class="field-group">
+              <label class="field-label">Số điện thoại cá nhân <span class="required">*</span></label>
+              <input type="tel" class="field-input" :class="{ 'input-error': errors.phone }"
+                v-model="form.phone" placeholder="0901234567">
+              <span v-if="errors.phone" class="error-msg">{{ errors.phone }}</span>
             </div>
           </div>
 
-          <div class="mb-3 text-start">
-            <label class="form-label text-muted">Email công ty (tùy chọn)</label>
-            <input 
-              type="email" 
-              class="form-control" 
-              :class="{ 'is-invalid': errors.companyEmail }"
-              v-model="form.companyEmail"
-            >
-            <span v-if="errors.companyEmail" class="text-danger small mt-1 d-block">
-              {{ errors.companyEmail }}
-            </span>
+          <!-- Thông tin công ty -->
+          <div class="section-label" style="margin-top:8px;">Thông tin công ty</div>
+
+          <div class="field-row">
+            <div class="field-group">
+              <label class="field-label">Mã số thuế <span class="required">*</span></label>
+              <input type="text" class="field-input" :class="{ 'input-error': errors.taxCode }"
+                v-model="form.taxCode" placeholder="0123456789">
+              <span v-if="errors.taxCode" class="error-msg">{{ errors.taxCode }}</span>
+            </div>
+            <div class="field-group">
+              <label class="field-label">SĐT công ty <span class="required">*</span></label>
+              <input type="tel" class="field-input" :class="{ 'input-error': errors.companyPhone }"
+                v-model="form.companyPhone" placeholder="0281234567">
+              <span v-if="errors.companyPhone" class="error-msg">{{ errors.companyPhone }}</span>
+            </div>
           </div>
 
-          <div class="row mb-3">
-            <div class="col-6 text-start">
-              <label class="form-label text-muted">Mật khẩu*</label>
-              <div class="input-group">
-                <input 
-                  :type="showPassword ? 'text' : 'password'" 
-                  class="form-control" 
-                  :class="{ 'is-invalid': errors.password }"
-                  v-model="form.password"
-                  autocomplete="new-password"
-                >
-                <button 
-                  class="btn bg-white border border-start-0 text-secondary" 
-                  type="button" 
-                  @click="showPassword = !showPassword"
-                  :style="{ borderColor: errors.password ? '#dc3545' : '#ced4da' }"
-                >
+          <div class="field-group">
+            <label class="field-label">Email công ty <span class="optional">(tùy chọn)</span></label>
+            <input type="email" class="field-input" :class="{ 'input-error': errors.companyEmail }"
+              v-model="form.companyEmail" placeholder="info@congty.com">
+            <span v-if="errors.companyEmail" class="error-msg">{{ errors.companyEmail }}</span>
+          </div>
+
+          <!-- Mật khẩu -->
+          <div class="section-label" style="margin-top:8px;">Mật khẩu</div>
+
+          <div class="field-row">
+            <div class="field-group">
+              <label class="field-label">Mật khẩu <span class="required">*</span></label>
+              <div class="input-with-icon">
+                <input :type="showPassword ? 'text' : 'password'" class="field-input"
+                  :class="{ 'input-error': errors.password }" v-model="form.password"
+                  placeholder="••••••••" autocomplete="new-password">
+                <button type="button" class="eye-btn" @click="showPassword = !showPassword">
                   <i :class="showPassword ? 'bi bi-eye-slash' : 'bi bi-eye'"></i>
                 </button>
               </div>
-              <span v-if="errors.password" class="text-danger small mt-1 d-block">
-                {{ errors.password }}
-              </span>
+              <span v-if="errors.password" class="error-msg">{{ errors.password }}</span>
             </div>
-
-            <div class="col-6 text-start">
-              <label class="form-label text-muted">Nhập lại mật khẩu*</label>
-              <div class="input-group">
-                <input 
-                  :type="showConfirmPassword ? 'text' : 'password'" 
-                  class="form-control" 
-                  :class="{ 'is-invalid': errors.confirmPassword }"
-                  v-model="form.confirmPassword"
-                  autocomplete="new-password"
-                >
-                <button 
-                  class="btn bg-white border border-start-0 text-secondary" 
-                  type="button" 
-                  @click="showConfirmPassword = !showConfirmPassword"
-                  :style="{ borderColor: errors.confirmPassword ? '#dc3545' : '#ced4da' }"
-                >
+            <div class="field-group">
+              <label class="field-label">Nhập lại mật khẩu <span class="required">*</span></label>
+              <div class="input-with-icon">
+                <input :type="showConfirmPassword ? 'text' : 'password'" class="field-input"
+                  :class="{ 'input-error': errors.confirmPassword }" v-model="form.confirmPassword"
+                  placeholder="••••••••" autocomplete="new-password">
+                <button type="button" class="eye-btn" @click="showConfirmPassword = !showConfirmPassword">
                   <i :class="showConfirmPassword ? 'bi bi-eye-slash' : 'bi bi-eye'"></i>
                 </button>
               </div>
-              <span v-if="errors.confirmPassword" class="text-danger small mt-1 d-block">
-                {{ errors.confirmPassword }}
-              </span>
+              <span v-if="errors.confirmPassword" class="error-msg">{{ errors.confirmPassword }}</span>
             </div>
           </div>
 
-          <hr>
-          
-          <div class="d-grid gap-2 mb-3">
-            <button type="submit" class="btn btn-brown text-white py-2" :disabled="isLoading">
-              {{ isLoading ? 'Đang đăng ký...' : 'Register' }}
-            </button>
+          <button type="submit" class="btn-primary" :disabled="isLoading">
+            <span v-if="isLoading" class="spinner-border spinner-border-sm me-2"></span>
+            {{ isLoading ? 'Đang đăng ký...' : 'Đăng ký tài khoản' }}
+          </button>
+
+          <div class="footer-links">
+            <span class="footer-text">Đã có tài khoản?</span>
+            <span class="divider">|</span>
+            <router-link to="/login" class="footer-link">Đăng nhập</router-link>
           </div>
 
-          <div class="text-center text-secondary mt-4 footer-links">
-            <span class="footer-link">Already have an account? </span>
-            <span>|</span>
-            <router-link class="footer-link text-decoration-none text-secondary" to="/login">Login</router-link>
-          </div>
         </form>
       </div>
     </div>
@@ -171,105 +122,58 @@ const showPassword = ref(false);
 const showConfirmPassword = ref(false);
 
 const form = reactive({
-  fullName: '',
-  email: '',
-  phone: '',
-  taxCode: '',
-  companyPhone: '',
-  companyEmail: '',
-  password: '',
-  confirmPassword: ''
+  fullName: '', email: '', phone: '',
+  taxCode: '', companyPhone: '', companyEmail: '',
+  password: '', confirmPassword: ''
 });
 
 const isLoading = ref(false);
-const errors = ref({}); 
+const errors = ref({});
 
 const handleRegister = async () => {
-  errors.value = {}; 
+  errors.value = {};
   let hasError = false;
 
-  if (!form.fullName) {
-    errors.value.fullName = 'Vui lòng nhập họ và tên';
-    hasError = true;
-  }
-  if (!form.email) {
-    errors.value.email = 'Vui lòng nhập email';
-    hasError = true;
-  }
+  if (!form.fullName) { errors.value.fullName = 'Vui lòng nhập họ và tên'; hasError = true; }
+  if (!form.email) { errors.value.email = 'Vui lòng nhập email'; hasError = true; }
   if (!form.phone) {
-    errors.value.phone = 'Vui lòng nhập số điện thoại cá nhân';
-    hasError = true;
+    errors.value.phone = 'Vui lòng nhập số điện thoại cá nhân'; hasError = true;
   } else if (!/^0[0-9]{9}$/.test(form.phone)) {
-    errors.value.phone = 'Số điện thoại phải bắt đầu bằng số 0 và có đúng 10 chữ số';
-    hasError = true;
+    errors.value.phone = 'Số điện thoại phải bắt đầu bằng 0 và có đúng 10 chữ số'; hasError = true;
   }
-  if (!form.taxCode) {
-    errors.value.taxCode = 'Vui lòng nhập mã số thuế';
-    hasError = true;
-  }
-  if (!form.companyPhone) {
-    errors.value.companyPhone = 'Vui lòng nhập số điện thoại';
-    hasError = true;
-  }
-  if (!form.password) {
-    errors.value.password = 'Vui lòng nhập mật khẩu';
-    hasError = true;
-  }
-  
+  if (!form.taxCode) { errors.value.taxCode = 'Vui lòng nhập mã số thuế'; hasError = true; }
+  if (!form.companyPhone) { errors.value.companyPhone = 'Vui lòng nhập số điện thoại'; hasError = true; }
+  if (!form.password) { errors.value.password = 'Vui lòng nhập mật khẩu'; hasError = true; }
   if (!form.confirmPassword) {
-    errors.value.confirmPassword = 'Vui lòng nhập lại mật khẩu';
-    hasError = true;
+    errors.value.confirmPassword = 'Vui lòng nhập lại mật khẩu'; hasError = true;
   } else if (form.password !== form.confirmPassword) {
-    errors.value.confirmPassword = 'Mật khẩu nhập lại không khớp';
-    hasError = true;
+    errors.value.confirmPassword = 'Mật khẩu nhập lại không khớp'; hasError = true;
   }
 
   if (hasError) {
-    Swal.fire({
-      icon: 'error',
-      title: 'Dữ liệu không hợp lệ',
-      text: 'Vui lòng điền đầy đủ thông tin'
-    });
-    return; 
+    Swal.fire({ icon: 'error', title: 'Dữ liệu không hợp lệ', text: 'Vui lòng kiểm tra lại thông tin' });
+    return;
   }
 
   isLoading.value = true;
-
   try {
     const registerData = {
-      email: form.email,
-      password: form.password,
-      fullName: form.fullName,
-      phone: form.phone,
-      taxCode: form.taxCode,
-      companyPhone: form.companyPhone,
-      companyEmail: form.companyEmail || null
+      email: form.email, password: form.password, fullName: form.fullName,
+      phone: form.phone, taxCode: form.taxCode,
+      companyPhone: form.companyPhone, companyEmail: form.companyEmail || null
     };
-
     const response = await authAPI.register(registerData);
-
-    const successMessage = response.data?.message || 'Đăng ký thành công! Vui lòng kiểm tra email để kích hoạt.';
-
+    const successMessage = response.data?.message || 'Vui lòng kiểm tra email để kích hoạt tài khoản.';
     Swal.fire({
-      icon: 'success',
-      title: 'Đăng ký thành công!',
-      text: successMessage,
-      showConfirmButton: true,
-      confirmButtonText: 'Đã hiểu'
-    }).then(() => {
-      router.push('/login');
-    });
-
+      icon: 'success', title: 'Đăng ký thành công!',
+      text: successMessage, confirmButtonText: 'Đã hiểu'
+    }).then(() => { router.push('/login'); });
   } catch (error) {
-    errors.value = {};
-
     if (error.response?.status === 400 && error.response?.data?.details) {
       errors.value = error.response.data.details;
     }
-
     Swal.fire({
-      icon: 'error',
-      title: 'Đăng ký thất bại',
+      icon: 'error', title: 'Đăng ký thất bại',
       text: error.response?.data?.message || 'Không thể kết nối đến máy chủ',
     });
   } finally {
@@ -279,112 +183,104 @@ const handleRegister = async () => {
 </script>
 
 <style scoped>
-/* Màu sắc theo thiết kế */
-.register-container {
-  min-height: 100vh;
-  width: 100%;
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+.auth-bg {
+  min-height: 100vh; width: 100%;
+  background:
+    linear-gradient(135deg, rgba(15,23,42,0.82) 0%, rgba(30,58,138,0.78) 100%),
+    url('@/assets/picture/HomePageimg/gia-cong-co-khi-chinh-xac.jpg') center / cover no-repeat;
+  display: flex; justify-content: center; align-items: center;
+  position: relative; padding: 24px 16px;
+  font-family: 'Inter', sans-serif;
+}
+
+.home-btn {
+  position: absolute; top: 20px; left: 20px;
+  color: rgba(255,255,255,0.85); font-size: 1.4rem;
+  text-decoration: none; transition: color 0.2s, transform 0.2s;
+}
+.home-btn:hover { color: #fff; transform: scale(1.15); }
+
+.auth-card {
+  width: 100%; max-width: 600px;
+  background: #fff; border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3); overflow: hidden;
+}
+
+.card-header-bar {
   background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  position: relative;
-  padding: 20px;
+  padding: 24px 36px; text-align: center;
+}
+.brand-logo { font-size: 26px; font-weight: 700; color: #fff; letter-spacing: 3px; }
+.brand-sub { font-size: 12px; color: #93c5fd; margin-top: 4px; }
+
+.card-body-inner { padding: 28px 36px 32px; }
+
+.section-label {
+  font-size: 11px; font-weight: 700; color: #1e3a8a;
+  text-transform: uppercase; letter-spacing: 1px;
+  border-bottom: 2px solid #e0e7ff;
+  padding-bottom: 6px; margin-bottom: 16px;
 }
 
-.home-icon {
-  position: absolute;
-  top: 20px;
-  left: 20px;
-  cursor: pointer;
-  transition: transform 0.2s;
+.field-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
 }
 
-.home-icon:hover {
-  transform: scale(1.1);
-}
+.field-group { margin-bottom: 16px; }
 
-.register-card {
-  width: 100%;
-  max-width: 550px; /* Rộng hơn một chút để chứa 2 cột password */
-  border: none;
-  border-radius: 8px;
-  background-color: #fdfdfd;
+.field-label {
+  display: block; font-size: 13px; font-weight: 700;
+  color: #1e293b; margin-bottom: 6px; letter-spacing: 0.2px;
 }
+.required { color: #ef4444; margin-left: 2px; }
+.optional { font-weight: 400; color: #94a3b8; font-size: 12px; }
 
-.register-title {
-  font-weight: 500;
-  color: #333;
+.field-input {
+  width: 100%; padding: 10px 13px;
+  border: 1.5px solid #e2e8f0; border-radius: 8px;
+  font-size: 14px; color: #1e293b; background: #f8fafc;
+  transition: all 0.2s; outline: none; box-sizing: border-box;
 }
-
-/* Tùy chỉnh Input */
-.form-control {
-  border: 1px solid #ced4da;
-  padding: 10px;
+.field-input:focus {
+  border-color: #1e3a8a; background: #fff;
+  box-shadow: 0 0 0 3px rgba(30,58,138,0.12);
 }
+.field-input.input-error { border-color: #ef4444; background: #fff5f5; }
 
-/* Nút bấm */
-.btn-brown {
-  background-color: #1e3a8a ;
-  border: none;
+.input-with-icon { position: relative; }
+.input-with-icon .field-input { padding-right: 40px; }
+.eye-btn {
+  position: absolute; right: 11px; top: 50%;
+  transform: translateY(-50%); background: none; border: none;
+  color: #94a3b8; cursor: pointer; font-size: 15px; transition: color 0.2s;
 }
+.eye-btn:hover { color: #1e3a8a; }
+.error-msg { display: block; font-size: 12px; color: #ef4444; margin-top: 4px; }
 
-.btn-brown:hover {
-  background-color: #182f6e;
+.btn-primary {
+  display: block; width: 100%; padding: 12px;
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+  color: #fff; font-size: 15px; font-weight: 600;
+  border: none; border-radius: 8px; cursor: pointer;
+  transition: opacity 0.2s, transform 0.1s;
+  margin-top: 8px; margin-bottom: 20px;
 }
+.btn-primary:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
+.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 
-.btn-orange {
-  background-color: #0f172a;
-  border: none;
-}
-
-.btn-orange:hover {
-  background-color: #080c16;
-}
-
-/* Footer Links */
 .footer-links {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
+  display: flex; align-items: center; justify-content: center;
+  gap: 6px; font-size: 13px;
 }
+.footer-text { color: #64748b; }
+.footer-link { color: #64748b; text-decoration: none; font-weight: 600; transition: color 0.2s; }
+.footer-link:hover { color: #1e3a8a; text-decoration: underline; }
+.divider { color: #cbd5e1; }
 
-.footer-text {
-  display: inline;
-  font-size: 0.95rem;
-}
-
-.footer-link {
-  display: inline;
-  font-size: 0.95rem;
-  cursor: pointer;
-  transition: color 0.2s;
-  color: #6c757d !important;
-}
-
-.footer-link:hover {
-  color: #3E2723 !important;
-  text-decoration: underline !important;
-}
-
-/* Link Login */
-.orange-link {
-  color: #0f172a;
-}
-
-.orange-link:hover {
-  text-decoration: underline !important;
-}
-
-hr {
-  opacity: 0.1;
-}
-
-/* Responsive cho mobile: Password xuống hàng thay vì chia cột quá hẹp */
-@media (max-width: 576px) {
-  .col-6 {
-    width: 100%;
-    margin-bottom: 1rem;
-  }
+@media (max-width: 540px) {
+  .field-row { grid-template-columns: 1fr; }
+  .card-body-inner { padding: 22px 20px 28px; }
 }
 </style>
