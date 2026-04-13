@@ -2,6 +2,7 @@ package org.example.config;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -83,5 +84,17 @@ public class GlobalExceptionHandler {
         errorResponse.put("details", validationErrors);
 
         return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(RedisConnectionFailureException.class)
+    public ResponseEntity<Map<String, Object>> handleRedisConnectionFailure(RedisConnectionFailureException ex) {
+        Map<String, Object> errorResponse = new HashMap<>();
+
+        errorResponse.put("timestamp", LocalDateTime.now());
+        errorResponse.put("status", HttpStatus.SERVICE_UNAVAILABLE.value());
+        errorResponse.put("error", "Service Unavailable");
+        errorResponse.put("message", "Dịch vụ xác thực tạm thời gián đoạn (Redis). Vui lòng thử lại sau ít phút.");
+
+        return new ResponseEntity<>(errorResponse, HttpStatus.SERVICE_UNAVAILABLE);
     }
 }
