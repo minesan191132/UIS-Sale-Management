@@ -1,77 +1,69 @@
 <template>
-  <div class="login-container">
-    <a href="/" class="home-icon text-white">
-      <i class="bi bi-house-door-fill fs-2"></i>
+  <div class="auth-bg">
+    <a href="/" class="home-btn">
+      <i class="bi bi-house-door-fill"></i>
     </a>
 
-    <div class="card shadow login-card">
-      <div class="card-body p-4 p-md-5">
-        
-        <h2 class="text-center mb-4 login-title">Login</h2>
-        <hr class="mb-4">
+    <div class="auth-card">
+      <!-- Card Header -->
+      <div class="card-header-bar">
+        <div class="brand-logo">UIS</div>
+        <div class="brand-sub">Đăng nhập hệ thống</div>
+      </div>
 
+      <div class="card-body-inner">
         <form @submit.prevent="handleLogin" novalidate>
-          
-          <div class="mb-3 text-start">
-            <label for="email" class="form-label text-muted">Email</label>
-            <input 
-              type="email" 
-              class="form-control" 
-              :class="{ 'is-invalid': errors.email }"
-              id="email" 
+
+          <div class="field-group">
+            <label for="email" class="field-label">Email</label>
+            <input
+              type="email"
+              class="field-input"
+              :class="{ 'input-error': errors.email }"
+              id="email"
               v-model="email"
+              placeholder="Nhập địa chỉ email"
             >
-            <span v-if="errors.email" class="text-danger small mt-1 d-block">
-              {{ errors.email }}
-            </span>
+            <span v-if="errors.email" class="error-msg">{{ errors.email }}</span>
           </div>
 
-          <div class="mb-3 text-start">
-            <label for="password" class="form-label text-muted">Password</label>
-            <div class="input-group">
-              <input 
-                :type="showPassword ? 'text' : 'password'" 
-                class="form-control" 
-                :class="{ 'is-invalid': errors.password }"
-                id="password" 
+          <div class="field-group">
+            <label for="password" class="field-label">Mật khẩu</label>
+            <div class="input-with-icon">
+              <input
+                :type="showPassword ? 'text' : 'password'"
+                class="field-input"
+                :class="{ 'input-error': errors.password }"
+                id="password"
                 v-model="password"
+                placeholder="Nhập mật khẩu"
                 autocomplete="new-password"
               >
-              <button 
-                class="btn bg-white border border-start-0 text-secondary" 
-                type="button" 
-                @click="showPassword = !showPassword"
-                :style="{ borderColor: errors.password ? '#dc3545' : '#ced4da' }"
-              >
+              <button type="button" class="eye-btn" @click="showPassword = !showPassword">
                 <i :class="showPassword ? 'bi bi-eye-slash' : 'bi bi-eye'"></i>
               </button>
             </div>
-            <span v-if="errors.password" class="text-danger small mt-1 d-block">
-              {{ errors.password }}
-            </span>
+            <span v-if="errors.password" class="error-msg">{{ errors.password }}</span>
           </div>
 
-          <div class="mb-4 text-start">
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" id="rememberMe" v-model="rememberMe">
-              <label class="form-check-label text-secondary" for="rememberMe">
-                Remember Me
-              </label>
-            </div>
-          </div>
-<hr>
-          <div class="d-grid gap-2 mb-3">
-            <button type="submit" class="btn btn-brown text-white py-2" :disabled="isLoading">
-              {{ isLoading ? 'Đang đăng nhập...' : 'Login' }}
-            </button>
+          <div class="remember-row">
+            <label class="checkbox-label">
+              <input type="checkbox" v-model="rememberMe">
+              <span>Ghi nhớ đăng nhập</span>
+            </label>
           </div>
 
-          <div class="text-center text-secondary mt-4 footer-links d-flex flex-wrap justify-content-center">
-            <router-link class="text-decoration-none text-secondary custom-link" to="/forgot-password">Forgot password?</router-link>
-            <span class="mx-2 d-none d-sm-inline">|</span>
-            <router-link class="text-decoration-none text-secondary custom-link" to="/resend-verification">Gửi lại email</router-link>
-            <span class="mx-2 d-none d-sm-inline">|</span>
-            <router-link class="text-decoration-none text-secondary custom-link font-weight-bold" to="/register">Register</router-link>
+          <button type="submit" class="btn-primary" :disabled="isLoading">
+            <span v-if="isLoading" class="spinner-border spinner-border-sm me-2"></span>
+            {{ isLoading ? 'Đang đăng nhập...' : 'Đăng nhập' }}
+          </button>
+
+          <div class="footer-links">
+            <router-link to="/forgot-password" class="footer-link">Quên mật khẩu?</router-link>
+            <span class="divider">|</span>
+            <router-link to="/resend-verification" class="footer-link">Gửi lại email</router-link>
+            <span class="divider">|</span>
+            <router-link to="/register" class="footer-link">Đăng ký</router-link>
           </div>
 
         </form>
@@ -94,8 +86,7 @@ const email = ref('');
 const password = ref('');
 const rememberMe = ref(false);
 const isLoading = ref(false);
-
-const errors = ref({}); 
+const errors = ref({});
 const showPassword = ref(false);
 
 onMounted(() => {
@@ -121,55 +112,27 @@ const handleLogin = async () => {
   errors.value = {};
   let hasError = false;
 
-  if (!email.value) {
-    errors.value.email = 'Vui lòng nhập email';
-    hasError = true;
-  }
-  if (!password.value) {
-    errors.value.password = 'Vui lòng nhập mật khẩu';
-    hasError = true;
-  }
+  if (!email.value) { errors.value.email = 'Vui lòng nhập email'; hasError = true; }
+  if (!password.value) { errors.value.password = 'Vui lòng nhập mật khẩu'; hasError = true; }
 
-  if (hasError) {
-    Swal.fire({
-      icon: 'error',
-      title: 'Đăng nhập thất bại',
-      text: 'Vui lòng điền đầy đủ thông tin vào các ô màu đỏ'
-    });
-    return;
-  }
+  if (hasError) return;
 
   isLoading.value = true;
-
   try {
     const response = await authAPI.login(email.value, password.value);
-    
     saveAuthData(response, rememberMe.value);
-
     loadCart();
-
     Swal.fire({
-      icon: 'success',
-      title: 'Đăng nhập thành công!',
-      text: `Chào mừng ${response.fullName}`,
-      timer: 1500,
-      showConfirmButton: false,
+      icon: 'success', title: 'Đăng nhập thành công!',
+      text: `Chào mừng ${response.fullName}`, timer: 1500, showConfirmButton: false,
     });
-
-    setTimeout(() => {
-      router.push('/admin/dashboard');
-    }, 1500);
-
+    setTimeout(() => { router.push('/admin/dashboard'); }, 1500);
   } catch (error) {
-    errors.value = {};
-
     if (error.response?.status === 400 && error.response?.data?.details) {
       errors.value = error.response.data.details;
     }
-
     Swal.fire({
-      icon: 'error',
-      title: 'Đăng nhập thất bại',
+      icon: 'error', title: 'Đăng nhập thất bại',
       text: error.response?.data?.message || 'Không thể kết nối đến máy chủ',
     });
   } finally {
@@ -177,106 +140,181 @@ const handleLogin = async () => {
   }
 };
 </script>
-<style scoped>
-/* Màu sắc chủ đạo từ hình ảnh */
-:root {
-  --bg-orange: #F57F17; /* Màu nền cam */
-  --btn-brown: #3E2723; /* Màu nút Login */
-  --btn-google-orange: #E67E22; /* Màu nút Google */
-}
 
-.login-container {
+<style scoped>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* ===== BACKGROUND ===== */
+.auth-bg {
   min-height: 100vh;
   width: 100%;
-  background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
-  background-size: cover;
+  background:
+    linear-gradient(135deg, rgba(15,23,42,0.82) 0%, rgba(30,58,138,0.78) 100%),
+    url('@/assets/picture/HomePageimg/gia-cong-co-khi-chinh-xac.jpg') center / cover no-repeat;
   display: flex;
   justify-content: center;
   align-items: center;
   position: relative;
+  padding: 24px 16px;
+  font-family: 'Inter', sans-serif;
 }
 
-.home-icon {
+/* ===== HOME BUTTON ===== */
+.home-btn {
   position: absolute;
-  top: 20px;
-  left: 20px;
-  cursor: pointer;
-  transition: transform 0.2s;
+  top: 20px; left: 20px;
+  color: rgba(255,255,255,0.85);
+  font-size: 1.4rem;
+  text-decoration: none;
+  transition: color 0.2s, transform 0.2s;
 }
+.home-btn:hover { color: #fff; transform: scale(1.15); }
 
-.home-icon:hover {
-  transform: scale(1.1);
-}
-
-.login-card {
+/* ===== CARD ===== */
+.auth-card {
   width: 100%;
-  max-width: 450px;
+  max-width: 460px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  overflow: hidden;
+}
+
+/* ===== CARD HEADER BAR ===== */
+.card-header-bar {
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+  padding: 28px 36px;
+  text-align: center;
+}
+.brand-logo {
+  font-size: 26px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 3px;
+}
+.brand-sub {
+  font-size: 12px;
+  color: #93c5fd;
+  margin-top: 4px;
+  font-weight: 400;
+  letter-spacing: 0.5px;
+}
+
+/* ===== CARD BODY ===== */
+.card-body-inner {
+  padding: 32px 36px;
+}
+
+/* ===== FIELDS ===== */
+.field-group {
+  margin-bottom: 20px;
+}
+
+.field-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 6px;
+  letter-spacing: 0.3px;
+}
+
+.field-input {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #1e293b;
+  background: #f8fafc;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+  outline: none;
+  box-sizing: border-box;
+}
+.field-input:focus {
+  border-color: #1e3a8a;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(30,58,138,0.12);
+}
+.field-input.input-error {
+  border-color: #ef4444;
+  background: #fff5f5;
+}
+
+.input-with-icon {
+  position: relative;
+}
+.input-with-icon .field-input {
+  padding-right: 42px;
+}
+.eye-btn {
+  position: absolute;
+  right: 12px; top: 50%;
+  transform: translateY(-50%);
+  background: none; border: none;
+  color: #94a3b8; cursor: pointer;
+  padding: 0; font-size: 15px;
+  transition: color 0.2s;
+}
+.eye-btn:hover { color: #1e3a8a; }
+
+.error-msg {
+  display: block;
+  font-size: 12px;
+  color: #ef4444;
+  margin-top: 5px;
+}
+
+/* ===== REMEMBER ROW ===== */
+.remember-row {
+  margin-bottom: 22px;
+}
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #475569;
+  cursor: pointer;
+  user-select: none;
+}
+.checkbox-label input { accent-color: #1e3a8a; width: 15px; height: 15px; cursor: pointer; }
+
+/* ===== PRIMARY BUTTON ===== */
+.btn-primary {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
   border: none;
   border-radius: 8px;
-  background-color: #fdfdfd; /* Màu kem nhạt giống ảnh */
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.1s;
+  letter-spacing: 0.3px;
+  margin-bottom: 24px;
 }
+.btn-primary:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
+.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 
-.login-title {
-  color: #333;
-  font-weight: 500;
-}
-
-/* Custom Input Styles */
-.form-control {
-  background-color: #fff;
-  border: 1px solid #ced4da;
-  padding: 10px 15px;
-}
-
-.form-control:focus {
-  box-shadow: none;
-  border-color: #E67E22;
-}
-
-/* Custom Button Styles */
-.btn-brown {
-  background-color: #1e3a8a ;
-  border: none;
-  font-weight: 500;
-}
-
-.btn-brown:hover {
-  background-color: #182f6e;
-  color: #fff;
-}
-
-.btn-orange {
-  background-color: #0f172a; /* Màu cam đậm hơn nền một chút */
-  border: none;
-  font-weight: 500;
-}
-
-.btn-orange:hover {
-  background-color: #0b1730;
-  color: #fff;
-}
-
+/* ===== FOOTER LINKS ===== */
 .footer-links {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 13px;
 }
-
-.footer-links a,
-.footer-links router-link {
-  display: inline;
-  font-size: 0.95rem;
+.footer-link {
+  color: #64748b;
+  text-decoration: none;
+  font-weight: 500;
   transition: color 0.2s;
 }
-
-.footer-links a:hover,
-.footer-links router-link:hover {
-  color: #3E2723 !important;
-  text-decoration: underline !important;
-}
-
-hr {
-  opacity: 0.1;
-}
+.footer-link:hover { color: #1e3a8a; text-decoration: underline; }
+.divider { color: #cbd5e1; }
 </style>
