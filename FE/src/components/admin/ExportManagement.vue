@@ -90,10 +90,10 @@
               <th style="width: 50px;" class="text-center py-3">
                 <i class="bi bi-chevron-down text-muted" style="font-size: 0.8rem;"></i>
               </th>
-              <th class="py-3 text-muted fw-bold text-uppercase" style="font-size: 0.8rem; width: 180px;">Mã đơn</th>
-              <th class="py-3 text-muted fw-bold text-uppercase" style="font-size: 0.8rem;">Khách hàng</th>
-              <th class="py-3 text-muted fw-bold text-uppercase text-center" style="font-size: 0.8rem;">Sản phẩm</th>
-              <th class="py-3 text-muted fw-bold text-uppercase text-center" style="font-size: 0.8rem;">Review</th>
+              <th class="py-3 text-muted fw-bold text-uppercase" style="font-size: 0.8rem; width: 190px;">Mã đơn</th>
+              <th class="py-3 text-muted fw-bold text-uppercase" style="font-size: 0.8rem; width: 230px;">Khách hàng</th>
+              <th class="py-3 text-muted fw-bold text-uppercase text-center" style="font-size: 0.8rem; width: 120px;">Sản phẩm</th>
+              <th class="py-3 text-muted fw-bold text-uppercase text-center" style="font-size: 0.8rem; width: 110px;">Review</th>
               <th class="py-3 text-muted fw-bold text-uppercase text-center" style="font-size: 0.8rem; width: 150px;">Trạng thái</th>
               <th class="py-3 text-muted fw-bold text-uppercase text-end" style="font-size: 0.8rem; width: 150px;">Giá trị</th>
               <th class="py-3 text-muted fw-bold text-uppercase text-end" style="font-size: 0.8rem; width: 110px;">Ngày tạo</th>
@@ -106,7 +106,7 @@
                 <i class="bi text-navy fw-bold" :class="expandedOrderId === order.id ? 'bi-chevron-down' : 'bi-chevron-right'" style="font-size: 0.9rem;"></i>
               </td>
               <td class="py-3">
-                <span class="badge bg-light text-navy border px-2 py-1 fw-bold font-monospace fs-6 shadow-sm">
+                <span class="badge bg-light text-navy border px-2 py-1 fw-bold font-monospace shadow-sm order-code-badge" :title="order.orderNumber">
                   {{ order.orderNumber }}
                 </span>
               </td>
@@ -120,10 +120,13 @@
                 </span>
               </td>
               <td class="py-3 text-center">
-                <span v-if="order.status === 'PENDING_QUOTE'" class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-50 px-2 py-1">
+                <span
+                  class="badge px-2 py-1 review-progress-badge"
+                  :class="order.status === 'PENDING_QUOTE'
+                    ? 'bg-warning bg-opacity-10 text-warning border border-warning border-opacity-50'
+                    : 'bg-light text-secondary border border-secondary border-opacity-25'">
                   {{ getReviewProgress(order) }}
                 </span>
-                <span v-else class="text-muted small">—</span>
               </td>
               <td class="py-3 text-center">
                 <div class="d-flex align-items-center justify-content-center gap-2">
@@ -657,6 +660,25 @@ const resetFilters = () => { searchKeyword.value = ''; filterStatus.value = ''; 
 const onDateFilterChanged = async () => { if (dateFrom.value && dateTo.value && dateFrom.value > dateTo.value) { await Swal.fire('Khoảng ngày không hợp lệ', 'Từ ngày phải nhỏ hơn hoặc bằng Đến ngày', 'warning'); return; } await loadOrders(0); };
 const escapeHtml = (value) => { if (!value) return ''; return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;'); };
 
+const showStatusToast = (title, text = '') => {
+  return Swal.fire({
+    toast: true,
+    position: 'top-end',
+    icon: 'success',
+    title,
+    text,
+    showConfirmButton: false,
+    timer: 2400,
+    timerProgressBar: true,
+    scrollbarPadding: false,
+    customClass: {
+      popup: 'status-toast-popup',
+      title: 'status-toast-title',
+      htmlContainer: 'status-toast-text',
+    },
+  });
+};
+
 const openAdminImportDialog = async () => {
   if (!companiesForImport.value.length) await loadCompaniesForImport();
   if (!companiesForImport.value.length) { Swal.fire('Lỗi', 'Không tải được danh sách công ty', 'error'); return; }
@@ -694,7 +716,7 @@ const submitAdminImport = async (companyId, file) => {
     await apiClient.post('/orders/admin-import', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
     selectedItemIds.value = []; expandedOrderId.value = null; orderDetail.value = null;
     await loadOrders(0);
-    Swal.fire('Thành công', 'Import vào bảng tạm thành công. Đơn đang chờ duyệt.', 'success');
+    showStatusToast('Import thành công', 'Đơn đang chờ duyệt.');
   } catch (error) { Swal.fire('Lỗi', error.response?.data?.error || 'Không thể import đơn hàng', 'error'); } 
   finally { importing.value = false; }
 };
@@ -932,7 +954,7 @@ const approveOrder = async (order) => {
   try {
     if (order?.isTempImport) { await apiClient.post(`/orders/imports/${order.id}/approve`); } 
     else { await apiClient.put(`/orders/${order.id}/status`, null, { params: { status: 'PENDING_QUOTE' } }); }
-    Swal.fire('Thành công', 'Đơn hàng đã chuyển sang trạng thái Chờ báo giá', 'success');
+    showStatusToast('Đã duyệt đơn', 'Đơn hàng đã chuyển sang Chờ báo giá.');
     loadOrders(currentPage.value); bsModal?.hide();
   } catch (error) { Swal.fire('Lỗi', error.response?.data?.error || 'Không thể duyệt đơn hàng', 'error'); }
 };
@@ -944,7 +966,7 @@ const rejectOrder = async (order) => {
   if (!result.isConfirmed) return;
   try {
     await apiClient.put(`/orders/imports/${order.id}/cancel`, { reason: (result.value || '').trim() });
-    await Swal.fire('Đã từ chối', 'Đơn hàng chờ duyệt đã được từ chối.', 'success');
+    await showStatusToast('Đã từ chối', 'Đơn hàng chờ duyệt đã được từ chối.');
     await loadOrders(currentPage.value); bsModal?.hide();
   } catch (error) { Swal.fire('Lỗi', error.response?.data?.error || 'Không thể từ chối', 'error'); }
 };
@@ -960,7 +982,7 @@ const cancelRegularOrder = async (order) => {
   if (!result.isConfirmed) return;
   try {
     await apiClient.put(`/orders/${order.id}/status`, { reason: (result.value || '').trim() }, { params: { status: 'CANCELLED' } });
-    await Swal.fire('Thành công', `Đơn ${order.orderNumber} đã được hủy.`, 'success');
+    await showStatusToast('Đã hủy đơn', `Đơn ${order.orderNumber} đã được hủy.`);
     await loadOrders(currentPage.value); bsModal?.hide();
   } catch (error) { Swal.fire('Lỗi', error.response?.data?.error || 'Không thể hủy đơn', 'error'); }
 };
@@ -973,7 +995,7 @@ const submitQuote = async (order) => {
   if (notes !== undefined) {
     try {
       await apiClient.put(`/orders/${order.id}/quote`, { notes: notes || null });
-      Swal.fire('Thành công', 'Báo giá đã được gửi', 'success');
+      showStatusToast('Đã gửi báo giá', 'Báo giá đã được gửi cho khách hàng.');
       bsModal?.hide(); loadOrders(currentPage.value);
     } catch (error) { Swal.fire('Lỗi', error.response?.data?.error || 'Không thể gửi báo giá', 'error'); }
   }
@@ -1013,6 +1035,8 @@ const openContractPreview = async (order) => {
 
   try {
     const contract = await contractAPI.getOrderContract(order.id);
+    const orderDateLabel = contract?.orderInfo?.orderDate ? formatDateShort(contract.orderInfo.orderDate) : '—';
+    const expectedReceivedDateLabel = contract?.orderInfo?.deliveryDate ? formatDateShort(contract.orderInfo.deliveryDate) : '—';
     const milestoneRows = (contract?.milestones || []).map((milestone) => `
       <tr>
         <td>${escapeHtml(milestone.milestoneName || 'Mốc')}</td>
@@ -1032,6 +1056,17 @@ const openContractPreview = async (order) => {
         <div style="text-align:left; max-height:65vh; overflow:auto;">
           <div style="margin-bottom:10px; font-size: 13px; color:#64748b;">
             Trạng thái: <strong>${escapeHtml(contract?.status || 'UNKNOWN')}</strong>
+          </div>
+
+          <div style="display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:8px; margin-bottom:12px;">
+            <div style="border:1px solid #e2e8f0; border-radius:10px; padding:8px 10px; background:#f8fafc;">
+              <div style="font-size:12px; color:#64748b; margin-bottom:2px;">Ngày đặt hàng</div>
+              <strong>${escapeHtml(orderDateLabel)}</strong>
+            </div>
+            <div style="border:1px solid #e2e8f0; border-radius:10px; padding:8px 10px; background:#f8fafc;">
+              <div style="font-size:12px; color:#64748b; margin-bottom:2px;">Ngày nhận hàng dự kiến</div>
+              <strong>${escapeHtml(expectedReceivedDateLabel)}</strong>
+            </div>
           </div>
 
           <div style="border:1px solid #e2e8f0; border-radius:10px; overflow:hidden; margin-bottom:12px;">
@@ -1098,7 +1133,7 @@ const verifyPendingMilestone = async (order) => {
   verifyingMilestoneOrderId.value = order.id;
   try {
     const verifyResult = await paymentAPI.verifyMilestone(milestone.id);
-    await Swal.fire('Thành công', verifyResult?.message || 'Đã xác nhận thanh toán mốc.', 'success');
+    await showStatusToast('Đã xác nhận thanh toán', verifyResult?.message || 'Đã xác nhận thanh toán mốc.');
     await loadOrders(currentPage.value);
 
     if (selectedOrder.value?.id === order.id) {
@@ -1119,7 +1154,7 @@ const startProcessing = async (order) => {
   if (result.isConfirmed) {
     try {
       await apiClient.post(`/orders/${order.id}/payment-confirm`);
-      Swal.fire('Thành công!', 'Đơn hàng chuyển sang Đang gia công', 'success');
+      showStatusToast('Đã bắt đầu gia công', 'Đơn hàng đã chuyển sang Đang gia công.');
       loadOrders(currentPage.value);
     } catch (error) { Swal.fire('Lỗi', error.response?.data?.error || 'Không thể cập nhật', 'error'); }
   }
@@ -1134,7 +1169,7 @@ const finishProcessing = async (order) => {
   finishing.value = true;
   try {
     await apiClient.put(`/orders/${order.id}/finish-processing`);
-    Swal.fire('Thành công!', `Đơn ${order.orderNumber} chờ thanh toán đợt 2`, 'success');
+    showStatusToast('Gia công hoàn tất', `Đơn ${order.orderNumber} đang chờ thanh toán đợt 2.`);
     loadOrders(currentPage.value);
   } catch (error) { Swal.fire('Lỗi', error.response?.data?.error || 'Lỗi xử lý', 'error'); } 
   finally { finishing.value = false; }
@@ -1146,7 +1181,7 @@ const markAsShipping = async (order) => {
   shipping.value = true;
   try {
     await apiClient.put(`/orders/${order.id}/ship`);
-    await Swal.fire('Thành công', `Đơn ${order.orderNumber} đang giao hàng`, 'success');
+    await showStatusToast('Đã bàn giao vận chuyển', `Đơn ${order.orderNumber} đang giao hàng.`);
     await loadOrders(currentPage.value); bsModal?.hide();
   } catch (error) { Swal.fire('Lỗi', error.response?.data?.error || 'Không thể chuyển trạng thái', 'error'); } 
   finally { shipping.value = false; }
@@ -1212,7 +1247,7 @@ const getStatusBadgeClass = (status) => {
     AWAITING_CONTRACT: 'bg-info bg-opacity-10 text-info border border-info border-opacity-25',
     AWAITING_PAYMENT: 'bg-info bg-opacity-10 text-info border border-info border-opacity-25',
     DEPOSITED: 'bg-success bg-opacity-10 text-success border border-success border-opacity-25',
-    PROCESSING: 'bg-navy bg-opacity-10 text-navy border border-navy border-opacity-25',
+    PROCESSING: 'bg-navy text-white border border-navy',
     AWAITING_REMAINING_PAYMENT: 'bg-warning bg-opacity-10 text-warning border border-warning border-opacity-50',
     AWAITING_DELIVERY: 'bg-info bg-opacity-10 text-info border border-info border-opacity-25',
     SHIPPING: 'bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25',
@@ -1285,6 +1320,21 @@ const formatWeight = (weight) => { if (weight === null || weight === undefined |
 .table-row-hover:hover { transform: translateX(4px); border-color: #cbd5e1 !important; box-shadow: 0 4px 12px rgba(0,0,0,0.05) !important; }
 .table-active-row { border-left: 4px solid #0b2e59 !important; background-color: #f8fafc !important; }
 
+.order-code-badge {
+  display: inline-block;
+  max-width: 100%;
+  font-size: 0.82rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.review-progress-badge {
+  min-width: 58px;
+  text-align: center;
+}
+
 /* Form Input */
 .custom-input { border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.6rem 1rem; transition: 0.2s; box-shadow: none !important; }
 .custom-input:focus { border-color: #0b2e59 !important; box-shadow: 0 0 0 3px rgba(11, 46, 89, 0.1) !important; background-color: #fff; }
@@ -1347,6 +1397,24 @@ const formatWeight = (weight) => { if (weight === null || weight === undefined |
 .modal-tab-fade-enter-from, .modal-tab-fade-leave-to { opacity: 0; transform: translateY(5px); }
 
 .review-modal-wide { max-width: 96vw; }
+
+:deep(.status-toast-popup) {
+  border-radius: 12px;
+  border: 1px solid #cfe8d8;
+  background: linear-gradient(135deg, #f7fffa 0%, #ecfff4 100%);
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.14);
+  min-width: 320px;
+}
+
+:deep(.status-toast-title) {
+  font-weight: 700;
+  color: #14532d;
+}
+
+:deep(.status-toast-text) {
+  color: #166534;
+  font-size: 0.85rem;
+}
 
 @media (max-width: 992px) {
   .review-table .sticky-col-left-drawing { left: auto; position: static; box-shadow: none; }

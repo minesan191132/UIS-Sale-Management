@@ -1,0 +1,12 @@
+.alert-fit-content {
+	display: inline-flex;
+	align-items: flex-start;
+	gap: 0.35rem;
+	width: fit-content;
+	max-width: min(100%, 980px);
+}
+
+.alert-fit-content .bi,
+.alert-fit-content i {
+	flex-shrink: 0;
+}

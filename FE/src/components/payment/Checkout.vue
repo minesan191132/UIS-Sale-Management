@@ -386,12 +386,12 @@ async function submitOrder() {
         <h2 class="mb-0 fw-bold" style="color: #0b2e59;">Xác nhận đặt hàng</h2>
       </div>
 
-      <div class="alert alert-primary py-2 px-3 small mb-3">
+      <div class="alert alert-primary alert-fit-content py-2 px-3 small mb-3">
         <i class="bi bi-shield-check me-1"></i>
         Thông tin thanh toán được lưu nháp tự động để tránh mất dữ liệu khi rời trang.
       </div>
 
-      <div v-if="checkoutDraftRestoredAt" class="alert alert-info py-2 px-3 small mb-3">
+      <div v-if="checkoutDraftRestoredAt" class="alert alert-info alert-fit-content py-2 px-3 small mb-3">
         <i class="bi bi-clock-history me-1"></i>
         Đã khôi phục bản nháp lưu lúc {{ new Date(checkoutDraftRestoredAt).toLocaleString('vi-VN') }}.
       </div>

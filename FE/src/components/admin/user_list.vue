@@ -44,7 +44,7 @@
         <p class="mt-3 text-muted fw-bold">Đang tải dữ liệu người dùng...</p>
       </div>
 
-      <div v-else-if="error" class="alert alert-danger rounded-4 shadow-sm border-0 py-3 fw-medium">
+      <div v-else-if="error" class="alert alert-danger alert-fit-content rounded-4 shadow-sm border-0 py-3 fw-medium">
         <i class="bi bi-exclamation-triangle-fill me-2"></i> {{ error }}
       </div>
 
@@ -238,7 +238,7 @@
             </div>
           </div>
 
-          <div v-if="saveError" class="alert alert-danger mt-4 rounded-3 border-0 fw-medium shadow-sm"><i class="bi bi-exclamation-triangle-fill me-2"></i>{{ saveError }}</div>
+          <div v-if="saveError" class="alert alert-danger alert-fit-content mt-4 rounded-3 border-0 fw-medium shadow-sm"><i class="bi bi-exclamation-triangle-fill me-2"></i>{{ saveError }}</div>
         </div>
 
         <div class="px-5 py-4 border-top bg-white d-flex justify-content-end gap-3 rounded-bottom-4">

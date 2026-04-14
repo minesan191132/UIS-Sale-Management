@@ -339,6 +339,7 @@ public class ContractService {
         info.setOrderNumber(order.getOrderNumber());
         info.setTotalPrice(order.getTotalPrice());
         info.setDepositAmount(order.getDepositAmount());
+        info.setOrderDate(order.getCreatedAt() != null ? order.getCreatedAt().toLocalDate() : null);
         info.setDeliveryDate(order.getDeliveryDate());
         return info;
     }

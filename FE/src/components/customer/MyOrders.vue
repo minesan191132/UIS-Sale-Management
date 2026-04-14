@@ -108,7 +108,7 @@
           </div>
 
           <!-- Trạng thái -->
-          <div class="row-cell" style="width:20%">
+          <div class="row-cell status-cell" style="width:20%">
             <span :class="getStatusBadgeClass(order.status)" class="status-badge-lg">
               {{ getStatusText(order.status, order.orderType) }}
             </span>
@@ -249,7 +249,7 @@
             <div class="row g-3">
               <div class="col-md-4">
                 <p class="mb-1"><strong>Trạng thái:</strong>
-                  <span :class="getStatusBadgeClass(selectedOrder.status)">{{ getStatusText(selectedOrder.status) }}</span>
+                  <span :class="getStatusBadgeClass(selectedOrder.status)">{{ getStatusText(selectedOrder.status, selectedOrder.orderType) }}</span>
                 </p>
                 <p class="mb-0"><strong>Ngày tạo:</strong> {{ formatDate(selectedOrder.createdAt) }}</p>
               </div>
@@ -273,47 +273,42 @@
             </div>
           </div>
 
-          <div v-if="selectedOrder.status === 'PENDING_APPROVAL'" class="alert alert-warning py-2 px-3 small mb-3 pending-approval-banner">
+          <div v-if="selectedOrder.status === 'PENDING_APPROVAL'" class="alert alert-warning py-2 px-3 small mb-3 pending-approval-banner alert-fit-content">
             <i class="bi bi-hourglass-split me-1"></i>Đơn đang chờ admin duyệt.
           </div>
-          <div v-if="selectedOrder.orderType === 'CUSTOM_MANUFACTURING' && selectedOrder.status === 'AWAITING_CONTRACT'" class="alert alert-info py-2 px-3 small mb-3">
+          <div v-if="selectedOrder.orderType === 'CUSTOM_MANUFACTURING' && selectedOrder.status === 'AWAITING_CONTRACT'" class="alert alert-info py-2 px-3 small mb-3 alert-fit-content">
             <i class="bi bi-file-earmark-text me-1"></i>Báo giá đã được gửi. Vui lòng xem và xác nhận hợp đồng để kích hoạt thanh toán mốc 1.
           </div>
-          <div v-if="selectedOrder.status === 'CANCELLED' && isAdminRejectedOrder(selectedOrder)" class="alert alert-danger py-2 px-3 small mb-3">
-            <i class="bi bi-shield-x me-1"></i>Đơn bị admin từ chối.
-            <span v-if="selectedOrder.cancelReason">Lý do: {{ selectedOrder.cancelReason }}</span>
-          </div>
-          <div v-else-if="selectedOrder.status === 'CANCELLED' && selectedOrder.cancelReason" class="alert alert-secondary py-2 px-3 small mb-3">
-            <i class="bi bi-info-circle me-1"></i>Lý do hủy: {{ selectedOrder.cancelReason }}
-          </div>
 
-          <div v-if="selectedOrder.orderType === 'CUSTOM_MANUFACTURING' && selectedOrderMilestones.length" class="contract-overview-card mb-3">
-            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
-              <h6 class="m-0 fw-bold text-dark">Tiến độ hợp đồng & mốc thanh toán</h6>
-              <span v-if="selectedOrderContract" class="badge rounded-pill" :class="getContractStatusClass(selectedOrderContract.status)">
-                Hợp đồng: {{ getContractStatusText(selectedOrderContract.status) }}
-              </span>
-            </div>
+          <div v-if="selectedOrder.orderType === 'CUSTOM_MANUFACTURING' && selectedOrderMilestones.length" class="contract-overview-wrap mb-3">
+            <div class="contract-overview-card">
+              <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                <h6 class="m-0 fw-bold text-dark">Tiến độ hợp đồng & mốc thanh toán</h6>
+                <span v-if="selectedOrderContract" class="badge rounded-pill" :class="getContractStatusClass(selectedOrderContract.status)">
+                  Hợp đồng: {{ getContractStatusText(selectedOrderContract.status) }}
+                </span>
+              </div>
 
-            <div class="milestone-mini-list">
-              <div v-for="milestone in selectedOrderMilestones" :key="`milestone-mini-${milestone.id}`" class="milestone-mini-item">
-                <div class="d-flex justify-content-between align-items-center gap-2">
-                  <strong class="small">Mốc {{ milestone.milestoneOrder }} - {{ milestone.milestoneName }}</strong>
-                  <span class="badge" :class="getMilestoneBadgeClass(milestone.status)">{{ getMilestoneStatusText(milestone.status) }}</span>
-                </div>
-                <div class="small text-muted mt-1">
-                  {{ formatCurrency(milestone.amount) }}
-                  <span v-if="milestone.dueDate" class="ms-2">Hạn: {{ formatDateShort(milestone.dueDate) }}</span>
+              <div class="milestone-mini-list">
+                <div v-for="milestone in selectedOrderMilestones" :key="`milestone-mini-${milestone.id}`" class="milestone-mini-item">
+                  <div class="d-flex justify-content-between align-items-center gap-2">
+                    <strong class="small">Mốc {{ milestone.milestoneOrder }} - {{ milestone.milestoneName }}</strong>
+                    <span class="badge" :class="getMilestoneBadgeClass(milestone.status)">{{ getMilestoneStatusText(milestone.status) }}</span>
+                  </div>
+                  <div class="small text-muted mt-1">
+                    {{ formatCurrency(milestone.amount) }}
+                    <span v-if="milestone.dueDate" class="ms-2">Hạn: {{ formatDateShort(milestone.dueDate) }}</span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <button
-              v-if="selectedOrder.status === 'AWAITING_CONTRACT'"
-              class="btn btn-sm btn-outline-warning mt-3"
-              @click="openContractModal(selectedOrder)">
-              <i class="bi bi-file-earmark-text me-1"></i>Mở hợp đồng để xác nhận
-            </button>
+              <button
+                v-if="selectedOrder.status === 'AWAITING_CONTRACT'"
+                class="btn btn-sm btn-outline-warning mt-3"
+                @click="openContractModal(selectedOrder)">
+                <i class="bi bi-file-earmark-text me-1"></i>Mở hợp đồng để xác nhận
+              </button>
+            </div>
           </div>
 
           <div class="modal-section-tabs mb-3" role="tablist">
@@ -362,57 +357,78 @@
             </div>
 
             <div v-else id="customer-materials-panel" key="customer-materials" class="tab-panel tab-panel-materials" role="tabpanel">
-              <h6 class="mb-3 mt-1">Danh sách vật tư ({{ selectedOrder.items?.length || 0 }} items)</h6>
-              <div class="table-responsive" style="max-height: 450px; overflow-y: auto;">
-                <table class="table table-bordered table-sm table-hover align-middle mb-0 animated-table uniform-table" style="font-size: 0.85rem; table-layout: fixed; width: 100%;">
-                  <thead class="table-light" style="position: sticky; top: 0; z-index: 1;">
-                    <tr>
-                      <th class="text-center cell-uniform" style="width: 4%">STT</th>
-                      <th class="cell-uniform" style="width: 14%">VNN_NO</th>
-                      <th class="cell-uniform" style="width: 10%">Item Code<br><small class="text-muted fw-normal">品目コード</small></th>
-                      <th class="cell-uniform" style="width: 10%">Drawing No.<br><small class="text-muted fw-normal">図番</small></th>
-                      <th class="cell-uniform" style="width: 18%">Parts Name<br><small class="text-muted fw-normal">品名</small></th>
-                      <th class="cell-uniform" style="width: 14%">Spec<br><small class="text-muted fw-normal">型式</small></th>
-                      <th class="cell-uniform" style="width: 8%">Material<br><small class="text-muted fw-normal">材質</small></th>
-                      <th class="text-center cell-uniform" style="width: 5%">QTY</th>
-                      <th class="text-end cell-uniform" style="width: 9%">Đơn giá<br><small class="text-muted fw-normal">VNĐ</small></th>
-                      <th class="text-end cell-uniform" style="width: 9%">Thành tiền<br><small class="text-muted fw-normal">VNĐ</small></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="(item, index) in selectedOrder.items" :key="item.id">
-                      <td class="text-center cell-uniform">{{ index + 1 }}</td>
-                      <td class="cell-uniform cell-truncate">{{ item.unit || '—' }}</td>
-                      <td class="cell-uniform cell-truncate">{{ item.itemCode || '—' }}</td>
-                      <td class="cell-uniform cell-truncate">{{ item.drawingNumber || '—' }}</td>
-                      <td class="cell-uniform">
-                        <div class="d-flex align-items-center justify-content-between gap-2">
-                          <span class="cell-truncate flex-grow-1">{{ item.itemName || '—' }}</span>
-                          <button type="button" class="btn btn-outline-secondary btn-sm item-note-btn" :disabled="selectedOrder.isTempImport" @click="openCustomerItemNoteModal(item)">
-                            <i class="bi bi-chat-left-text"></i>
-                          </button>
-                        </div>
-                      </td>
-                      <td class="cell-uniform cell-truncate">{{ item.specification || '—' }}</td>
-                      <td class="cell-uniform cell-truncate">{{ item.material || '—' }}</td>
-                      <td class="text-center fw-bold cell-uniform">{{ item.quantity }}</td>
-                      <td class="text-end cell-uniform">
-                        <span v-if="item.unitPrice">{{ formatNumber(item.unitPrice) }}</span>
-                        <span v-else class="text-muted">—</span>
-                      </td>
-                      <td class="text-end cell-uniform">
-                        <span v-if="item.totalItemPrice" class="fw-bold">{{ formatNumber(item.totalItemPrice) }}</span>
-                        <span v-else class="text-muted">—</span>
-                      </td>
-                    </tr>
-                  </tbody>
-                  <tfoot v-if="selectedOrder.totalPrice">
-                    <tr class="table-light">
-                      <td colspan="9" class="text-end fw-bold py-2">Tổng giá trị đơn hàng:</td>
-                      <td class="text-end fw-bold py-2 text-primary fs-6">{{ formatNumber(selectedOrder.totalPrice) }}</td>
-                    </tr>
-                  </tfoot>
-                </table>
+              <div class="d-flex justify-content-between align-items-end mb-3">
+                <div>
+                  <p class="small text-muted fw-medium mb-1"><i class="bi bi-arrows-move me-1"></i>Cuộn ngang để xem đầy đủ các cột dữ liệu.</p>
+                  <p class="mb-0 text-muted small fw-bold text-uppercase">Tiến trình review: <span class="badge bg-warning text-dark ms-1">{{ getReviewProgress(selectedOrder) }}</span></p>
+                </div>
+                <div v-if="selectedOrder?.status !== 'PENDING_APPROVAL'" class="btn-group bg-white border p-1 rounded-pill shadow-sm">
+                  <button class="btn btn-sm rounded-pill fw-bold" :class="materialsDensity === 'comfortable' ? 'btn-navy' : 'btn-light text-muted'" @click="materialsDensity = 'comfortable'">Rộng rãi</button>
+                  <button class="btn btn-sm rounded-pill fw-bold" :class="materialsDensity === 'compact' ? 'btn-navy' : 'btn-light text-muted'" @click="materialsDensity = 'compact'">Thu gọn</button>
+                </div>
+              </div>
+
+              <div class="card border-0 shadow-sm rounded-4 overflow-hidden bg-white">
+                <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                  <table class="table table-bordered align-middle mb-0 review-table" :class="materialsDensity === 'compact' ? 'table-sm review-table-compact' : 'review-table-comfortable'">
+                    <thead class="table-light sticky-top" style="z-index: 1;">
+                      <tr class="text-center small text-muted text-uppercase fw-bold">
+                        <th style="width: 50px;">STT</th>
+                        <th style="min-width: 120px;">VNN_NO</th>
+                        <th style="min-width: 95px;">Item Code</th>
+                        <th style="min-width: 105px;">Bản vẽ</th>
+                        <th style="min-width: 180px;">Tên linh kiện</th>
+                        <th style="min-width: 140px;">Spec</th>
+                        <th style="min-width: 95px;">Vật liệu</th>
+                        <th style="width: 65px;">SL</th>
+                        <th style="min-width: 105px;">Ngày xuất</th>
+                        <th style="min-width: 95px;">Review</th>
+                        <th class="text-end" style="min-width: 130px;">Đơn giá</th>
+                        <th class="text-end" style="min-width: 130px;">Thành tiền</th>
+                      </tr>
+                    </thead>
+                    <tbody class="text-center bg-white">
+                      <tr v-for="(item, index) in selectedOrder.items" :key="item.id" :class="getItemRowClass(item)">
+                        <td class="fw-bold text-muted">{{ index + 1 }}</td>
+                        <td class="small">{{ item.unit || '—' }}</td>
+                        <td class="small text-secondary fw-bold">{{ item.itemCode || '—' }}</td>
+                        <td class="font-monospace text-primary fw-bold small">{{ item.drawingNumber || '—' }}</td>
+                        <td class="text-start fw-bold text-dark">
+                          <div class="d-flex align-items-center justify-content-between gap-2">
+                            <span class="cell-truncate flex-grow-1">{{ item.itemName || '—' }}</span>
+                            <button type="button" class="btn btn-outline-secondary btn-sm item-note-btn" :disabled="selectedOrder.isTempImport" @click="openCustomerItemNoteModal(item)">
+                              <i class="bi bi-chat-left-text"></i>
+                            </button>
+                          </div>
+                        </td>
+                        <td class="text-start small text-secondary">{{ item.specification || '—' }}</td>
+                        <td class="small">{{ item.material || '—' }}</td>
+                        <td><span class="badge bg-light text-dark border px-2 py-1">{{ item.quantity }}</span></td>
+                        <td>
+                          <span v-if="item.deliveryDate" class="badge bg-info-subtle text-info border border-info border-opacity-25">{{ formatDateShort(item.deliveryDate) }}</span>
+                          <span v-else class="text-muted">—</span>
+                        </td>
+                        <td>
+                          <span class="badge rounded-pill" :class="getReviewBadgeClass(item.reviewStatus)" style="font-size: 0.7rem">{{ getReviewStatusText(item.reviewStatus) }}</span>
+                        </td>
+                        <td class="text-end fw-semibold">
+                          <span v-if="item.unitPrice">{{ formatNumber(item.unitPrice) }}</span>
+                          <span v-else class="text-muted">—</span>
+                        </td>
+                        <td class="text-end fw-semibold">
+                          <span v-if="item.totalItemPrice" class="fw-bold">{{ formatNumber(item.totalItemPrice) }}</span>
+                          <span v-else class="text-muted">—</span>
+                        </td>
+                      </tr>
+                    </tbody>
+                    <tfoot v-if="selectedOrder.totalPrice">
+                      <tr class="table-light">
+                        <td colspan="11" class="text-end fw-bold py-2">Tổng giá trị đơn hàng:</td>
+                        <td class="text-end fw-bold py-2 text-primary fs-6">{{ formatNumber(selectedOrder.totalPrice) }}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
               </div>
               <div v-if="hasReviewedItems" class="mt-3">
                 <h6 class="mb-2">Trạng thái review</h6>
@@ -527,6 +543,21 @@
                     <div class="small"><strong>{{ selectedContract.buyerInfo?.companyName || '—' }}</strong></div>
                     <div class="small">MST: {{ selectedContract.buyerInfo?.taxCode || '—' }}</div>
                     <div class="small">Địa chỉ: {{ selectedContract.buyerInfo?.address || '—' }}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                  <div class="border rounded p-3 h-100 bg-light-subtle">
+                    <div class="small text-muted fw-semibold mb-2">Ngày đặt hàng</div>
+                    <div class="small fw-semibold text-dark">{{ selectedContract.orderInfo?.orderDate ? formatDateShort(selectedContract.orderInfo.orderDate) : '—' }}</div>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="border rounded p-3 h-100 bg-light-subtle">
+                    <div class="small text-muted fw-semibold mb-2">Ngày nhận hàng dự kiến</div>
+                    <div class="small fw-semibold text-dark">{{ selectedContract.orderInfo?.deliveryDate ? formatDateShort(selectedContract.orderInfo.deliveryDate) : '—' }}</div>
                   </div>
                 </div>
               </div>
@@ -701,7 +732,7 @@ import Swal from 'sweetalert2'
 import apiClient, { ordersAPI, paymentAPI, contractAPI } from '../../services/api'
 import { Modal } from 'bootstrap'
 import PaymentQR from './PaymentQR.vue'
-import { getOrderStatusLabel } from '../../constants/orderStatus'
+import { getOrderStatusLabel, getReviewStatusLabel } from '../../constants/orderStatus'
 import Navbar from '../base/Navbar.vue'
 import Footer from '../base/Footer.vue'
 
@@ -750,6 +781,7 @@ const selectedContract = ref(null)
 const contractLoading = ref(false)
 const contractSubmitting = ref(false)
 const activeCustomerDetailTab = ref('materials')
+const materialsDensity = ref('comfortable')
 let bsModal = null
 let bsPaymentModal = null
 let bsContractModal = null
@@ -839,6 +871,25 @@ const setActionLocked = (order, actionName, isLocked) => {
   const next = { ...actionLoadingByOrderId.value }
   delete next[key]
   actionLoadingByOrderId.value = next
+}
+
+const showStatusToast = (title, text = '') => {
+  return Swal.fire({
+    toast: true,
+    position: 'top-end',
+    icon: 'success',
+    title,
+    text,
+    showConfirmButton: false,
+    timer: 2400,
+    timerProgressBar: true,
+    scrollbarPadding: false,
+    customClass: {
+      popup: 'status-toast-popup',
+      title: 'status-toast-title',
+      htmlContainer: 'status-toast-text',
+    },
+  })
 }
 
 const persistViewState = (overrides = {}) => {
@@ -1542,6 +1593,35 @@ const reviewCounts = computed(() => {
   }
 })
 
+const getReviewStatusText = (status) => {
+  return getReviewStatusLabel(status)
+}
+
+const getReviewBadgeClass = (status) => {
+  const map = {
+    PENDING_REVIEW: 'bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25',
+    APPROVED: 'bg-success bg-opacity-10 text-success border border-success border-opacity-25',
+    REJECTED: 'bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25',
+    NEED_DISCUSSION: 'bg-warning bg-opacity-10 text-warning border border-warning border-opacity-50',
+  }
+  return map[status] || 'bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25'
+}
+
+const getItemRowClass = (item) => {
+  const map = {
+    APPROVED: '',
+    REJECTED: 'bg-danger bg-opacity-10',
+    NEED_DISCUSSION: 'bg-warning bg-opacity-10',
+  }
+  return map[item?.reviewStatus] || ''
+}
+
+const getReviewProgress = (order) => {
+  if (!order?.items?.length) return '0/0'
+  const reviewed = order.items.filter((item) => item.reviewStatus && item.reviewStatus !== 'PENDING_REVIEW').length
+  return `${reviewed}/${order.items.length}`
+}
+
 const escapeHtml = (value) => {
   if (value == null) return ''
   return String(value)
@@ -1706,13 +1786,7 @@ const confirmSelectedContract = async () => {
       await loadOrderPaymentArtifacts(selectedOrder.value)
     }
 
-    await Swal.fire({
-      icon: 'success',
-      title: 'Đã xác nhận hợp đồng',
-      text: 'Bạn có thể tiến hành thanh toán mốc đầu tiên.',
-      timer: 2200,
-      showConfirmButton: false,
-    })
+    await showStatusToast('Đã xác nhận hợp đồng', 'Bạn có thể tiến hành thanh toán mốc đầu tiên.')
   } catch (error) {
     const msg = error.response?.data?.error || 'Không thể xác nhận hợp đồng'
     Swal.fire('Lỗi', msg, 'error')
@@ -1758,13 +1832,7 @@ const rejectSelectedContract = async () => {
       await loadOrderPaymentArtifacts(selectedOrder.value)
     }
 
-    await Swal.fire({
-      icon: 'success',
-      title: 'Đã từ chối hợp đồng',
-      text: 'Đơn hàng đã quay lại trạng thái chờ báo giá.',
-      timer: 2200,
-      showConfirmButton: false,
-    })
+    await showStatusToast('Đã từ chối hợp đồng', 'Đơn hàng đã quay lại trạng thái chờ báo giá.')
   } catch (error) {
     const msg = error.response?.data?.error || 'Không thể từ chối hợp đồng'
     Swal.fire('Lỗi', msg, 'error')
@@ -1782,13 +1850,7 @@ const onPaymentConfirmed = (paymentInfo) => {
   const successMessage = paymentInfo.orderStatus === 'AWAITING_DELIVERY'
     ? `Đơn hàng ${paymentInfo.orderNumber} đã được xác nhận thanh toán đầy đủ.`
     : `Đơn hàng ${paymentInfo.orderNumber} đã được cập nhật trạng thái thanh toán.`
-  Swal.fire({
-    icon: 'success',
-    title: 'Đã cập nhật thanh toán',
-    text: successMessage,
-    timer: 3000,
-    showConfirmButton: false
-  })
+  showStatusToast('Đã cập nhật thanh toán', successMessage)
 }
 
 const canCancelOrder = (order) => {
@@ -1826,13 +1888,7 @@ const confirmReceivedOrder = async (order) => {
       loadOrders(currentPage.value),
       loadStatusCounts(activeOrderType.value),
     ])
-    await Swal.fire({
-      icon: 'success',
-      title: 'Đã xác nhận nhận hàng',
-      text: `Đơn ${order.orderNumber} đã được chuyển sang hoàn thành.`,
-      timer: 2200,
-      showConfirmButton: false,
-    })
+    await showStatusToast('Đã xác nhận nhận hàng', `Đơn ${order.orderNumber} đã được chuyển sang hoàn thành.`)
   } catch (error) {
     const msg = error.response?.data?.error || 'Không thể xác nhận nhận hàng'
     Swal.fire('Lỗi', msg, 'error')
@@ -2112,13 +2168,7 @@ const cancelOrder = async (order) => {
       bsModal?.hide()
     }
 
-    Swal.fire({
-      icon: 'success',
-      title: 'Đã hủy đơn hàng',
-      text: `Đơn ${order.orderNumber} đã được hủy.`,
-      timer: 2200,
-      showConfirmButton: false,
-    })
+    showStatusToast('Đã hủy đơn hàng', `Đơn ${order.orderNumber} đã được hủy.`)
   } catch (error) {
     const msg = error.response?.data?.error || 'Không thể hủy đơn hàng'
     Swal.fire('Lỗi', msg, 'error')
@@ -2165,19 +2215,19 @@ const getStatusText = (status, orderType) => {
 
 const getStatusBadgeClass = (status) => {
   const classMap = {
-    PENDING_APPROVAL: 'badge bg-warning text-dark',
-    PENDING_QUOTE: 'badge bg-warning text-dark',
-    AWAITING_CONTRACT: 'badge bg-info text-dark',
-    AWAITING_PAYMENT: 'badge bg-info text-dark',
-    DEPOSITED: 'badge bg-success',
-    PROCESSING: 'badge bg-primary',
-    AWAITING_REMAINING_PAYMENT: 'badge bg-warning',
-    AWAITING_DELIVERY: 'badge bg-info',
-    SHIPPING: 'badge bg-primary',
-    COMPLETED: 'badge bg-success',
-    CANCELLED: 'badge bg-danger'
+    PENDING_APPROVAL: 'badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-50',
+    PENDING_QUOTE: 'badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-50',
+    AWAITING_CONTRACT: 'badge bg-info bg-opacity-10 text-info border border-info border-opacity-25',
+    AWAITING_PAYMENT: 'badge bg-info bg-opacity-10 text-info border border-info border-opacity-25',
+    DEPOSITED: 'badge bg-success bg-opacity-10 text-success border border-success border-opacity-25',
+    PROCESSING: 'badge bg-navy text-white border border-navy',
+    AWAITING_REMAINING_PAYMENT: 'badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-50',
+    AWAITING_DELIVERY: 'badge bg-info bg-opacity-10 text-info border border-info border-opacity-25',
+    SHIPPING: 'badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25',
+    COMPLETED: 'badge bg-success bg-opacity-10 text-success border border-success border-opacity-25',
+    CANCELLED: 'badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25'
   }
-  return classMap[status] || 'badge bg-secondary'
+  return classMap[status] || 'badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25'
 }
 
 const getContractStatusText = (status) => {
@@ -2399,8 +2449,73 @@ const formatTime = (dateStr) => {
   background-color: rgba(13, 110, 253, 0.03);
 }
 
+.text-navy { color: #0b2e59 !important; }
+.bg-navy { background-color: #0b2e59 !important; }
+.border-navy { border-color: #0b2e59 !important; }
+
 .modal-xl {
-  max-width: 1100px;
+  max-width: 96vw;
+}
+
+.modal {
+  overflow-y: scroll;
+}
+
+.btn-navy {
+  background-color: #0b2e59;
+  color: #fff;
+  border: none;
+}
+
+.btn-navy:hover {
+  background-color: #173b6c;
+  color: #fff;
+}
+
+.review-table th,
+.review-table td {
+  vertical-align: middle;
+}
+
+.review-table thead th {
+  white-space: nowrap;
+  font-size: 0.78rem;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.review-table tbody td {
+  font-size: 0.84rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.review-table-comfortable td {
+  padding: 0.75rem 0.5rem;
+}
+
+.review-table-compact td {
+  padding: 0.4rem 0.35rem;
+}
+
+.review-table-compact tbody td {
+  font-size: 0.78rem;
+}
+
+:deep(.status-toast-popup) {
+  border-radius: 12px;
+  border: 1px solid #cfe8d8;
+  background: linear-gradient(135deg, #f7fffa 0%, #ecfff4 100%);
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.14);
+  min-width: 320px;
+}
+
+:deep(.status-toast-title) {
+  font-weight: 700;
+  color: #14532d;
+}
+
+:deep(.status-toast-text) {
+  color: #166534;
+  font-size: 0.85rem;
 }
 
 /* Skeleton Loading Animation */
@@ -2476,7 +2591,13 @@ const formatTime = (dateStr) => {
   background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
 }
 
+.contract-overview-wrap {
+  display: flex;
+  justify-content: center;
+}
+
 .contract-overview-card {
+  width: min(100%, 980px);
   border: 1px solid #f8d7a4;
   background: linear-gradient(180deg, #fffdf7 0%, #fff7e6 100%);
   border-radius: 12px;
@@ -2906,11 +3027,17 @@ const formatTime = (dateStr) => {
 
 /* Mini alerts inside table rows */
 .mini-alert {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  width: fit-content;
+  max-width: 100%;
   font-size: 0.75rem;
   padding: 3px 8px;
   border-radius: 6px;
   line-height: 1.4;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .mini-alert-warning {
@@ -2933,11 +3060,23 @@ const formatTime = (dateStr) => {
 
 /* Status badge in table */
 .status-badge-lg {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  width: fit-content;
+  max-width: 100%;
   padding: 5px 12px;
   font-size: 0.78rem;
   font-weight: 600;
   border-radius: 6px;
   letter-spacing: 0.3px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.status-cell {
+  align-items: center;
 }
 
 /* Date Cell */

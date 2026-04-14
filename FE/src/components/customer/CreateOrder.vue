@@ -113,16 +113,16 @@
           </button>
         </div>
 
-        <div v-if="hasPendingUpload" class="alert py-2 px-3 small mb-4" style="background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba;">
+        <div v-if="hasPendingUpload" class="alert alert-fit-content py-2 px-3 small mb-4" style="background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba;">
           <i class="bi bi-exclamation-circle me-1"></i>
           Bạn đang có file chưa tải lên. Đừng quên bấm "XÁC NHẬN TẢI LÊN" trước khi rời trang.
         </div>
 
         <!-- Error / Success Messages -->
-        <div v-if="errorMessage" class="alert alert-danger px-3 py-2 small mb-4">
+        <div v-if="errorMessage" class="alert alert-danger alert-fit-content px-3 py-2 small mb-4">
           <i class="bi bi-exclamation-triangle me-2"></i>{{ errorMessage }}
         </div>
-        <div v-if="successMessage" class="alert alert-success px-3 py-2 small mb-4">
+        <div v-if="successMessage" class="alert alert-success alert-fit-content px-3 py-2 small mb-4">
           <i class="bi bi-check-circle me-2"></i>{{ successMessage }}
         </div>
 
