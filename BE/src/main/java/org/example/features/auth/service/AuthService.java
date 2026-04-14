@@ -24,6 +24,8 @@ import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.example.features.user.entity.UserAddress;
+import org.example.features.user.repository.UserAddressRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,6 +52,7 @@ public class AuthService {
     private final EmailService emailService;
     private final AuthenticationManager authenticationManager;
     private final StringRedisTemplate redisTemplate;
+    private final UserAddressRepository userAddressRepository;
 
     private static final String REDIS_VERIFY_PREFIX = "verify_token:";
     private static final long VERIFY_TOKEN_EXPIRATION_MINUTES = 3;
@@ -102,6 +105,63 @@ public class AuthService {
         user.setIsActive(false);
 
         User savedUser = userRepository.save(user);
+
+        //TẠO ĐỊA CHỈ MẶC ĐỊNH NGAY SAU KHI TẠO USER
+        try {
+            String rawAddress = companyInfo.getAddress();
+            if (rawAddress != null && !rawAddress.isBlank()) {
+                log.info("Creating default address for user {} using company address", savedUser.getEmail());
+
+                // Mặc định dữ liệu nếu không tách được
+                String province = "Chưa rõ";
+                String district = "Chưa rõ";
+                String ward = "Chưa rõ";
+                String detail = rawAddress;
+
+                // Thuật toán tách chuỗi địa chỉ theo dấu phẩy (từ dưới lên trên)
+                String[] parts = rawAddress.split(",");
+                int len = parts.length;
+
+                if (len >= 4) {
+                    province = parts[len - 1].trim(); // Phần cuối cùng là Tỉnh/Thành
+                    district = parts[len - 2].trim(); // Cấp thứ 2 là Quận/Huyện
+                    ward = parts[len - 3].trim();     // Cấp thứ 3 là Phường/Xã
+
+                    // Gom tất cả những phần còn lại ở đầu làm Số nhà/Đường
+                    StringBuilder detailBuilder = new StringBuilder();
+                    for (int i = 0; i < len - 3; i++) {
+                        detailBuilder.append(parts[i].trim());
+                        if (i < len - 4) detailBuilder.append(", ");
+                    }
+                    detail = detailBuilder.toString();
+                } else if (len == 3) {
+                    // Trường hợp địa chỉ chỉ có 3 phần
+                    province = parts[2].trim();
+                    district = parts[1].trim();
+                    ward = "Chưa rõ";
+                    detail = parts[0].trim();
+                }
+
+                // Lưu vào Entity
+                UserAddress defaultAddress = new UserAddress();
+                defaultAddress.setUser(savedUser);
+                defaultAddress.setFullName(dto.getFullName());
+                defaultAddress.setPhone(dto.getPhone());
+
+                // Đổ dữ liệu đã tách vào đúng 4 cột
+                defaultAddress.setProvince(province);
+                defaultAddress.setDistrict(district);
+                defaultAddress.setWard(ward);
+                defaultAddress.setDetail(detail);
+
+                defaultAddress.setIsDefault(true); // Đánh dấu là mặc định
+
+                userAddressRepository.save(defaultAddress);
+            }
+        } catch (Exception e) {
+            log.error("Failed to create default address for user {}: {}", savedUser.getEmail(), e.getMessage());
+        }
+
         log.info("User registered temporarily: {} (company: {})", savedUser.getEmail(), company.getCompanyName());
 
         String token = UUID.randomUUID().toString();

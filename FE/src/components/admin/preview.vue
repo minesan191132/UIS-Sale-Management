@@ -1,129 +1,139 @@
 <template>
-  <div class="invoice-preview-page p-4 min-vh-100">
-    <!-- No data -->
-    <div v-if="!shipment" class="d-flex align-items-center justify-content-center" style="min-height: 60vh;">
-      <div class="text-center empty-preview-card" style="max-width: 420px;">
-        <i class="bi bi-file-earmark-text fs-1 text-muted d-block mb-3"></i>
-        <h5 class="fw-bold">Chưa có phiếu xuất kho</h5>
-        <p class="text-muted small">
-          Chọn sản phẩm ở trang "Quản lý xuất hoá đơn" rồi bấm "Tạo phiếu xuất kho"
+  <div class="invoice-preview-page p-4 min-vh-100 d-flex flex-column" style="background-color: #f8f9fa;">
+    
+    <div v-if="!shipment" class="d-flex align-items-center justify-content-center flex-grow-1" style="min-height: 70vh;">
+      <div class="text-center empty-preview-card floating-card">
+        <div class="icon-circle bg-primary bg-opacity-10 text-primary mx-auto mb-4 d-flex align-items-center justify-content-center" style="width: 90px; height: 90px; border-radius: 50%;">
+          <i class="bi bi-file-earmark-x fs-1"></i>
+        </div>
+        <h4 class="fw-bolder text-dark mb-2">Chưa có phiếu xuất kho</h4>
+        <p class="text-muted small mb-4 px-3">
+          Bạn cần chọn ít nhất 1 sản phẩm ở trang <b>"Quản lý xuất hoá đơn"</b> rồi bấm nút <b>"Tạo phiếu xuất kho"</b> để xem trước tại đây.
         </p>
-        <router-link to="/admin/invoice-management" class="btn btn-primary btn-sm px-4">
-          <i class="bi bi-arrow-left me-1"></i>Đi đến trang đơn hàng
+        <router-link to="/admin/invoice-management" class="btn btn-navy rounded-pill px-4 py-2 fw-bold shadow-sm hover-lift">
+          <i class="bi bi-arrow-left me-2"></i> Quay lại trang Đơn hàng
         </router-link>
       </div>
     </div>
 
-    <!-- Preview Content -->
-    <div v-else>
-      <!-- Header -->
-      <div class="card border-0 shadow-sm mb-4 preview-hero">
-        <div class="card-body d-flex flex-column flex-lg-row justify-content-between align-items-start gap-3">
-        <div>
-          <h2 class="fw-bold text-dark m-0 fs-4">
-            <i class="bi bi-truck me-2"></i>Phiếu xuất kho
+    <div v-else class="flex-grow-1 d-flex flex-column">
+      
+      <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-end mb-4 pb-2 border-bottom border-secondary border-opacity-25">
+        <div class="mb-3 mb-lg-0">
+          <h2 class="fw-bolder mb-1 text-dark fs-3 text-uppercase">
+            <i class="bi bi-truck me-2 text-navy"></i> Phiếu xuất kho
           </h2>
-          <p class="text-muted small mb-0 mt-1">Xem trước và xuất Excel</p>
+          <p class="text-muted small mb-0">Xem trước thông tin và xuất dữ liệu ra file Excel.</p>
         </div>
         <div class="d-flex gap-2 preview-actions">
-          <router-link to="/admin/invoice-management" class="btn btn-outline-secondary btn-sm px-3">
-            <i class="bi bi-arrow-left me-1"></i>Quay lại
+          <router-link to="/admin/invoice-management" class="btn btn-light border rounded-pill px-4 py-2 fw-bold text-secondary hover-lift">
+            <i class="bi bi-arrow-left me-1"></i> Quay lại
           </router-link>
-          <button @click="exportExcel" class="btn btn-success btn-sm px-4" :disabled="exporting">
-            <i class="bi bi-file-earmark-excel me-1"></i>
-            {{ exporting ? 'Đang xuất...' : 'Xuất Excel' }}
+          <button @click="exportExcel" class="btn btn-success rounded-pill px-4 py-2 fw-bold shadow-sm hover-lift d-flex align-items-center" :disabled="exporting">
+            <i class="bi bi-file-earmark-excel-fill me-2 fs-5"></i>
+            <span v-if="exporting" class="spinner-border spinner-border-sm me-2"></span>
+            {{ exporting ? 'Đang xử lý...' : 'Xuất file Excel' }}
           </button>
-        </div>
         </div>
       </div>
 
-      <!-- Info Card -->
-      <div class="card border-0 shadow-sm mb-4 preview-summary-card">
-        <div class="card-body">
-          <div class="row">
-            <div class="col-md-6">
-              <h5 class="fw-bold mb-2"><i class="bi bi-file-text me-2"></i>PHIẾU XUẤT KHO</h5>
-              <p class="mb-1"><strong>Mã phiếu:</strong> {{ shipment.shipmentCode }}</p>
-              <p class="mb-0"><strong>Tiêu đề:</strong> {{ shipment.title }}</p>
+      <div class="card border-0 shadow-sm mb-4 rounded-4 bg-white overflow-hidden">
+        <div class="bg-navy text-white px-4 py-3 d-flex align-items-center justify-content-between receipt-header">
+          <h5 class="fw-bolder mb-0 fs-5 text-uppercase letter-spacing-1"><i class="bi bi-receipt-cutoff me-2"></i> THÔNG TIN PHIẾU XUẤT</h5>
+          <span class="badge bg-white text-navy px-3 py-2 fw-bolder fs-6 rounded-pill shadow-sm">Tổng SL: {{ shipment.totalQty }}</span>
+        </div>
+        
+        <div class="card-body p-4 bg-slate-50">
+          <div class="row align-items-center">
+            <div class="col-md-7">
+              <div class="mb-2">
+                <span class="text-muted small fw-bolder text-uppercase me-2">Mã phiếu xuất:</span>
+                <span class="fw-bold text-dark font-monospace fs-6">{{ shipment.shipmentCode }}</span>
+              </div>
+              <div>
+                <span class="text-muted small fw-bolder text-uppercase me-2">Tiêu đề / Ghi chú:</span>
+                <span class="text-secondary fw-medium">{{ shipment.title }}</span>
+              </div>
             </div>
-            <div class="col-md-6 text-md-end">
-              <p class="mb-1">
-                <strong>Thời gian xuất:</strong>
-                <span class="badge bg-primary-subtle text-primary ms-1 px-3 py-1">{{ dateRangeDisplay }}</span>
-              </p>
-              <p class="mb-1"><strong>Tổng mã bản vẽ:</strong> {{ shipment.totalItems }}</p>
-              <p class="mb-0">
-                <strong>Tổng SL:</strong>
-                <span class="badge bg-primary text-white px-3 py-1 fs-6">{{ shipment.totalQty }}</span>
-              </p>
+            
+            <div class="col-md-5 text-md-end mt-3 mt-md-0">
+              <div class="mb-2">
+                <span class="text-muted small fw-bolder text-uppercase me-2">Thời gian xuất:</span>
+                <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 px-3 py-1 fw-bold rounded-pill fs-6">{{ dateRangeDisplay }}</span>
+              </div>
+              <div>
+                <span class="text-muted small fw-bolder text-uppercase me-2">Tổng mã bản vẽ:</span>
+                <span class="fw-bolder text-dark fs-5 align-middle">{{ shipment.totalItems }}</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Preview Table -->
-      <div class="card border-0 shadow-sm rounded-4 overflow-hidden preview-table-card">
-        <div class="table-responsive">
-          <table class="table table-hover align-middle mb-0 shipment-table">
+      <div class="card border-0 shadow-sm rounded-4 overflow-hidden bg-white flex-grow-1">
+        <div class="table-responsive pb-2">
+          <table class="table modern-table align-middle mb-0 w-100" style="table-layout: fixed;">
             <thead class="bg-light">
-              <tr class="small fw-bold">
-                <th rowspan="2" class="text-center" style="width:36px;">STT</th>
-                <th rowspan="2">Drawing No</th>
-                <th rowspan="2" style="max-width:120px;">Parts Name</th>
-                <th rowspan="2" style="max-width:80px;">Spec</th>
-                <th rowspan="2" style="max-width:70px;">Material</th>
-                <th rowspan="2" class="text-center" style="width:50px;">Tổng</th>
-                <th v-for="grp in dateHeaderGroups" :key="grp.deliveryDate"
-                  :colspan="grp.colspan" class="text-center order-col-header">
-                  <span class="text-primary">{{ grp.dateDisplay || '—' }}</span>
+              <tr>
+                <th rowspan="2" class="text-center py-3 text-muted fw-bold small text-uppercase border-bottom-0" style="width: 50px;">STT</th>
+                <th rowspan="2" class="py-3 text-muted fw-bold small text-uppercase border-bottom-0" style="width: 140px;">Drawing No</th>
+                <th rowspan="2" class="py-3 text-muted fw-bold small text-uppercase border-bottom-0" style="max-width: 180px;">Parts Name</th>
+                <th rowspan="2" class="py-3 text-muted fw-bold small text-uppercase border-bottom-0" style="max-width: 120px;">Spec</th>
+                <th rowspan="2" class="py-3 text-muted fw-bold small text-uppercase border-bottom-0" style="max-width: 90px;">Material</th>
+                <th rowspan="2" class="text-center py-3 text-muted fw-bold small text-uppercase border-bottom-0" style="width: 70px;">Tổng</th>
+                
+                <th v-for="grp in dateHeaderGroups" :key="grp.deliveryDate" :colspan="grp.colspan" class="text-center py-2 text-navy fw-bolder small text-uppercase border-bottom border-light">
+                  <i class="bi bi-calendar-event me-1 opacity-50"></i> {{ grp.dateDisplay || 'Chưa xếp lịch' }}
                 </th>
-                <th rowspan="2" class="text-center" style="width:70px;">Tồn kho</th>
-                <th rowspan="2" class="text-center" style="width:55px;">KL (kg)</th>
+                
+                <th rowspan="2" class="text-center py-3 text-muted fw-bold small text-uppercase border-bottom-0" style="width: 80px;">Tồn kho</th>
+                <th rowspan="2" class="text-center py-3 text-muted fw-bold small text-uppercase border-bottom-0" style="width: 80px;">KL (kg)</th>
               </tr>
-              <tr class="small">
-                <th v-for="col in orderColumnsData" :key="col.colKey"
-                  class="text-center order-col-date">
+              <tr>
+                <th v-for="col in orderColumnsData" :key="col.colKey" class="text-center py-2 text-primary fw-bold font-monospace bg-primary bg-opacity-10 border-top-0" style="font-size: 0.75rem;">
                   {{ formatVnnShort(col.vnnNo) }}
                 </th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(item, index) in displayItems" :key="item.drawingNumber"
-                :class="{ 'row-even': index % 2 === 0, 'row-odd': index % 2 !== 0 }">
-                <td class="text-muted text-center">{{ index + 1 }}</td>
-                <td class="fw-semibold text-primary" style="white-space:nowrap;">{{ item.drawingNumber }}</td>
-                <td class="text-truncate" style="max-width:120px;">{{ item.partName || '' }}</td>
-                <td class="text-muted text-truncate" style="max-width:80px;">{{ item.specification || '' }}</td>
-                <td class="text-muted text-truncate" style="max-width:70px;">{{ item.material || '' }}</td>
+              <tr v-for="(item, index) in displayItems" :key="item.drawingNumber" class="table-row-hover border-bottom border-light" :class="{ 'bg-slate-50': index % 2 === 0, 'bg-white': index % 2 !== 0 }">
+                <td class="text-muted text-center fw-medium">{{ index + 1 }}</td>
+                <td class="fw-bolder text-navy font-monospace small text-truncate">{{ item.drawingNumber }}</td>
+                <td class="fw-bold text-dark text-truncate" :title="item.partName">{{ item.partName || '—' }}</td>
+                <td class="text-secondary fw-medium small text-truncate" :title="item.specification">{{ item.specification || '—' }}</td>
+                <td class="text-muted small text-truncate">{{ item.material || '—' }}</td>
                 <td class="text-center">
-                  <span class="badge bg-primary-subtle text-primary px-2 py-1 fw-bold">{{ item.totalQty }}</span>
+                  <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2 py-1 fw-bold">{{ item.totalQty }}</span>
                 </td>
-                <td v-for="col in orderColumnsData" :key="col.colKey" class="text-center">
-                  {{ getQty(item.drawingNumber, col.colKey) }}
+                
+                <td v-for="col in orderColumnsData" :key="col.colKey" class="text-center fw-bold text-dark bg-white">
+                  {{ getQty(item.drawingNumber, col.colKey) || '—' }}
                 </td>
-                <td class="text-center">
-                  <input type="text" class="inline-input stock-input"
-                    v-model="stockValues[item.drawingNumber]" placeholder="—">
+                
+                <td class="text-center bg-white" @click.stop>
+                  <input type="text" class="form-control form-control-sm text-center fw-bold text-success shadow-none border-success border-opacity-25 bg-success bg-opacity-10" v-model="stockValues[item.drawingNumber]" placeholder="—" style="max-width: 60px; margin: 0 auto;">
                 </td>
-                <td class="text-center">
-                  <span class="weight-value">{{ item.weight || 0 }}</span>
+                
+                <td class="text-center fw-bold text-info bg-white">
+                  {{ item.weight || 0 }}
                 </td>
               </tr>
             </tbody>
-            <tfoot>
+            <tfoot v-if="displayItems.length > 0">
               <tr class="fw-bold bg-light">
-                <td colspan="5" class="text-end">Tổng:</td>
-                <td class="text-center">{{ shipment.totalQty }}</td>
-                <td v-for="col in orderColumnsData" :key="col.colKey" class="text-center">
+                <td colspan="5" class="text-end py-3 text-muted text-uppercase small letter-spacing-1">Tổng cộng:</td>
+                <td class="text-center py-3 fs-6 text-primary">{{ shipment.totalQty }}</td>
+                <td v-for="col in orderColumnsData" :key="col.colKey" class="text-center py-3 text-dark">
                   {{ getTotalForCol(col.colKey) }}
                 </td>
-                <td class="text-center">—</td>
-                <td class="text-center text-info fw-bold">{{ totalWeight.toFixed(1) }}</td>
+                <td class="text-center py-3 text-muted">—</td>
+                <td class="text-center py-3 text-info fs-6">{{ totalWeight.toFixed(1) }}</td>
               </tr>
             </tfoot>
           </table>
         </div>
       </div>
+
     </div>
   </div>
 </template>
@@ -132,6 +142,7 @@
 import { ref, reactive, computed, onMounted } from 'vue';
 import apiClient from '../../services/api';
 
+// KEEPS ALL YOUR ORIGINAL SCRIPT LOGIC EXACTLY INTACT
 const shipment = ref(null);
 const stockValues = reactive({});
 const exporting = ref(false);
@@ -253,7 +264,6 @@ const formatDate = (d) => {
 };
 
 const exportExcel = async () => {
-  // Try itemIds first (new flow), fallback to orderIds (legacy)
   const itemIdsRaw = sessionStorage.getItem('shipmentItemIds');
   const orderIdsRaw = sessionStorage.getItem('shipmentOrderIds');
 
@@ -288,70 +298,59 @@ const exportExcel = async () => {
 </script>
 
 <style scoped>
-.invoice-preview-page {
-  background: linear-gradient(180deg, #f3f7ff 0%, #f8fafc 45%, #f3f4f6 100%);
-}
+/* ─── MÀU SẮC CHUNG ─── */
+.text-navy { color: #0b2e59 !important; }
+.bg-navy { background-color: #0b2e59 !important; }
+.bg-slate-50 { background-color: #f8fafc !important; }
+.letter-spacing-1 { letter-spacing: 1px; }
 
-.empty-preview-card {
+/* ─── NÚT BẤM ─── */
+.btn-navy { background-color: #0b2e59; color: #fff; border: none; transition: 0.3s; }
+.btn-navy:hover { background-color: #173b6c; color: #fff; transform: translateY(-2px); box-shadow: 0 4px 10px rgba(11, 46, 89, 0.2); }
+
+.hover-lift { transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s; }
+.hover-lift:hover { transform: translateY(-3px); box-shadow: 0 8px 15px rgba(0,0,0,0.06) !important; }
+
+/* ─── EMPTY STATE (Floating Card) ─── */
+.floating-card {
   border: 1px solid #e2e8f0;
-  border-radius: 16px;
+  border-radius: 20px;
   background: #ffffff;
-  padding: 1.5rem;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+  padding: 3rem 2rem;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08);
+  animation: float 4s ease-in-out infinite; /* Hiệu ứng lơ lửng */
+  max-width: 450px;
+}
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
 }
 
-.preview-hero {
-  border: 1px solid #dbeafe;
-  background: radial-gradient(circle at top right, rgba(59, 130, 246, 0.12), transparent 48%), #ffffff;
+/* ─── INFO CARD (Receipt Style) ─── */
+.receipt-header {
+  border-bottom: 2px dashed rgba(255,255,255,0.3); /* Đường đứt nét tạo cảm giác xé biên lai */
 }
 
-.preview-summary-card,
-.preview-table-card {
-  border: 1px solid #e2e8f0;
-  background: #ffffff;
-}
+/* ─── BẢNG DỮ LIỆU (Modern Table) ─── */
+.modern-table { border-collapse: separate; border-spacing: 0; }
+.modern-table thead th { vertical-align: middle; border-bottom: 2px solid #e2e8f0 !important; }
+.modern-table tbody td { vertical-align: middle; }
+.table-row-hover { transition: background-color 0.2s ease; }
+.table-row-hover:hover { background-color: #f1f5f9 !important; }
 
-.shipment-table { font-size: 0.82rem; }
-.shipment-table td, .shipment-table th { padding: 6px 8px !important; vertical-align: middle; line-height: 1.3; }
-.shipment-table tbody tr { height: 36px; }
-.row-even td { background-color: #f8fafc; }
-.row-odd td { background-color: #ffffff; }
-.weight-value { font-weight: 500; color: #0dcaf0; }
-.inline-input {
-  width: 60px; padding: 4px 4px; border: 1px dashed #dee2e6; border-radius: 6px;
-  text-align: center; font-size: 0.8rem; font-weight: 500; background: #fafbfc;
-  transition: all 0.15s; color: #333;
-}
-.inline-input::placeholder { color: #adb5bd; font-weight: 400; }
-.inline-input:hover { border-color: #adb5bd; background: #fff; }
-.inline-input:focus { outline: none; border-color: #93c5fd; border-style: solid; background: #fff; box-shadow: 0 0 0 2px rgba(59,130,246,.14); }
-.stock-input { color: #198754; }
-.order-col-header { border-bottom: none !important; padding-bottom: 2px !important; font-weight: 600; }
-.order-col-date {
-  font-size: 0.78rem !important; font-weight: 600 !important;
-  color: #3b82f6 !important; background: #eff6ff !important;
-  padding-top: 4px !important; padding-bottom: 4px !important;
-  border-top: 1px dashed #dee2e6 !important;
-}
+/* Border radius cho các góc của thẻ thead */
+.modern-table thead tr:first-child th:first-child { border-top-left-radius: 12px; }
+.modern-table thead tr:first-child th:last-child { border-top-right-radius: 12px; }
 
+/* ─── RESPONSIVE ─── */
 @media (max-width: 992px) {
-  .preview-hero .card-body {
-    align-items: stretch !important;
-  }
+  .border-end-md { border-right: none !important; border-bottom: 1px solid #dee2e6; padding-bottom: 1rem; margin-bottom: 1rem; }
+  .ps-md-4 { padding-left: 0 !important; }
 }
 
 @media (max-width: 768px) {
-  .preview-actions {
-    width: 100%;
-    flex-direction: column;
-  }
-
-  .preview-actions .btn {
-    width: 100%;
-  }
-
-  .shipment-table {
-    font-size: 0.78rem;
-  }
+  .preview-actions { width: 100%; flex-direction: column; }
+  .preview-actions .btn { width: 100%; justify-content: center; }
 }
 </style>
