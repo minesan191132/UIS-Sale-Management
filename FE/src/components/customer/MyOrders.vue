@@ -168,16 +168,16 @@
               {{ order.status === 'DEPOSITED' ? 'Đã TT ✔' : 'Thanh toán' }}
             </button>
             <button
-              v-else-if="order.orderType === 'CUSTOM_MANUFACTURING' && order.status === 'AWAITING_PAYMENT'"
-              @click="openPaymentModal(order)"
-              class="action-link-btn success-action mt-1">
-              <i class="bi bi-qr-code me-1"></i>TT cọc 60%
+              v-else-if="order.orderType === 'CUSTOM_MANUFACTURING' && order.status === 'AWAITING_CONTRACT'"
+              @click="openContractModal(order)"
+              class="action-link-btn warning-action mt-1">
+              <i class="bi bi-file-earmark-text me-1"></i>Xem hợp đồng
             </button>
             <button
-              v-else-if="order.orderType === 'CUSTOM_MANUFACTURING' && (order.status === 'PROCESSING' || order.status === 'AWAITING_REMAINING_PAYMENT') && order.depositAmount && order.totalPrice && order.depositAmount < order.totalPrice"
-              @click="openRemainingPaymentModal(order)"
-              class="action-link-btn warning-action mt-1">
-              <i class="bi bi-cash-coin me-1"></i>TT nốt số dư
+              v-else-if="order.orderType === 'CUSTOM_MANUFACTURING' && (order.status === 'AWAITING_PAYMENT' || order.status === 'AWAITING_REMAINING_PAYMENT')"
+              @click="openPaymentModal(order)"
+              class="action-link-btn success-action mt-1">
+              <i class="bi bi-qr-code me-1"></i>{{ getCustomerPaymentActionLabel(order) }}
             </button>
             <button
               v-else-if="order.orderType === 'CUSTOM_MANUFACTURING' && order.status === 'DEPOSITED'"
@@ -276,12 +276,44 @@
           <div v-if="selectedOrder.status === 'PENDING_APPROVAL'" class="alert alert-warning py-2 px-3 small mb-3 pending-approval-banner">
             <i class="bi bi-hourglass-split me-1"></i>Đơn đang chờ admin duyệt.
           </div>
+          <div v-if="selectedOrder.orderType === 'CUSTOM_MANUFACTURING' && selectedOrder.status === 'AWAITING_CONTRACT'" class="alert alert-info py-2 px-3 small mb-3">
+            <i class="bi bi-file-earmark-text me-1"></i>Báo giá đã được gửi. Vui lòng xem và xác nhận hợp đồng để kích hoạt thanh toán mốc 1.
+          </div>
           <div v-if="selectedOrder.status === 'CANCELLED' && isAdminRejectedOrder(selectedOrder)" class="alert alert-danger py-2 px-3 small mb-3">
             <i class="bi bi-shield-x me-1"></i>Đơn bị admin từ chối.
             <span v-if="selectedOrder.cancelReason">Lý do: {{ selectedOrder.cancelReason }}</span>
           </div>
           <div v-else-if="selectedOrder.status === 'CANCELLED' && selectedOrder.cancelReason" class="alert alert-secondary py-2 px-3 small mb-3">
             <i class="bi bi-info-circle me-1"></i>Lý do hủy: {{ selectedOrder.cancelReason }}
+          </div>
+
+          <div v-if="selectedOrder.orderType === 'CUSTOM_MANUFACTURING' && selectedOrderMilestones.length" class="contract-overview-card mb-3">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+              <h6 class="m-0 fw-bold text-dark">Tiến độ hợp đồng & mốc thanh toán</h6>
+              <span v-if="selectedOrderContract" class="badge rounded-pill" :class="getContractStatusClass(selectedOrderContract.status)">
+                Hợp đồng: {{ getContractStatusText(selectedOrderContract.status) }}
+              </span>
+            </div>
+
+            <div class="milestone-mini-list">
+              <div v-for="milestone in selectedOrderMilestones" :key="`milestone-mini-${milestone.id}`" class="milestone-mini-item">
+                <div class="d-flex justify-content-between align-items-center gap-2">
+                  <strong class="small">Mốc {{ milestone.milestoneOrder }} - {{ milestone.milestoneName }}</strong>
+                  <span class="badge" :class="getMilestoneBadgeClass(milestone.status)">{{ getMilestoneStatusText(milestone.status) }}</span>
+                </div>
+                <div class="small text-muted mt-1">
+                  {{ formatCurrency(milestone.amount) }}
+                  <span v-if="milestone.dueDate" class="ms-2">Hạn: {{ formatDateShort(milestone.dueDate) }}</span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              v-if="selectedOrder.status === 'AWAITING_CONTRACT'"
+              class="btn btn-sm btn-outline-warning mt-3"
+              @click="openContractModal(selectedOrder)">
+              <i class="bi bi-file-earmark-text me-1"></i>Mở hợp đồng để xác nhận
+            </button>
           </div>
 
           <div class="modal-section-tabs mb-3" role="tablist">
@@ -406,9 +438,27 @@
             <i v-else class="bi bi-x-circle me-1"></i>
             {{ isActionLocked(selectedOrder, 'cancel') ? 'Đang xử lý' : 'Hủy đơn hàng' }}
           </button>
-          <button v-if="selectedOrder.status === 'AWAITING_PAYMENT' || selectedOrder.status === 'DEPOSITED'" @click="openPaymentModal(selectedOrder); bsModal?.hide()" class="btn" :class="selectedOrder.status === 'DEPOSITED' ? 'btn-outline-success' : 'btn-success'">
+          <button
+            v-if="selectedOrder.orderType === 'CUSTOM_MANUFACTURING' && selectedOrder.status === 'AWAITING_CONTRACT'"
+            @click="openContractModal(selectedOrder); bsModal?.hide()"
+            class="btn btn-warning text-dark">
+            <i class="bi bi-file-earmark-text me-1"></i>Xem hợp đồng
+          </button>
+          <button
+            v-else-if="selectedOrder.orderType === 'READY_MADE' && (selectedOrder.status === 'AWAITING_PAYMENT' || selectedOrder.status === 'DEPOSITED')"
+            @click="openPaymentModal(selectedOrder); bsModal?.hide()"
+            class="btn"
+            :class="selectedOrder.status === 'DEPOSITED' ? 'btn-outline-success' : 'btn-success'">
             <i class="bi bi-qr-code me-1"></i>
-            {{ selectedOrder.status === 'DEPOSITED' ? 'Xem trạng thái thanh toán' : 'Thanh toán cọc 60%' }}
+            {{ selectedOrder.status === 'DEPOSITED' ? 'Xem trạng thái thanh toán' : 'Thanh toán' }}
+          </button>
+          <button
+            v-else-if="selectedOrder.orderType === 'CUSTOM_MANUFACTURING' && (selectedOrder.status === 'AWAITING_PAYMENT' || selectedOrder.status === 'AWAITING_REMAINING_PAYMENT' || selectedOrder.status === 'DEPOSITED')"
+            @click="openPaymentModal(selectedOrder); bsModal?.hide()"
+            class="btn"
+            :class="selectedOrder.status === 'DEPOSITED' ? 'btn-outline-success' : 'btn-success'">
+            <i class="bi bi-qr-code me-1"></i>
+            {{ getCustomerPaymentActionLabel(selectedOrder) }}
           </button>
         </div>
       </div>
@@ -422,11 +472,133 @@
       <div class="modal-dialog modal-dialog-centered" style="max-width: 520px;">
         <div class="modal-content border-0 shadow-lg">
           <div class="modal-header bg-primary text-white">
-            <h5 class="modal-title"><i class="bi bi-wallet2 me-2"></i>Thanh toán đặt cọc</h5>
+            <h5 class="modal-title"><i class="bi bi-wallet2 me-2"></i>Thanh toán đơn hàng</h5>
             <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
           </div>
           <div class="modal-body p-0" v-if="selectedPaymentOrderId">
             <PaymentQR :order-id="selectedPaymentOrderId" @payment-confirmed="onPaymentConfirmed" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </Teleport>
+
+  <!-- Contract Modal -->
+  <Teleport to="body">
+    <div class="modal fade" id="contractModal" tabindex="-1" ref="contractModalRef">
+      <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg">
+          <div class="modal-header bg-warning-subtle">
+            <h5 class="modal-title">
+              <i class="bi bi-file-earmark-text me-2"></i>
+              Hợp đồng đơn {{ selectedContractOrder?.orderNumber }}
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+
+          <div class="modal-body">
+            <div v-if="contractLoading" class="text-center py-4">
+              <span class="spinner-border spinner-border-sm me-2"></span>Đang tải hợp đồng...
+            </div>
+
+            <template v-else-if="selectedContract">
+              <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+                <div>
+                  <div class="small text-muted">Số hợp đồng</div>
+                  <strong>{{ selectedContract.contractNumber || '—' }}</strong>
+                </div>
+                <span class="badge rounded-pill" :class="getContractStatusClass(selectedContract.status)">
+                  {{ getContractStatusText(selectedContract.status) }}
+                </span>
+              </div>
+
+              <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                  <div class="border rounded p-3 h-100">
+                    <div class="small text-muted fw-semibold mb-2">Bên cung cấp</div>
+                    <div class="small"><strong>{{ selectedContract.supplierInfo?.companyName || '—' }}</strong></div>
+                    <div class="small">MST: {{ selectedContract.supplierInfo?.taxCode || '—' }}</div>
+                    <div class="small">Địa chỉ: {{ selectedContract.supplierInfo?.address || '—' }}</div>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="border rounded p-3 h-100">
+                    <div class="small text-muted fw-semibold mb-2">Bên mua</div>
+                    <div class="small"><strong>{{ selectedContract.buyerInfo?.companyName || '—' }}</strong></div>
+                    <div class="small">MST: {{ selectedContract.buyerInfo?.taxCode || '—' }}</div>
+                    <div class="small">Địa chỉ: {{ selectedContract.buyerInfo?.address || '—' }}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <div class="small text-muted fw-semibold mb-2">Mốc thanh toán</div>
+                <div class="border rounded overflow-hidden">
+                  <table class="table table-sm mb-0">
+                    <thead class="table-light">
+                      <tr>
+                        <th>Mốc</th>
+                        <th class="text-end">Tỉ lệ</th>
+                        <th class="text-end">Số tiền</th>
+                        <th class="text-center">Trạng thái</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="milestone in selectedContract.milestones || []" :key="`contract-ms-${milestone.milestoneOrder}`">
+                        <td>{{ milestone.milestoneName }}</td>
+                        <td class="text-end">{{ milestone.percentage }}%</td>
+                        <td class="text-end fw-semibold">{{ formatCurrency(milestone.amount) }}</td>
+                        <td class="text-center">
+                          <span class="badge" :class="getMilestoneBadgeClass(milestone.status)">{{ getMilestoneStatusText(milestone.status) }}</span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <div class="small text-muted fw-semibold mb-2">Điều khoản chất lượng</div>
+                <ul class="small mb-0 ps-3">
+                  <li v-for="(term, idx) in selectedContract.qualityTerms || []" :key="`quality-term-${idx}`">{{ term }}</li>
+                </ul>
+              </div>
+
+              <div class="mb-1">
+                <div class="small text-muted fw-semibold mb-2">Điều khoản hủy</div>
+                <ul class="small mb-0 ps-3">
+                  <li v-for="(term, idx) in selectedContract.cancelTerms || []" :key="`cancel-term-${idx}`">{{ term }}</li>
+                </ul>
+              </div>
+
+              <div v-if="selectedContract.extraNotes" class="alert alert-light border mt-3 mb-0 small">
+                <strong>Ghi chú bổ sung:</strong> {{ selectedContract.extraNotes }}
+              </div>
+            </template>
+
+            <div v-else class="alert alert-danger mb-0">Không tìm thấy thông tin hợp đồng.</div>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+            <button
+              v-if="selectedContract?.status === 'PENDING_CONFIRMATION'"
+              type="button"
+              class="btn btn-outline-danger"
+              :disabled="contractSubmitting"
+              @click="rejectSelectedContract">
+              <span v-if="contractSubmitting" class="spinner-border spinner-border-sm me-1"></span>
+              <i v-else class="bi bi-x-circle me-1"></i>Từ chối hợp đồng
+            </button>
+            <button
+              v-if="selectedContract?.status === 'PENDING_CONFIRMATION'"
+              type="button"
+              class="btn btn-success"
+              :disabled="contractSubmitting"
+              @click="confirmSelectedContract">
+              <span v-if="contractSubmitting" class="spinner-border spinner-border-sm me-1"></span>
+              <i v-else class="bi bi-check2-circle me-1"></i>Xác nhận hợp đồng
+            </button>
           </div>
         </div>
       </div>
@@ -526,7 +698,7 @@
 import { ref, computed, onMounted, nextTick, watch, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Swal from 'sweetalert2'
-import apiClient, { ordersAPI } from '../../services/api'
+import apiClient, { ordersAPI, paymentAPI, contractAPI } from '../../services/api'
 import { Modal } from 'bootstrap'
 import PaymentQR from './PaymentQR.vue'
 import { getOrderStatusLabel } from '../../constants/orderStatus'
@@ -547,6 +719,7 @@ const totalPages = ref(0)
 const selectedOrder = ref(null)
 const detailModalRef = ref(null)
 const paymentModalRef = ref(null)
+const contractModalRef = ref(null)
 const complaintModalRef = ref(null)
 const selectedPaymentOrderId = ref(null)
 const activeOrderType = ref('CUSTOM_MANUFACTURING')
@@ -570,9 +743,16 @@ const bypassComplaintHideGuard = ref(false)
 const orderHistoryEvents = ref([])
 const orderRevisionSummaries = ref([])
 const isLoadingOrderHistory = ref(false)
+const selectedOrderMilestones = ref([])
+const selectedOrderContract = ref(null)
+const selectedContractOrder = ref(null)
+const selectedContract = ref(null)
+const contractLoading = ref(false)
+const contractSubmitting = ref(false)
 const activeCustomerDetailTab = ref('materials')
 let bsModal = null
 let bsPaymentModal = null
+let bsContractModal = null
 let bsComplaintModal = null
 let complaintModalHideHandler = null
 let complaintModalHiddenHandler = null
@@ -587,6 +767,7 @@ const typeTabs = [
 const manufacturingStatusTabs = [
   { key: 'PENDING_APPROVAL', label: 'Chờ duyệt đơn' },
   { key: 'PENDING_QUOTE', label: 'Chờ báo giá' },
+  { key: 'AWAITING_CONTRACT', label: 'Chờ xác nhận hợp đồng' },
   { key: 'AWAITING_PAYMENT', label: 'Chờ thanh toán' },
   { key: 'DEPOSITED', label: 'Đã cọc' },
   { key: 'PROCESSING', label: 'Đang gia công' },
@@ -1157,12 +1338,39 @@ const loadOrders = async (page = 0) => {
   }
 }
 
+const loadOrderPaymentArtifacts = async (order) => {
+  if (!order?.id || order?.isTempImport || order?.orderType !== 'CUSTOM_MANUFACTURING') {
+    selectedOrderMilestones.value = []
+    selectedOrderContract.value = null
+    return
+  }
+
+  const [milestonesResult, contractResult] = await Promise.allSettled([
+    paymentAPI.getMilestones(order.id),
+    contractAPI.getOrderContract(order.id),
+  ])
+
+  if (milestonesResult.status === 'fulfilled' && Array.isArray(milestonesResult.value?.milestones)) {
+    selectedOrderMilestones.value = [...milestonesResult.value.milestones]
+      .sort((a, b) => Number(a.milestoneOrder || 0) - Number(b.milestoneOrder || 0))
+  } else {
+    selectedOrderMilestones.value = []
+  }
+
+  if (contractResult.status === 'fulfilled') {
+    selectedOrderContract.value = contractResult.value
+  } else {
+    selectedOrderContract.value = null
+  }
+}
+
 const openDetailModal = async (order) => {
   try {
     const detailUrl = order?.isTempImport ? `/orders/imports/${order.id}` : `/orders/${order.id}`
     const response = await apiClient.get(detailUrl)
     selectedOrder.value = { ...response.data, isTempImport: !!order?.isTempImport }
     activeCustomerDetailTab.value = 'materials'
+    await loadOrderPaymentArtifacts(selectedOrder.value)
     await nextTick()
 
     if (!bsModal && detailModalRef.value) {
@@ -1435,16 +1643,149 @@ const openPaymentModal = async (order) => {
   bsPaymentModal?.show()
 }
 
+const openContractModal = async (order) => {
+  if (!order?.id || order?.isTempImport) {
+    return
+  }
+
+  selectedContractOrder.value = order
+  contractLoading.value = true
+  selectedContract.value = null
+
+  try {
+    const contract = await contractAPI.getOrderContract(order.id)
+    selectedContract.value = contract
+    selectedOrderContract.value = contract
+
+    if (Array.isArray(contract?.milestones)) {
+      selectedOrderMilestones.value = [...contract.milestones]
+        .sort((a, b) => Number(a.milestoneOrder || 0) - Number(b.milestoneOrder || 0))
+    }
+
+    await nextTick()
+    if (!bsContractModal && contractModalRef.value) {
+      bsContractModal = new Modal(contractModalRef.value)
+    }
+    bsContractModal?.show()
+  } catch (error) {
+    const msg = error.response?.data?.error || 'Không thể tải hợp đồng của đơn hàng'
+    Swal.fire('Lỗi', msg, 'error')
+  } finally {
+    contractLoading.value = false
+  }
+}
+
+const confirmSelectedContract = async () => {
+  if (!selectedContract.value?.id || contractSubmitting.value) return
+
+  const result = await Swal.fire({
+    title: 'Xác nhận hợp đồng?',
+    text: 'Sau khi xác nhận, hệ thống sẽ mở mốc thanh toán đầu tiên (60%).',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonColor: '#198754',
+    cancelButtonColor: '#64748b',
+    confirmButtonText: 'Xác nhận hợp đồng',
+    cancelButtonText: 'Đóng',
+  })
+  if (!result.isConfirmed) return
+
+  contractSubmitting.value = true
+  try {
+    await contractAPI.confirm(selectedContract.value.id)
+    bsContractModal?.hide()
+
+    await Promise.all([
+      loadOrders(currentPage.value),
+      loadStatusCounts(activeOrderType.value),
+    ])
+
+    if (selectedOrder.value?.id === selectedContractOrder.value?.id) {
+      const detailResponse = await apiClient.get(`/orders/${selectedOrder.value.id}`)
+      selectedOrder.value = { ...detailResponse.data, isTempImport: !!selectedOrder.value?.isTempImport }
+      await loadOrderPaymentArtifacts(selectedOrder.value)
+    }
+
+    await Swal.fire({
+      icon: 'success',
+      title: 'Đã xác nhận hợp đồng',
+      text: 'Bạn có thể tiến hành thanh toán mốc đầu tiên.',
+      timer: 2200,
+      showConfirmButton: false,
+    })
+  } catch (error) {
+    const msg = error.response?.data?.error || 'Không thể xác nhận hợp đồng'
+    Swal.fire('Lỗi', msg, 'error')
+  } finally {
+    contractSubmitting.value = false
+  }
+}
+
+const rejectSelectedContract = async () => {
+  if (!selectedContract.value?.id || contractSubmitting.value) return
+
+  const result = await Swal.fire({
+    title: 'Từ chối hợp đồng?',
+    input: 'textarea',
+    inputLabel: 'Lý do từ chối',
+    inputPlaceholder: 'Nhập lý do để admin cập nhật lại điều khoản...',
+    inputValidator: (value) => {
+      if (!value || !value.trim()) return 'Vui lòng nhập lý do từ chối'
+      return null
+    },
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#dc2626',
+    cancelButtonColor: '#64748b',
+    confirmButtonText: 'Từ chối hợp đồng',
+    cancelButtonText: 'Hủy',
+  })
+  if (!result.isConfirmed) return
+
+  contractSubmitting.value = true
+  try {
+    await contractAPI.reject(selectedContract.value.id, String(result.value || '').trim())
+    bsContractModal?.hide()
+
+    await Promise.all([
+      loadOrders(currentPage.value),
+      loadStatusCounts(activeOrderType.value),
+    ])
+
+    if (selectedOrder.value?.id === selectedContractOrder.value?.id) {
+      const detailResponse = await apiClient.get(`/orders/${selectedOrder.value.id}`)
+      selectedOrder.value = { ...detailResponse.data, isTempImport: !!selectedOrder.value?.isTempImport }
+      await loadOrderPaymentArtifacts(selectedOrder.value)
+    }
+
+    await Swal.fire({
+      icon: 'success',
+      title: 'Đã từ chối hợp đồng',
+      text: 'Đơn hàng đã quay lại trạng thái chờ báo giá.',
+      timer: 2200,
+      showConfirmButton: false,
+    })
+  } catch (error) {
+    const msg = error.response?.data?.error || 'Không thể từ chối hợp đồng'
+    Swal.fire('Lỗi', msg, 'error')
+  } finally {
+    contractSubmitting.value = false
+  }
+}
+
 const onPaymentConfirmed = (paymentInfo) => {
   // Reload danh sách để cập nhật trạng thái
   Promise.all([
     loadOrders(currentPage.value),
     loadStatusCounts(activeOrderType.value),
   ])
+  const successMessage = paymentInfo.orderStatus === 'AWAITING_DELIVERY'
+    ? `Đơn hàng ${paymentInfo.orderNumber} đã được xác nhận thanh toán đầy đủ.`
+    : `Đơn hàng ${paymentInfo.orderNumber} đã được cập nhật trạng thái thanh toán.`
   Swal.fire({
     icon: 'success',
-    title: 'Đã nhận tiền cọc!',
-    text: `Đơn hàng ${paymentInfo.orderNumber} đã được xác nhận đặt cọc thành công.`,
+    title: 'Đã cập nhật thanh toán',
+    text: successMessage,
     timer: 3000,
     showConfirmButton: false
   })
@@ -1454,6 +1795,7 @@ const canCancelOrder = (order) => {
   if (!order) return false
   return order.status === 'PENDING_APPROVAL'
     || order.status === 'PENDING_QUOTE'
+    || order.status === 'AWAITING_CONTRACT'
     || order.status === 'AWAITING_PAYMENT'
 }
 
@@ -1790,6 +2132,18 @@ const showPaymentQR = (order) => {
   openPaymentModal(order)
 }
 
+const getCustomerPaymentActionLabel = (order) => {
+  if (!order) return 'Thanh toán'
+  if (order.orderType !== 'CUSTOM_MANUFACTURING') {
+    return order.status === 'DEPOSITED' ? 'Đã TT ✔' : 'Thanh toán'
+  }
+
+  if (order.status === 'AWAITING_REMAINING_PAYMENT') return 'TT mốc 2 (40%)'
+  if (order.status === 'AWAITING_PAYMENT') return 'TT mốc 1 (60%)'
+  if (order.status === 'DEPOSITED') return 'Đã cọc ✔'
+  return 'Xem thanh toán'
+}
+
 const readyMadeStatusLabelOverrides = {
   DEPOSITED: 'Đã thanh toán ✔',
   PROCESSING: 'Đang chuẩn bị',
@@ -1797,6 +2151,7 @@ const readyMadeStatusLabelOverrides = {
 }
 
 const customStatusLabelOverrides = {
+  AWAITING_CONTRACT: 'Chờ xác nhận hợp đồng',
   DEPOSITED: 'Đã cọc ✔',
 }
 
@@ -1812,6 +2167,7 @@ const getStatusBadgeClass = (status) => {
   const classMap = {
     PENDING_APPROVAL: 'badge bg-warning text-dark',
     PENDING_QUOTE: 'badge bg-warning text-dark',
+    AWAITING_CONTRACT: 'badge bg-info text-dark',
     AWAITING_PAYMENT: 'badge bg-info text-dark',
     DEPOSITED: 'badge bg-success',
     PROCESSING: 'badge bg-primary',
@@ -1822,6 +2178,52 @@ const getStatusBadgeClass = (status) => {
     CANCELLED: 'badge bg-danger'
   }
   return classMap[status] || 'badge bg-secondary'
+}
+
+const getContractStatusText = (status) => {
+  const map = {
+    DRAFT: 'Bản nháp',
+    PENDING_CONFIRMATION: 'Chờ xác nhận',
+    CONFIRMED: 'Đã xác nhận',
+    REJECTED: 'Đã từ chối',
+    CANCELLED: 'Đã hủy',
+  }
+  return map[String(status || '').toUpperCase()] || 'Không xác định'
+}
+
+const getContractStatusClass = (status) => {
+  const map = {
+    DRAFT: 'text-bg-secondary',
+    PENDING_CONFIRMATION: 'text-bg-warning',
+    CONFIRMED: 'text-bg-success',
+    REJECTED: 'text-bg-danger',
+    CANCELLED: 'text-bg-dark',
+  }
+  return map[String(status || '').toUpperCase()] || 'text-bg-secondary'
+}
+
+const getMilestoneStatusText = (status) => {
+  const map = {
+    PENDING: 'Chưa kích hoạt',
+    ACTIVE: 'Đang chờ thanh toán',
+    PAID_UNVERIFIED: 'Đã chuyển khoản - chờ duyệt',
+    PAID: 'Đã thanh toán',
+    OVERDUE: 'Quá hạn',
+    CANCELLED: 'Đã hủy',
+  }
+  return map[String(status || '').toUpperCase()] || String(status || 'Không rõ')
+}
+
+const getMilestoneBadgeClass = (status) => {
+  const map = {
+    PENDING: 'text-bg-secondary',
+    ACTIVE: 'text-bg-info',
+    PAID_UNVERIFIED: 'text-bg-warning',
+    PAID: 'text-bg-success',
+    OVERDUE: 'text-bg-danger',
+    CANCELLED: 'text-bg-dark',
+  }
+  return map[String(status || '').toUpperCase()] || 'text-bg-secondary'
 }
 
 const formatDate = (dateStr) => {
@@ -2072,6 +2474,26 @@ const formatTime = (dateStr) => {
   border-radius: 12px;
   padding: 0.9rem 1rem;
   background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.contract-overview-card {
+  border: 1px solid #f8d7a4;
+  background: linear-gradient(180deg, #fffdf7 0%, #fff7e6 100%);
+  border-radius: 12px;
+  padding: 0.85rem;
+}
+
+.milestone-mini-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0.55rem;
+}
+
+.milestone-mini-item {
+  border: 1px solid #f1dfb7;
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 0.55rem 0.65rem;
 }
 
 .modal-section-tabs {

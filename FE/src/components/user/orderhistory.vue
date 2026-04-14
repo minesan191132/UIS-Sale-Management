@@ -149,6 +149,13 @@
               </svg>
               Xem chi tiết
             </button>
+            <button
+              v-if="order.status === 'AWAITING_CONTRACT'"
+              class="btn-pay btn-pay--contract"
+              @click="openContractPage(order)"
+            >
+              📄 Xác nhận hợp đồng
+            </button>
             <!-- Remaining payment button -->
             <button
               v-if="order.status === 'AWAITING_REMAINING_PAYMENT'"
@@ -372,7 +379,15 @@
             </button>
 
             <button
-              v-if="selectedOrder?.status === 'AWAITING_PAYMENT' || selectedOrder?.status === 'DEPOSITED'"
+              v-if="selectedOrder?.status === 'AWAITING_CONTRACT'"
+              class="btn-pay btn-pay--contract"
+              @click="openContractPage(selectedOrder); showDetailModal = false"
+            >
+              📄 Xác nhận hợp đồng
+            </button>
+
+            <button
+              v-else-if="selectedOrder?.status === 'AWAITING_PAYMENT' || selectedOrder?.status === 'DEPOSITED'"
               class="btn-pay"
               :class="{ 'btn-pay--done': selectedOrder?.status === 'DEPOSITED' }"
               @click="openPayment(selectedOrder); showDetailModal = false"
@@ -408,11 +423,14 @@
 
 <script setup>
 import { ref, computed, onMounted, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
 import Swal from 'sweetalert2'
 import apiClient from '../../services/api'
 import PaymentQR from '../customer/PaymentQR.vue'
 import { Modal } from 'bootstrap'
 import { getOrderStatusLabel } from '../../constants/orderStatus'
+
+const router = useRouter()
 
 const isLoading = ref(true)
 const isCancelling = ref(false)
@@ -440,6 +458,7 @@ const manufacturingStatusTabs = [
   { key: 'ALL',                        label: 'Tất cả' },
   { key: 'PENDING_APPROVAL',           label: 'Chờ duyệt đơn' },
   { key: 'PENDING_QUOTE',              label: 'Chờ báo giá' },
+  { key: 'AWAITING_CONTRACT',          label: 'Chờ xác nhận hợp đồng' },
   { key: 'AWAITING_PAYMENT',           label: 'Chờ thanh toán' },
   { key: 'DEPOSITED',                  label: 'Đã cọc' },
   { key: 'PROCESSING',                 label: 'Đang gia công' },
@@ -467,13 +486,14 @@ const currentStatusTabs = computed(() =>
 const manufacturingTimeline = [
   { key: 'PENDING_APPROVAL',           label: 'Chờ duyệt đơn',      index: 0 },
   { key: 'PENDING_QUOTE',              label: 'Chờ báo giá',        index: 1 },
-  { key: 'AWAITING_PAYMENT',           label: 'Chờ thanh toán',     index: 2 },
-  { key: 'DEPOSITED',                  label: 'Đã cọc',             index: 3 },
-  { key: 'PROCESSING',                 label: 'Đang gia công',      index: 4 },
-  { key: 'AWAITING_REMAINING_PAYMENT', label: 'Chờ TT đợt 2',       index: 5 },
-  { key: 'AWAITING_DELIVERY',          label: 'Chờ giao hàng',      index: 6 },
-  { key: 'SHIPPING',                   label: 'Đang giao',          index: 7 },
-  { key: 'COMPLETED',                  label: 'Hoàn thành',         index: 8 },
+  { key: 'AWAITING_CONTRACT',          label: 'Chờ xác nhận HĐ',    index: 2 },
+  { key: 'AWAITING_PAYMENT',           label: 'Chờ thanh toán',     index: 3 },
+  { key: 'DEPOSITED',                  label: 'Đã cọc',             index: 4 },
+  { key: 'PROCESSING',                 label: 'Đang gia công',      index: 5 },
+  { key: 'AWAITING_REMAINING_PAYMENT', label: 'Chờ TT đợt 2',       index: 6 },
+  { key: 'AWAITING_DELIVERY',          label: 'Chờ giao hàng',      index: 7 },
+  { key: 'SHIPPING',                   label: 'Đang giao',          index: 8 },
+  { key: 'COMPLETED',                  label: 'Hoàn thành',         index: 9 },
 ]
 
 const productTimeline = [
@@ -516,6 +536,7 @@ const statusBadgeClass = (status) => {
   const map = {
     PENDING_APPROVAL:           'badge-warning',
     PENDING_QUOTE:              'badge-warning',
+    AWAITING_CONTRACT:          'badge-info',
     AWAITING_PAYMENT:           'badge-info',
     DEPOSITED:                  'badge-success',
     PROCESSING:                 'badge-primary',
@@ -541,6 +562,7 @@ const canCancelOrder = (order) => {
   if (!order) return false
   return order.status === 'PENDING_APPROVAL'
     || order.status === 'PENDING_QUOTE'
+    || order.status === 'AWAITING_CONTRACT'
     || order.status === 'AWAITING_PAYMENT'
 }
 
@@ -631,6 +653,11 @@ const openPayment = async (order) => {
     bsPaymentModal = new Modal(paymentModalRef.value)
   }
   bsPaymentModal?.show()
+}
+
+const openContractPage = (order) => {
+  if (!order?.id) return
+  router.push({ path: '/my-orders', query: { orderId: String(order.id) } })
 }
 
 const onPaymentConfirmed = (info) => {
@@ -951,6 +978,16 @@ onMounted(() => loadOrders())
 }
 
 .btn-pay--done:hover { background: #dcfce7; }
+
+.btn-pay--contract {
+  background: linear-gradient(135deg, #f59e0b, #f97316);
+  color: #111827;
+}
+
+.btn-pay--contract:hover {
+  opacity: 0.95;
+  transform: translateY(-1px);
+}
 
 .btn-cancel-order {
   background: #fff1f2;
