@@ -96,7 +96,7 @@
                 <h1 class="section-title">Hồ Sơ Của Tôi</h1>
                 <p class="section-desc">Quản lý thông tin hồ sơ để bảo mật tài khoản</p>
               </div>
-              <div v-if="profileDraftRestoredAt" class="alert alert-info py-2 px-3 small mb-3">
+              <div v-if="profileDraftRestoredAt" class="alert alert-info alert-fit-content py-2 px-3 small mb-3">
                 <i class="bi bi-clock-history me-1"></i>
                 Đã khôi phục bản nháp lưu lúc {{ new Date(profileDraftRestoredAt).toLocaleString('vi-VN') }}.
               </div>

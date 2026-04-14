@@ -41,6 +41,7 @@ public class ContractResponseDTO {
         private String orderNumber;
         private BigDecimal totalPrice;
         private BigDecimal depositAmount;
+        private LocalDate orderDate;
         private LocalDate deliveryDate;
     }
 

@@ -18,7 +18,7 @@
       <div class="success-icon">✅</div>
       <h5>Đã nhận tiền cọc!</h5>
       <p class="mb-2">Đơn hàng <strong>{{ paymentInfo.orderNumber }}</strong> đã được xác nhận đặt cọc thành công.</p>
-      <div class="alert alert-success mb-0">
+      <div class="alert alert-success alert-fit-content mb-0">
         Số tiền nhận: <strong>{{ formatCurrency(paymentInfo.depositAmount) }}</strong>
       </div>
     </div>

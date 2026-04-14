@@ -201,7 +201,7 @@
               <textarea class="form-control custom-input" rows="2" v-model="form.description"></textarea>
             </div>
             
-            <div v-if="saveError" class="alert alert-danger py-2 rounded-3">{{ saveError }}</div>
+            <div v-if="saveError" class="alert alert-danger alert-fit-content py-2 rounded-3">{{ saveError }}</div>
             
             <div class="d-flex gap-3 justify-content-end pt-3 border-top mt-4">
               <button type="button" class="btn btn-light px-4 py-2 rounded-pill fw-bold border" @click="closeModal">Huỷ bỏ</button>
