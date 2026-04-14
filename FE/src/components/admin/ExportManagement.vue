@@ -39,6 +39,7 @@
             <option value="">Tất cả</option>
             <option value="PENDING_APPROVAL">Chờ duyệt đơn</option>
             <option value="PENDING_QUOTE">Chờ báo giá</option>
+            <option value="AWAITING_CONTRACT">Chờ xác nhận hợp đồng</option>
             <option value="AWAITING_PAYMENT">Chờ thanh toán</option>
             <option value="DEPOSITED">Đã cọc</option>
             <option value="PROCESSING">Đang gia công</option>
@@ -150,6 +151,18 @@
                   </button>
                   <button v-if="order.status === 'PENDING_QUOTE' && isAllReviewed(order)" @click="submitQuote(order)" class="btn btn-action-circle bg-light text-success border" title="Gửi báo giá">
                     <i class="bi bi-currency-dollar"></i>
+                  </button>
+                  <button v-if="order.status === 'AWAITING_CONTRACT'" @click="openContractPreview(order)" class="btn btn-action-circle bg-light text-warning border" title="Xem hợp đồng">
+                    <i class="bi bi-file-earmark-text"></i>
+                  </button>
+                  <button
+                    v-if="canVerifyMilestone(order)"
+                    @click="verifyPendingMilestone(order)"
+                    class="btn btn-action-circle bg-light text-success border"
+                    :disabled="verifyingMilestoneOrderId === order.id"
+                    title="Xác nhận thanh toán mốc">
+                    <span v-if="verifyingMilestoneOrderId === order.id" class="spinner-border spinner-border-sm"></span>
+                    <i v-else class="bi bi-patch-check-fill"></i>
                   </button>
                   <button v-if="order.status === 'DEPOSITED'" @click="startProcessing(order)" class="btn btn-action-circle bg-light text-navy border" title="Bắt đầu gia công">
                     <i class="bi bi-play-fill"></i>
@@ -473,6 +486,15 @@
               <button v-if="selectedOrder?.status === 'PENDING_APPROVAL' && selectedOrder?.isTempImport" @click="rejectOrder(selectedOrder)" class="btn btn-outline-danger rounded-pill px-4 fw-bold hover-lift"><i class="bi bi-x-circle me-1"></i>Từ chối đơn</button>
               <button v-if="canAdminCancelRegularOrder(selectedOrder)" @click="cancelRegularOrder(selectedOrder)" class="btn btn-outline-danger rounded-pill px-4 fw-bold hover-lift"><i class="bi bi-slash-circle me-1"></i>Hủy đơn</button>
               <button v-if="selectedOrder?.status === 'PENDING_QUOTE' && isAllReviewed(selectedOrder)" @click="submitQuoteFromModal()" class="btn btn-success rounded-pill px-4 fw-bold shadow-sm hover-lift"><i class="bi bi-send me-2"></i>Gửi Báo Giá <span class="badge bg-white text-success ms-1">{{ formatCurrency(calculatedTotal) }}</span></button>
+              <button v-if="selectedOrder?.status === 'AWAITING_CONTRACT'" @click="openContractPreview(selectedOrder)" class="btn btn-outline-warning rounded-pill px-4 fw-bold hover-lift"><i class="bi bi-file-earmark-text me-1"></i>Xem hợp đồng</button>
+              <button
+                v-if="canVerifyMilestone(selectedOrder)"
+                @click="verifyPendingMilestone(selectedOrder)"
+                class="btn btn-success rounded-pill px-4 fw-bold shadow-sm hover-lift"
+                :disabled="verifyingMilestoneOrderId === selectedOrder?.id">
+                <span v-if="verifyingMilestoneOrderId === selectedOrder?.id" class="spinner-border spinner-border-sm me-1"></span>
+                <i v-else class="bi bi-patch-check-fill me-1"></i>Xác nhận thanh toán mốc
+              </button>
               <button v-if="selectedOrder?.status === 'AWAITING_DELIVERY'" @click="markAsShipping(selectedOrder)" class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm hover-lift" :disabled="shipping"><i class="bi bi-truck me-1"></i>Bàn giao Giao hàng</button>
             </div>
           </div>
@@ -487,7 +509,7 @@
 import { ref, computed, onMounted, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import Swal from 'sweetalert2';
-import apiClient from '../../services/api';
+import apiClient, { paymentAPI, contractAPI } from '../../services/api';
 import { Modal } from 'bootstrap';
 import { getOrderStatusLabel, getReviewStatusLabel } from '../../constants/orderStatus';
 
@@ -518,6 +540,8 @@ const isLoadingOrderHistory = ref(false);
 let bsModal = null;
 
 const selectedItemIds = ref([]);
+const orderMilestonesMap = ref({});
+const verifyingMilestoneOrderId = ref(null);
 const shipmentEligibleStatuses = ['DEPOSITED', 'PROCESSING', 'COMPLETED'];
 
 onMounted(() => {
@@ -533,6 +557,49 @@ const loadCompaniesForImport = async () => {
   } catch (error) { companiesForImport.value = []; }
 };
 
+const refreshVisibleMilestones = async (orderRows = []) => {
+  const candidates = (orderRows || []).filter((order) => {
+    return !order?.isTempImport
+      && order?.status
+      && ['AWAITING_CONTRACT', 'AWAITING_PAYMENT', 'DEPOSITED', 'PROCESSING', 'AWAITING_REMAINING_PAYMENT', 'AWAITING_DELIVERY'].includes(order.status);
+  });
+
+  if (!candidates.length) {
+    orderMilestonesMap.value = {};
+    return;
+  }
+
+  const results = await Promise.allSettled(
+    candidates.map((order) => paymentAPI.getMilestones(order.id))
+  );
+
+  const nextMap = {};
+  candidates.forEach((order, index) => {
+    const result = results[index];
+    if (result.status === 'fulfilled' && Array.isArray(result.value?.milestones)) {
+      nextMap[order.id] = [...result.value.milestones]
+        .sort((a, b) => Number(a.milestoneOrder || 0) - Number(b.milestoneOrder || 0));
+    }
+  });
+
+  orderMilestonesMap.value = nextMap;
+};
+
+const getOrderMilestones = (order) => {
+  if (!order?.id) return [];
+  return orderMilestonesMap.value[order.id] || [];
+};
+
+const getPendingVerifyMilestone = (order) => {
+  return getOrderMilestones(order).find((milestone) => milestone?.status === 'PAID_UNVERIFIED') || null;
+};
+
+const canVerifyMilestone = (order) => {
+  if (!order || order.isTempImport) return false;
+  if (!['AWAITING_PAYMENT', 'AWAITING_REMAINING_PAYMENT'].includes(order.status)) return false;
+  return !!getPendingVerifyMilestone(order);
+};
+
 const loadOrders = async (page = 0) => {
   isLoading.value = true;
   try {
@@ -543,6 +610,7 @@ const loadOrders = async (page = 0) => {
       const response = await apiClient.get('/orders/imports/pending', { params });
       const data = response.data.content || response.data;
       orders.value = (Array.isArray(data) ? data : []).map(o => ({ ...o, selected: false, isTempImport: true }));
+      orderMilestonesMap.value = {};
       currentPage.value = response.data.number || 0;
       totalPages.value = response.data.totalPages || 1;
     } else {
@@ -574,6 +642,8 @@ const loadOrders = async (page = 0) => {
       }
       currentPage.value = response.data.number || 0;
       totalPages.value = response.data.totalPages || 1;
+
+      await refreshVisibleMilestones(orders.value);
     }
 
     if (expandedOrderId.value && !orders.value.some(o => o.id === expandedOrderId.value)) {
@@ -702,6 +772,7 @@ const openReviewModal = async (order) => {
     const detailUrl = order?.isTempImport ? `/orders/imports/${order.id}` : `/orders/${order.id}`;
     const response = await apiClient.get(detailUrl);
     selectedOrder.value = { ...response.data, isTempImport: !!order?.isTempImport };
+    await ensureMilestonesForOrder(selectedOrder.value);
     activeDetailTab.value = 'materials';
     initializeReviewDrafts(selectedOrder.value.items || []);
     await preloadDefaultPricesForDrafts(selectedOrder.value.items || []);
@@ -880,7 +951,7 @@ const rejectOrder = async (order) => {
 
 const canAdminCancelRegularOrder = (order) => {
   if (!order || order?.isTempImport) return false;
-  return ['PENDING_APPROVAL', 'PENDING_QUOTE', 'AWAITING_PAYMENT', 'DEPOSITED', 'PROCESSING', 'AWAITING_REMAINING_PAYMENT'].includes(order.status);
+  return ['PENDING_APPROVAL', 'PENDING_QUOTE', 'AWAITING_CONTRACT', 'AWAITING_PAYMENT', 'DEPOSITED', 'PROCESSING', 'AWAITING_REMAINING_PAYMENT'].includes(order.status);
 };
 
 const cancelRegularOrder = async (order) => {
@@ -898,13 +969,148 @@ const submitQuoteFromModal = async () => { await submitQuote(selectedOrder.value
 
 const submitQuote = async (order) => {
   const total = calculatedTotal.value || calculateOrderTotal(order);
-  const { value: notes } = await Swal.fire({ title: `Gửi báo giá — ${order.orderNumber}`, html: `<p>Tổng: <strong>${formatCurrency(total)}</strong></p><p class="text-muted small">Cọc (70%): ${formatCurrency(total * 0.7)}</p>`, input: 'textarea', inputLabel: 'Ghi chú cho khách hàng', showCancelButton: true, confirmButtonText: 'Gửi báo giá', confirmButtonColor: '#198754' });
+  const { value: notes } = await Swal.fire({ title: `Gửi báo giá — ${order.orderNumber}`, html: `<p>Tổng: <strong>${formatCurrency(total)}</strong></p><p class="text-muted small">Cọc (60%): ${formatCurrency(total * 0.6)}</p>`, input: 'textarea', inputLabel: 'Ghi chú cho khách hàng', showCancelButton: true, confirmButtonText: 'Gửi báo giá', confirmButtonColor: '#198754' });
   if (notes !== undefined) {
     try {
       await apiClient.put(`/orders/${order.id}/quote`, { notes: notes || null });
       Swal.fire('Thành công', 'Báo giá đã được gửi', 'success');
       bsModal?.hide(); loadOrders(currentPage.value);
     } catch (error) { Swal.fire('Lỗi', error.response?.data?.error || 'Không thể gửi báo giá', 'error'); }
+  }
+};
+
+const getMilestoneStatusText = (status) => {
+  const map = {
+    PENDING: 'Chưa kích hoạt',
+    ACTIVE: 'Đang chờ thanh toán',
+    PAID_UNVERIFIED: 'Đã CK - chờ xác nhận',
+    PAID: 'Đã thanh toán',
+    OVERDUE: 'Quá hạn',
+    CANCELLED: 'Đã hủy',
+  };
+  return map[String(status || '').toUpperCase()] || String(status || 'Không rõ');
+};
+
+const ensureMilestonesForOrder = async (order) => {
+  if (!order?.id || order?.isTempImport) return;
+  if (Array.isArray(orderMilestonesMap.value[order.id]) && orderMilestonesMap.value[order.id].length > 0) return;
+
+  try {
+    const result = await paymentAPI.getMilestones(order.id);
+    if (Array.isArray(result?.milestones)) {
+      orderMilestonesMap.value = {
+        ...orderMilestonesMap.value,
+        [order.id]: [...result.milestones].sort((a, b) => Number(a.milestoneOrder || 0) - Number(b.milestoneOrder || 0)),
+      };
+    }
+  } catch (error) {
+    // ignore: not all orders have milestones in early states
+  }
+};
+
+const openContractPreview = async (order) => {
+  if (!order?.id || order?.isTempImport) return;
+
+  try {
+    const contract = await contractAPI.getOrderContract(order.id);
+    const milestoneRows = (contract?.milestones || []).map((milestone) => `
+      <tr>
+        <td>${escapeHtml(milestone.milestoneName || 'Mốc')}</td>
+        <td style="text-align:right;">${escapeHtml(String(milestone.percentage || 0))}%</td>
+        <td style="text-align:right;">${escapeHtml(formatCurrency(milestone.amount) || '—')}</td>
+        <td style="text-align:center;">${escapeHtml(getMilestoneStatusText(milestone.status))}</td>
+      </tr>
+    `).join('');
+
+    const qualityTerms = (contract?.qualityTerms || []).map((term) => `<li>${escapeHtml(term)}</li>`).join('');
+    const cancelTerms = (contract?.cancelTerms || []).map((term) => `<li>${escapeHtml(term)}</li>`).join('');
+
+    await Swal.fire({
+      title: `Hợp đồng ${escapeHtml(contract?.contractNumber || '')}`,
+      width: 960,
+      html: `
+        <div style="text-align:left; max-height:65vh; overflow:auto;">
+          <div style="margin-bottom:10px; font-size: 13px; color:#64748b;">
+            Trạng thái: <strong>${escapeHtml(contract?.status || 'UNKNOWN')}</strong>
+          </div>
+
+          <div style="border:1px solid #e2e8f0; border-radius:10px; overflow:hidden; margin-bottom:12px;">
+            <table style="width:100%; border-collapse:collapse; font-size:13px;">
+              <thead style="background:#f8fafc;">
+                <tr>
+                  <th style="padding:8px; text-align:left;">Mốc</th>
+                  <th style="padding:8px; text-align:right;">Tỉ lệ</th>
+                  <th style="padding:8px; text-align:right;">Số tiền</th>
+                  <th style="padding:8px; text-align:center;">Trạng thái</th>
+                </tr>
+              </thead>
+              <tbody>${milestoneRows || '<tr><td colspan="4" style="padding:8px; text-align:center; color:#94a3b8;">Không có mốc thanh toán</td></tr>'}</tbody>
+            </table>
+          </div>
+
+          <div style="margin-bottom:10px;">
+            <div style="font-weight:600; margin-bottom:4px;">Điều khoản chất lượng</div>
+            <ul style="margin:0; padding-left:18px;">${qualityTerms || '<li>—</li>'}</ul>
+          </div>
+
+          <div>
+            <div style="font-weight:600; margin-bottom:4px;">Điều khoản hủy</div>
+            <ul style="margin:0; padding-left:18px;">${cancelTerms || '<li>—</li>'}</ul>
+          </div>
+        </div>
+      `,
+      confirmButtonText: 'Đóng',
+      confirmButtonColor: '#0b2e59',
+    });
+  } catch (error) {
+    Swal.fire('Lỗi', error.response?.data?.error || 'Không thể tải hợp đồng', 'error');
+  }
+};
+
+const verifyPendingMilestone = async (order) => {
+  if (!order?.id || order?.isTempImport) return;
+
+  await ensureMilestonesForOrder(order);
+  const milestone = getPendingVerifyMilestone(order);
+  if (!milestone) {
+    await Swal.fire('Chưa có giao dịch cần xác nhận', 'Mốc thanh toán hiện tại chưa ghi nhận chuyển khoản hoặc đã được xác nhận.', 'info');
+    return;
+  }
+
+  const result = await Swal.fire({
+    title: 'Xác nhận thanh toán mốc?',
+    html: `
+      <div class="text-start">
+        <p class="mb-1"><strong>Đơn:</strong> ${escapeHtml(order.orderNumber || '')}</p>
+        <p class="mb-1"><strong>Mốc:</strong> ${escapeHtml(milestone.milestoneName || '')}</p>
+        <p class="mb-1"><strong>Số tiền:</strong> ${escapeHtml(formatCurrency(milestone.paidAmount || milestone.amount) || '—')}</p>
+        <p class="mb-0 text-muted small"><strong>Ref:</strong> ${escapeHtml(milestone.transactionRef || '—')}</p>
+      </div>
+    `,
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'Xác nhận',
+    cancelButtonText: 'Đóng',
+    confirmButtonColor: '#198754',
+  });
+  if (!result.isConfirmed) return;
+
+  verifyingMilestoneOrderId.value = order.id;
+  try {
+    const verifyResult = await paymentAPI.verifyMilestone(milestone.id);
+    await Swal.fire('Thành công', verifyResult?.message || 'Đã xác nhận thanh toán mốc.', 'success');
+    await loadOrders(currentPage.value);
+
+    if (selectedOrder.value?.id === order.id) {
+      const detailUrl = selectedOrder.value?.isTempImport ? `/orders/imports/${order.id}` : `/orders/${order.id}`;
+      const detailResponse = await apiClient.get(detailUrl);
+      selectedOrder.value = { ...detailResponse.data, isTempImport: !!selectedOrder.value?.isTempImport };
+      await ensureMilestonesForOrder(selectedOrder.value);
+    }
+  } catch (error) {
+    await Swal.fire('Lỗi', error.response?.data?.error || 'Không thể xác nhận thanh toán mốc', 'error');
+  } finally {
+    verifyingMilestoneOrderId.value = null;
   }
 };
 
@@ -1003,6 +1209,7 @@ const getStatusBadgeClass = (status) => {
   const map = {
     PENDING_APPROVAL: 'bg-warning bg-opacity-10 text-warning border border-warning border-opacity-50',
     PENDING_QUOTE: 'bg-warning bg-opacity-10 text-warning border border-warning border-opacity-50',
+    AWAITING_CONTRACT: 'bg-info bg-opacity-10 text-info border border-info border-opacity-25',
     AWAITING_PAYMENT: 'bg-info bg-opacity-10 text-info border border-info border-opacity-25',
     DEPOSITED: 'bg-success bg-opacity-10 text-success border border-success border-opacity-25',
     PROCESSING: 'bg-navy bg-opacity-10 text-navy border border-navy border-opacity-25',
@@ -1019,6 +1226,7 @@ const getStatusDotClass = (status) => {
   const map = {
     PENDING_APPROVAL: 'bg-warning shadow-warning',
     PENDING_QUOTE: 'bg-warning shadow-warning',
+    AWAITING_CONTRACT: 'bg-info shadow-info',
     AWAITING_PAYMENT: 'bg-info shadow-info',
     DEPOSITED: 'bg-success shadow-success',
     PROCESSING: 'bg-navy shadow-navy',
