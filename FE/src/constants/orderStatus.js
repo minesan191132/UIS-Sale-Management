@@ -3,6 +3,7 @@ export const UNKNOWN_STATUS_LABEL = 'Không xác định'
 export const ORDER_STATUS_LABELS = Object.freeze({
   PENDING_APPROVAL: 'Chờ duyệt đơn',
   PENDING_QUOTE: 'Chờ báo giá',
+  AWAITING_CONTRACT: 'Chờ xác nhận hợp đồng',
   AWAITING_PAYMENT: 'Chờ thanh toán',
   DEPOSITED: 'Đã cọc',
   PROCESSING: 'Đang gia công',

@@ -5,14 +5,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.example.features.notification.entity.NotificationType;
 import org.example.features.notification.service.UserNotificationService;
 import org.example.features.order.entity.Order;
-import org.example.features.order.entity.OrderItem;
 import org.example.features.order.entity.OrderStatus;
 import org.example.features.order.repository.OrderRepository;
-import org.example.features.productadmin.AdminProductService;
+import org.example.features.payment.dto.MilestoneQrDTO;
 import org.example.features.payment.dto.PaymentSummaryDTO;
 import org.example.features.payment.dto.SepayWebhookDTO;
 import org.example.features.payment.entity.Payment;
 import org.example.features.payment.entity.PaymentMethod;
+import org.example.features.payment.entity.PaymentMilestone;
 import org.example.features.payment.entity.PaymentType;
 import org.example.features.payment.repository.PaymentRepository;
 import org.springframework.beans.factory.annotation.Value;
@@ -42,7 +42,7 @@ public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
-    private final AdminProductService adminProductService;
+    private final PaymentMilestoneService paymentMilestoneService;
     private final UserNotificationService userNotificationService;
 
     @Value("${sepay.bank.account}")
@@ -50,9 +50,6 @@ public class PaymentService {
 
     @Value("${sepay.bank.code}")
     private String bankCode;
-
-    @Value("${sepay.webhook.token:}")
-    private String webhookToken;
 
     private static final String SEPAY_QR_BASE = "https://qr.sepay.vn/img";
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -62,6 +59,10 @@ public class PaymentService {
     // Hoặc COC-ORD-YYYYMMDD-XXX (format cũ, để tương thích)
     private static final Pattern ORDER_CODE_PATTERN = Pattern.compile(
             "(?i)COC[-\\s]?([A-Z0-9]{6,})", Pattern.CASE_INSENSITIVE);
+
+    // Milestone transfer content format: MS{milestoneId}PAY{orderId}
+    private static final Pattern MILESTONE_PATTERN = Pattern.compile(
+            "(?i)MS\\s*(\\d+)\\s*PAY\\s*(\\d+)", Pattern.CASE_INSENSITIVE);
 
     // =====================================================
     // QR GENERATION
@@ -129,7 +130,27 @@ public class PaymentService {
             return WebhookResult.ignored("Account number mismatch");
         }
 
-        // 3. Tìm mã đơn hàng trong nội dung
+        // 3. Milestone flow for CUSTOM_MANUFACTURING: MS{milestoneId}PAY{orderId}
+        MilestoneReference milestoneRef = extractMilestoneReference(webhook.getContent());
+        if (milestoneRef == null) {
+            milestoneRef = extractMilestoneReference(webhook.getCode());
+        }
+
+        if (milestoneRef != null) {
+            PaymentMilestoneService.MilestoneWebhookResult milestoneResult = paymentMilestoneService.recordMilestoneWebhook(
+                    webhook,
+                    milestoneRef.milestoneId(),
+                    milestoneRef.orderId());
+
+            return WebhookResult.milestone(
+                    milestoneResult.status(),
+                    milestoneResult.message(),
+                    milestoneResult.orderId(),
+                    milestoneResult.milestoneId(),
+                    milestoneResult.amount());
+        }
+
+        // 4. Legacy flow for READY_MADE and backward compatibility (COC...)
         String cleanedCode = extractOrderNumber(webhook.getContent());
         if (cleanedCode == null) {
             cleanedCode = extractOrderNumber(webhook.getCode());
@@ -142,7 +163,7 @@ public class PaymentService {
 
         final String finalCleanedCode = cleanedCode;
 
-        // 4. Tìm đơn hàng bằng cách match cleaned order number
+        // 5. Tìm đơn hàng bằng cách match cleaned order number
         // So sánh phần sau COC với orderNumber đã xoá ký tự đặc biệt
         Optional<Order> orderOpt = orderRepository.findAll().stream()
                 .filter(o -> o.getOrderNumber() != null &&
@@ -159,7 +180,11 @@ public class PaymentService {
 
         Order order = orderOpt.get();
 
-        // 5. Kiểm tra trạng thái đơn hàng và xác định loại thanh toán
+        if (!paymentMilestoneService.getMilestones(order.getId()).isEmpty()) {
+            return WebhookResult.ignored("Order uses milestone payment flow. Please transfer with MS{milestoneId}PAY{orderId} content.");
+        }
+
+        // 6. Kiểm tra trạng thái đơn hàng và xác định loại thanh toán
         OrderStatus currentStatus = order.getStatus();
         PaymentType paymentType = PaymentType.DEPOSIT; // Mặc định
         boolean isSecondPayment = false;
@@ -176,7 +201,7 @@ public class PaymentService {
             return WebhookResult.ignored("Order is not awaiting payment (status: " + currentStatus + ")");
         }
 
-        // 6. Tính toán số tiền cần thiết dựa theo loại thanh toán
+        // 7. Tính toán số tiền cần thiết dựa theo loại thanh toán
         BigDecimal amountRequired = BigDecimal.ZERO;
         if (!isSecondPayment) {
             // Thanh toán đợt 1: deposit
@@ -188,7 +213,7 @@ public class PaymentService {
             }
         }
 
-        // 7. Kiểm tra số tiền (cho phép ±1% sai số làm tròn)
+        // 8. Kiểm tra số tiền (cho phép ±1% sai số làm tròn)
         BigDecimal tolerance = amountRequired.multiply(BigDecimal.valueOf(0.01));
         BigDecimal diff = webhook.getTransferAmount().subtract(amountRequired).abs();
         if (diff.compareTo(tolerance) > 0 && webhook.getTransferAmount().compareTo(amountRequired) < 0) {
@@ -199,7 +224,7 @@ public class PaymentService {
             return WebhookResult.partialPayment("Payment recorded but insufficient for confirmation");
         }
 
-        // 8. Tạo Payment record
+        // 9. Tạo Payment record
         Payment payment = new Payment();
         payment.setOrder(order);
         payment.setAmount(webhook.getTransferAmount());
@@ -210,7 +235,7 @@ public class PaymentService {
         payment.setNotes("SePay webhook - " + webhook.getTransactionDate() + " - " + webhook.getContent());
         paymentRepository.save(payment);
 
-        // 9. Cập nhật đơn hàng
+        // 10. Cập nhật đơn hàng
         if (!isSecondPayment) {
             // Thanh toán đợt 1: AWAITING_PAYMENT -> DEPOSITED
             order.setStatus(OrderStatus.DEPOSITED);
@@ -254,7 +279,7 @@ public class PaymentService {
         }
 
         orderRepository.save(order);
-        return WebhookResult.success(order.getOrderNumber(), webhook.getTransferAmount());
+        return WebhookResult.success(order.getOrderNumber(), order.getId(), webhook.getTransferAmount());
     }
 
     /**
@@ -273,6 +298,25 @@ public class PaymentService {
             return matcher.group(1).replaceAll("[^A-Za-z0-9]", "").toUpperCase();
         }
         return null;
+    }
+
+    private MilestoneReference extractMilestoneReference(String content) {
+        if (content == null || content.isBlank()) {
+            return null;
+        }
+
+        Matcher matcher = MILESTONE_PATTERN.matcher(content);
+        if (!matcher.find()) {
+            return null;
+        }
+
+        try {
+            Long milestoneId = Long.parseLong(matcher.group(1));
+            Long orderId = Long.parseLong(matcher.group(2));
+            return new MilestoneReference(milestoneId, orderId);
+        } catch (NumberFormatException ex) {
+            return null;
+        }
     }
 
     /**
@@ -304,20 +348,33 @@ public class PaymentService {
         List<Payment> payments = paymentRepository.findByOrderId(orderId);
         BigDecimal totalPaid = paymentRepository.getTotalVerifiedPaymentsByOrder(orderId);
 
-        // Luôn tái tạo QR URL từ config hiện tại (không dùng URL cũ trong DB)
-        // → Đổi bank code trong application.properties là đủ, không cần báo giá lại
-        String freshQrUrl = null;
-        if (order.getDepositAmount() != null) {
-            freshQrUrl = generateSepayQrUrl(order.getOrderNumber(), order.getDepositAmount());
-            // Cập nhật vào DB nếu URL thay đổi
-            if (!freshQrUrl.equals(order.getPaymentQrUrl())) {
-                order.setPaymentQrUrl(freshQrUrl);
-                orderRepository.save(order);
-                log.info("QR URL refreshed for order {}", order.getOrderNumber());
-            }
-        }
+        String qrUrl = order.getPaymentQrUrl();
+        String transferContent = generateTransferContent(order.getOrderNumber());
+        BigDecimal payableAmount = order.getDepositAmount();
 
-        String qrUrl = freshQrUrl != null ? freshQrUrl : order.getPaymentQrUrl();
+        Optional<PaymentMilestone> activeMilestone = paymentMilestoneService.findCurrentActiveMilestone(orderId);
+        if (activeMilestone.isPresent()) {
+            PaymentMilestone milestone = activeMilestone.get();
+            MilestoneQrDTO milestoneQr = paymentMilestoneService.getMilestoneQr(milestone.getId());
+            qrUrl = milestoneQr.getQrUrl();
+            transferContent = milestoneQr.getTransferContent();
+            payableAmount = milestone.getAmount();
+        } else {
+            // Luôn tái tạo QR URL từ config hiện tại (không dùng URL cũ trong DB)
+            // -> Đổi bank code trong application.properties là đủ, không cần báo giá lại
+            String freshQrUrl = null;
+            if (order.getDepositAmount() != null) {
+                freshQrUrl = generateSepayQrUrl(order.getOrderNumber(), order.getDepositAmount());
+                // Cập nhật vào DB nếu URL thay đổi
+                if (!freshQrUrl.equals(order.getPaymentQrUrl())) {
+                    order.setPaymentQrUrl(freshQrUrl);
+                    orderRepository.save(order);
+                    log.info("QR URL refreshed for order {}", order.getOrderNumber());
+                }
+            }
+
+            qrUrl = freshQrUrl != null ? freshQrUrl : order.getPaymentQrUrl();
+        }
 
         List<PaymentItemDTO> paymentItems = payments.stream()
                 .map(p -> new PaymentItemDTO(
@@ -335,11 +392,11 @@ public class PaymentService {
                 order.getId(),
                 order.getOrderNumber(),
                 order.getTotalPrice(),
-                order.getDepositAmount(),
+                payableAmount,
                 totalPaid,
                 order.getStatus().name(),
                 qrUrl,
-                generateTransferContent(order.getOrderNumber()),
+                transferContent,
                 bankAccount,
                 "DANG TRAN HOANG ANH",
                 bankCode,
@@ -400,22 +457,35 @@ public class PaymentService {
             String status,
             String message,
             String orderNumber,
+            Long orderId,
+            Long milestoneId,
             BigDecimal amount) {
-        public static WebhookResult success(String orderNumber, BigDecimal amount) {
-            return new WebhookResult("SUCCESS", "Deposit confirmed", orderNumber, amount);
+        public static WebhookResult success(String orderNumber, Long orderId, BigDecimal amount) {
+            return new WebhookResult("SUCCESS", "Deposit confirmed", orderNumber, orderId, null, amount);
         }
 
         public static WebhookResult ignored(String reason) {
-            return new WebhookResult("IGNORED", reason, null, null);
+            return new WebhookResult("IGNORED", reason, null, null, null, null);
         }
 
         public static WebhookResult failed(String reason) {
-            return new WebhookResult("FAILED", reason, null, null);
+            return new WebhookResult("FAILED", reason, null, null, null, null);
         }
 
         public static WebhookResult partialPayment(String msg) {
-            return new WebhookResult("PARTIAL", msg, null, null);
+            return new WebhookResult("PARTIAL", msg, null, null, null, null);
         }
+
+        public static WebhookResult milestone(String status,
+                                              String message,
+                                              Long orderId,
+                                              Long milestoneId,
+                                              BigDecimal amount) {
+            return new WebhookResult(status, message, null, orderId, milestoneId, amount);
+        }
+    }
+
+    private record MilestoneReference(Long milestoneId, Long orderId) {
     }
 
     /**

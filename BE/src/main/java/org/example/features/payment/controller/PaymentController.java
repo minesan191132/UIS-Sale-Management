@@ -2,15 +2,22 @@ package org.example.features.payment.controller;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.config.security.CustomUserDetails;
+import org.example.features.payment.dto.MilestoneListResponseDTO;
+import org.example.features.payment.dto.MilestoneQrDTO;
+import org.example.features.payment.dto.MilestoneVerifyResponseDTO;
 import org.example.features.payment.dto.SepayWebhookDTO;
+import org.example.features.payment.service.PaymentMilestoneService;
 import org.example.features.payment.service.PaymentService;
 import org.example.features.payment.service.PaymentService.PaymentInfoDTO;
 import org.example.features.payment.service.PaymentService.WebhookResult;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -23,6 +30,7 @@ import java.util.Map;
 public class PaymentController {
 
     private final PaymentService paymentService;
+    private final PaymentMilestoneService paymentMilestoneService;
 
     @Value("${sepay.webhook.token:}")
     private String webhookToken;
@@ -66,10 +74,23 @@ public class PaymentController {
             log.info("Webhook result: status={}, message={}", result.status(), result.message());
 
             // SePay yêu cầu phản hồi {"success": true} để biết đã nhận thành công
-            return ResponseEntity.ok(Map.of(
-                    "success", true,
-                    "status", result.status(),
-                    "message", result.message()));
+            Map<String, Object> response = new LinkedHashMap<>();
+            response.put("success", true);
+            response.put("status", result.status());
+            response.put("message", result.message());
+            if (result.milestoneId() != null) {
+                response.put("milestoneId", result.milestoneId());
+            }
+            if (result.orderId() != null) {
+                response.put("orderId", result.orderId());
+            }
+            if (result.amount() != null) {
+                response.put("amount", result.amount());
+            }
+            if (result.orderNumber() != null) {
+                response.put("orderNumber", result.orderNumber());
+            }
+            return ResponseEntity.ok(response);
 
         } catch (Exception e) {
             log.error("Error processing SePay webhook", e);
@@ -136,6 +157,58 @@ public class PaymentController {
     @GetMapping("/admin/unverified")
     public ResponseEntity<?> getUnverifiedPayments() {
         return ResponseEntity.ok(paymentService.getUnverifiedPayments());
+    }
+
+    @GetMapping("/orders/{orderId}/milestones")
+    public ResponseEntity<?> getMilestones(@PathVariable Long orderId) {
+        try {
+            MilestoneListResponseDTO result = paymentMilestoneService.getMilestoneList(orderId);
+            return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error fetching milestones for order {}", orderId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to fetch milestones"));
+        }
+    }
+
+    @GetMapping("/milestones/{milestoneId}/qr")
+    public ResponseEntity<?> getMilestoneQr(@PathVariable Long milestoneId) {
+        try {
+            MilestoneQrDTO result = paymentMilestoneService.getMilestoneQr(milestoneId);
+            return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error getting milestone QR {}", milestoneId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to fetch milestone QR"));
+        }
+    }
+
+    @PostMapping("/milestones/{milestoneId}/verify")
+    public ResponseEntity<?> verifyMilestone(
+            @PathVariable Long milestoneId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        try {
+            if (userDetails == null || !"ADMIN".equalsIgnoreCase(userDetails.getRole())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Unauthorized"));
+            }
+
+            MilestoneVerifyResponseDTO result = paymentMilestoneService.verifyMilestone(
+                    milestoneId,
+                    userDetails.getUserId());
+            return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error verifying milestone {}", milestoneId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to verify milestone"));
+        }
     }
 
     // =====================================================

@@ -7,6 +7,7 @@ import org.example.features.company.entity.Company;
 import org.example.features.company.entity.User;
 import org.example.features.company.repository.CompanyRepository;
 import org.example.features.company.repository.UserRepository;
+import org.example.features.contract.service.ContractService;
 import org.example.features.order.dto.CartOrderRequestDTO;
 import org.example.features.order.dto.DelayDeliveryRequestDTO;
 import org.example.features.order.dto.ItemReviewRequestDTO;
@@ -33,6 +34,7 @@ import org.example.features.order.repository.OrderItemRepository;
 import org.example.features.order.repository.OrderRepository;
 import org.example.features.notification.entity.NotificationType;
 import org.example.features.notification.service.UserNotificationService;
+import org.example.features.payment.service.PaymentMilestoneService;
 import org.example.features.payment.service.PaymentService;
 import org.example.features.productadmin.AdminProductService;
 import org.example.features.warehouse.entity.DrawingMeta;
@@ -115,7 +117,9 @@ public class OrderService {
     private final OrderItemRepository orderItemRepository;
     private final UserRepository userRepository;
     private final CompanyRepository companyRepository;
+    private final ContractService contractService;
     private final PaymentService paymentService;
+    private final PaymentMilestoneService paymentMilestoneService;
     private final QuotePricingService quotePricingService;
     private final DrawingMetaRepository drawingMetaRepository;
     private final AdminProductService adminProductService;
@@ -560,6 +564,7 @@ public class OrderService {
         order.setTotalPrice(null);
         order.setDepositAmount(null);
         order.setPaymentQrUrl(null);
+        order.setPaymentDeadline(null);
         order.setPaidAt(null);
         order.setNotes(null);
 
@@ -1055,13 +1060,16 @@ public class OrderService {
         OrderStatus currentStatus = order.getStatus();
         if (currentStatus != OrderStatus.PENDING_APPROVAL
                 && currentStatus != OrderStatus.PENDING_QUOTE
+            && currentStatus != OrderStatus.AWAITING_CONTRACT
                 && currentStatus != OrderStatus.AWAITING_PAYMENT) {
             throw new IllegalStateException(
-                    "Chỉ có thể hủy đơn trước khi cọc (Chờ duyệt, Chờ báo giá hoặc Chờ thanh toán). Trạng thái hiện tại: "
+                "Chỉ có thể hủy đơn trước khi cọc (Chờ duyệt, Chờ báo giá, Chờ xác nhận hợp đồng hoặc Chờ thanh toán). Trạng thái hiện tại: "
                             + currentStatus);
         }
 
         order.setStatus(OrderStatus.CANCELLED);
+        order.setPaymentDeadline(null);
+        order.setPaymentQrUrl(null);
 
         // TRẢ LẠI TỒN KHO KHI KHÁCH TỰ HỦY
         for (org.example.features.order.entity.OrderItem item : order.getItems()) {
@@ -1177,7 +1185,7 @@ public class OrderService {
     }
 
     /**
-     * Admin sets quote price and generates QR
+     * Admin sets quote price and moves order to contract confirmation step
      * Total is auto-calculated from approved items
      */
     @Transactional
@@ -1214,25 +1222,25 @@ public class OrderService {
                 .setScale(0, RoundingMode.HALF_UP);
         order.setDepositAmount(depositAmount);
 
-        // Generate SePay QR URL thật
-        String qrUrl = paymentService.generateSepayQrUrl(order.getOrderNumber(), depositAmount);
-        order.setPaymentQrUrl(qrUrl);
-
-        // Update status
-        order.setStatus(OrderStatus.AWAITING_PAYMENT);
+        // Contract-first flow for custom manufacturing
+        order.setPaymentQrUrl(null);
+        order.setPaymentDeadline(null);
+        order.setStatus(OrderStatus.AWAITING_CONTRACT);
 
         if (quoteRequest.getNotes() != null) {
             order.setNotes(quoteRequest.getNotes());
         }
 
         Order savedOrder = orderRepository.save(order);
+        contractService.createContractForQuotedOrder(savedOrder);
+        paymentMilestoneService.initializeMilestones(savedOrder);
 
-        notifyOrderStatusTransition(savedOrder, OrderStatus.PENDING_QUOTE, OrderStatus.AWAITING_PAYMENT);
+        notifyOrderStatusTransition(savedOrder, OrderStatus.PENDING_QUOTE, OrderStatus.AWAITING_CONTRACT);
         orderAuditService.recordStatusEvent(
             savedOrder,
             OrderEventType.QUOTE_SET,
             OrderStatus.PENDING_QUOTE,
-            OrderStatus.AWAITING_PAYMENT,
+            OrderStatus.AWAITING_CONTRACT,
             null,
             "ADMIN",
             "Đã gửi báo giá cho đơn hàng");
@@ -1250,14 +1258,24 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found"));
 
-        // Cho phép chuyển sang PROCESSING từ cả 2 trạng thái:
-        // - DEPOSITED: đã cọc qua SePay webhook (tự động)
-        // - AWAITING_PAYMENT: xác nhận thanh toán thủ công
-        if (order.getStatus() != OrderStatus.AWAITING_PAYMENT
+        boolean usesMilestones = !paymentMilestoneService.getMilestones(orderId).isEmpty();
+
+        if (usesMilestones) {
+            if (order.getStatus() != OrderStatus.DEPOSITED) {
+            throw new IllegalStateException(
+                "Đơn hàng milestone chỉ được bắt đầu gia công sau khi admin xác nhận thanh toán cọc (DEPOSITED). Trạng thái hiện tại: "
+                    + order.getStatus());
+            }
+        } else {
+            // Cho phép chuyển sang PROCESSING từ cả 2 trạng thái:
+            // - DEPOSITED: đã cọc qua SePay webhook (tự động)
+            // - AWAITING_PAYMENT: xác nhận thanh toán thủ công
+            if (order.getStatus() != OrderStatus.AWAITING_PAYMENT
                 && order.getStatus() != OrderStatus.DEPOSITED) {
             throw new IllegalStateException(
-                    "Chỉ có thể bắt đầu gia công khi đơn hàng đã cọc hoặc đang chờ thanh toán. Trạng thái hiện tại: "
-                            + order.getStatus());
+                "Chỉ có thể bắt đầu gia công khi đơn hàng đã cọc hoặc đang chờ thanh toán. Trạng thái hiện tại: "
+                    + order.getStatus());
+            }
         }
 
         OrderStatus previousStatus = order.getStatus();
@@ -1296,7 +1314,7 @@ public class OrderService {
 
     /**
      * Admin: Mark manufacturing as finished → AWAITING_REMAINING_PAYMENT
-     * Generates a new QR for the remaining balance (totalPrice - depositAmount)
+      * Activates milestone #2 (remaining payment)
      */
     @Transactional
     public OrderResponseDTO finishProcessing(Long orderId) {
@@ -1318,11 +1336,10 @@ public class OrderService {
             throw new IllegalStateException("Khách đã thanh toán đủ, không cần chờ thanh toán đợt 2");
         }
 
-        String qrUrl = paymentService.generateSepayQrUrl(order.getOrderNumber(), remaining);
-        order.setPaymentQrUrl(qrUrl);
         order.setStatus(OrderStatus.AWAITING_REMAINING_PAYMENT);
 
         Order saved = orderRepository.save(order);
+        paymentMilestoneService.activateSecondMilestone(saved.getId());
 
         notifyOrderStatusTransition(saved, OrderStatus.PROCESSING, OrderStatus.AWAITING_REMAINING_PAYMENT);
         orderAuditService.recordStatusEvent(
@@ -1361,6 +1378,15 @@ public class OrderService {
                     "Không thể chuyển trạng thái từ " + currentStatus + " sang " + newStatus);
         }
 
+        boolean usesMilestones = !paymentMilestoneService.getMilestones(orderId).isEmpty();
+        if (usesMilestones && newStatus == OrderStatus.PROCESSING && currentStatus != OrderStatus.DEPOSITED) {
+            throw new IllegalStateException("Đơn milestone chỉ được chuyển PROCESSING sau khi xác nhận thanh toán mốc 1.");
+        }
+        if (usesMilestones && newStatus == OrderStatus.AWAITING_DELIVERY
+                && currentStatus == OrderStatus.AWAITING_REMAINING_PAYMENT) {
+            throw new IllegalStateException("Vui lòng xác nhận thanh toán mốc 2 qua API verify milestone trước khi chờ giao hàng.");
+        }
+
         String normalizedActorRole =
                 actorRole == null || actorRole.isBlank()
                         ? "ADMIN"
@@ -1380,6 +1406,9 @@ public class OrderService {
                 order.setShippedAt(LocalDateTime.now());
             }
             order.setCompletedAt(LocalDateTime.now());
+        } else if (newStatus == OrderStatus.CANCELLED) {
+            order.setPaymentDeadline(null);
+            order.setPaymentQrUrl(null);
         }
         Order savedOrder = orderRepository.save(order);
 
@@ -1427,6 +1456,10 @@ public class OrderService {
                 title = "Đơn hàng đã được duyệt";
                 body = "Đơn " + order.getOrderNumber() + " đã được duyệt và đang chờ báo giá.";
             }
+            case AWAITING_CONTRACT -> {
+                title = "Vui lòng xác nhận hợp đồng";
+                body = "Đơn " + order.getOrderNumber() + " đã có báo giá. Vui lòng xem và xác nhận hợp đồng trước khi thanh toán cọc.";
+            }
             case AWAITING_PAYMENT -> {
                 title = "Đã có báo giá cho đơn hàng";
                 body = "Đơn " + order.getOrderNumber() + " đã có báo giá. Vui lòng thanh toán tiền cọc để bắt đầu xử lý.";
@@ -1471,7 +1504,8 @@ public class OrderService {
     private boolean isValidTransition(OrderStatus from, OrderStatus to) {
         Set<OrderStatus> allowedTargets = switch (from) {
             case PENDING_APPROVAL -> EnumSet.of(OrderStatus.PENDING_QUOTE, OrderStatus.CANCELLED);
-            case PENDING_QUOTE -> EnumSet.of(OrderStatus.AWAITING_PAYMENT, OrderStatus.CANCELLED);
+            case PENDING_QUOTE -> EnumSet.of(OrderStatus.AWAITING_CONTRACT, OrderStatus.CANCELLED);
+            case AWAITING_CONTRACT -> EnumSet.of(OrderStatus.AWAITING_PAYMENT, OrderStatus.PENDING_QUOTE, OrderStatus.CANCELLED);
             case AWAITING_PAYMENT -> EnumSet.of(OrderStatus.DEPOSITED, OrderStatus.PROCESSING,
                     OrderStatus.AWAITING_DELIVERY, OrderStatus.CANCELLED);
             case DEPOSITED -> EnumSet.of(OrderStatus.PROCESSING, OrderStatus.AWAITING_DELIVERY,
@@ -1665,6 +1699,7 @@ public class OrderService {
             dto.setRejectedByAdmin(false);
         }
         dto.setDeliveryDate(null);
+        dto.setPaymentDeadline(null);
         dto.setCreatedAt(batch.getCreatedAt());
         dto.setUpdatedAt(batch.getUpdatedAt());
 
@@ -1709,6 +1744,7 @@ public class OrderService {
         dto.setCancelledByRole(null);
         dto.setRejectedByAdmin(false);
         dto.setDeliveryDate(order.getDeliveryDate());
+        dto.setPaymentDeadline(order.getPaymentDeadline());
         dto.setCreatedAt(order.getCreatedAt());
         dto.setUpdatedAt(order.getUpdatedAt());
 

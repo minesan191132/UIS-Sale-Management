@@ -72,6 +72,9 @@ public class Order {
     @Column(name = "delivery_date")
     private LocalDate deliveryDate;
 
+    @Column(name = "payment_deadline")
+    private LocalDate paymentDeadline;
+
     @Column(name = "current_revision_no", nullable = false)
     private Integer currentRevisionNo = 1;
 
