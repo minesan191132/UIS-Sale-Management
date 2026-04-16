@@ -200,8 +200,8 @@ const scrollToCapabilities = () => {
     
     <section class="hero-banner d-flex align-items-center">
       <div class="container position-relative z-1">
-        <div class="row">
-          <div class="col-lg-8">
+        <div class="row align-items-center hero-grid g-4">
+          <div class="col-lg-7">
             <h1 class="display-3 fw-bold mb-4 text-white text-uppercase reveal fade-bottom hero-text-shadow" style="line-height: 1.2;">
               Gia Công Chính Xác<br>
               <span class="text-gold">Tiêu Chuẩn Nhật Bản</span>
@@ -228,6 +228,52 @@ const scrollToCapabilities = () => {
               <button @click="scrollToCapabilities" class="btn btn-link hero-scroll-link p-0 fw-semibold">
                 Xem năng lực gia công <i class="fas fa-arrow-down ms-1"></i>
               </button>
+            </div>
+          </div>
+
+          <div class="col-lg-5 d-none d-lg-block reveal fade-left delay-2">
+            <div class="tech-capability-card">
+              <span class="tech-watermark">01</span>
+
+              <h4 class="tech-title">
+                <i class="fas fa-sliders-h me-2"></i>
+                Technical Capability
+              </h4>
+
+              <div class="tech-metric">
+                <div class="tech-metric-head">
+                  <span>CNC MILLING PRECISION</span>
+                  <strong>±0.005mm</strong>
+                </div>
+                <div class="tech-bar-track"><div class="tech-bar-fill fill-precision"></div></div>
+              </div>
+
+              <div class="tech-metric">
+                <div class="tech-metric-head">
+                  <span>PRODUCTION CAPACITY</span>
+                  <strong>24/7 Operations</strong>
+                </div>
+                <div class="tech-bar-track"><div class="tech-bar-fill fill-capacity"></div></div>
+              </div>
+
+              <div class="tech-metric">
+                <div class="tech-metric-head">
+                  <span>QUALITY ASSURANCE</span>
+                  <strong>ISO 9001:2015</strong>
+                </div>
+                <div class="tech-bar-track"><div class="tech-bar-fill fill-quality"></div></div>
+              </div>
+
+              <div class="tech-kpi-grid">
+                <div>
+                  <p class="tech-kpi-number">500+</p>
+                  <p class="tech-kpi-label">Clients Globally</p>
+                </div>
+                <div>
+                  <p class="tech-kpi-number">15K</p>
+                  <p class="tech-kpi-label">Completed Parts</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -473,6 +519,10 @@ const scrollToCapabilities = () => {
   overflow: hidden;
 }
 
+.hero-grid {
+  min-height: calc(85vh - 80px);
+}
+
 .hero-text-shadow {
   text-shadow: 2px 4px 10px rgba(0, 0, 0, 0.6);
 }
@@ -503,6 +553,115 @@ const scrollToCapabilities = () => {
   color: #dbeafe;
 }
 
+.tech-capability-card {
+  position: relative;
+  margin-left: auto;
+  max-width: 480px;
+  border-radius: 18px;
+  padding: 1.75rem 1.6rem;
+  background: rgba(19, 27, 45, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 24px 44px -20px rgba(2, 8, 25, 0.68);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.tech-watermark {
+  position: absolute;
+  top: 0.65rem;
+  right: 0.95rem;
+  font-size: 3.7rem;
+  font-weight: 900;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.09);
+}
+
+.tech-title {
+  color: #ffb77d;
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin-bottom: 1.35rem;
+}
+
+.tech-metric {
+  margin-bottom: 1rem;
+}
+
+.tech-metric-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  margin-bottom: 0.45rem;
+}
+
+.tech-metric-head span {
+  color: #e2e8f0;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.tech-metric-head strong {
+  color: #ffb77d;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.tech-bar-track {
+  width: 100%;
+  height: 2px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.16);
+  overflow: hidden;
+}
+
+.tech-bar-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #ffb77d 0%, #fd8b00 100%);
+}
+
+.fill-precision {
+  width: 92%;
+}
+
+.fill-capacity {
+  width: 100%;
+}
+
+.fill-quality {
+  width: 95%;
+}
+
+.tech-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1.35rem;
+  padding-top: 1.2rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.tech-kpi-number {
+  margin-bottom: 0.18rem;
+  color: #ffffff;
+  font-size: 2rem;
+  line-height: 1;
+  font-weight: 800;
+}
+
+.tech-kpi-label {
+  margin: 0;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 0.56rem;
+  letter-spacing: 0.16em;
+  font-weight: 700;
+}
+
 /* Đây chính là lớp ảnh in chìm (Mờ mờ) nằm phía sau chữ */
 .hero-banner::before {
   content: "";
@@ -520,6 +679,10 @@ const scrollToCapabilities = () => {
 @media (max-width: 767.98px) {
   .hero-actions .btn {
     width: 100%;
+  }
+
+  .hero-banner {
+    min-height: 90vh;
   }
 }
 
