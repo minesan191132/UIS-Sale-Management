@@ -144,7 +144,7 @@
     </div>
 
     <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
-      <div class="modal-box card border-0 shadow-lg p-0 rounded-4" style="max-width:600px;width:100%">
+      <div class="modal-box card border-0 shadow-lg p-0 rounded-4" style="max-width:650px;width:100%">
         <div class="bg-light p-4 border-bottom rounded-top-4 d-flex justify-content-between align-items-center">
           <h4 class="fw-bolder mb-0 text-dark">
             {{ editingId ? 'Cập nhật sản phẩm' : 'Thêm sản phẩm mới' }}
@@ -152,33 +152,33 @@
           <button class="btn-close shadow-none fs-5" @click="closeModal"></button>
         </div>
 
-        <div class="p-4">
+        <div class="p-4 custom-scrollbar" style="max-height: 75vh; overflow-y: auto;">
           <form @submit.prevent="handleSave">
             <div class="mb-3">
               <label class="form-label fw-bold text-secondary mb-1">Tên sản phẩm <span class="text-danger">*</span></label>
-              <input class="form-control custom-input" v-model="form.name" required />
+              <input class="form-control custom-input" v-model="form.name" placeholder="Ví dụ: Phôi thép tấm SKD11..." required />
             </div>
             
             <div class="row g-3 mb-3">
               <div class="col-md-6">
                 <label class="form-label fw-bold text-secondary mb-1">Mã SKU</label>
-                <input class="form-control custom-input" v-model="form.sku" />
+                <input class="form-control custom-input" v-model="form.sku" placeholder="Nhập mã hàng..." />
               </div>
               <div class="col-md-6">
                 <label class="form-label fw-bold text-secondary mb-1">Giá bán (VNĐ)</label>
-                <input class="form-control custom-input" type="number" v-model="form.price" />
+                <input class="form-control custom-input" type="number" v-model="form.price" placeholder="0" />
               </div>
             </div>
             
             <div class="row g-3 mb-3">
               <div class="col-md-6">
                 <label class="form-label fw-bold text-secondary mb-1">Số lượng tồn kho</label>
-                <input class="form-control custom-input" type="number" v-model="form.stockQuantity" />
+                <input class="form-control custom-input" type="number" v-model="form.stockQuantity" placeholder="0" />
               </div>
               <div class="col-md-6">
                 <label class="form-label fw-bold text-secondary mb-1">Danh mục</label>
                 <select class="form-select custom-input" v-model="form.categoryId">
-                  <option :value="null">-- Chọn --</option>
+                  <option :value="null">-- Chọn danh mục --</option>
                   <option :value="1">Phôi Sắt</option>
                   <option :value="2">Phôi Thép</option>
                   <option :value="3">Phôi Inox</option>
@@ -187,18 +187,42 @@
             </div>
             
             <div class="mb-3">
-              <label class="form-label fw-bold text-secondary mb-1">URL Hình ảnh</label>
-              <input class="form-control custom-input" v-model="form.imageUrl" />
+              <label class="form-label fw-bold text-secondary mb-1">Hình ảnh sản phẩm</label>
+              <div class="d-flex gap-2 mb-2">
+                <div class="input-group">
+                  <span class="input-group-text bg-light border-end-0"><i class="bi bi-image text-muted"></i></span>
+                  <input class="form-control custom-input border-start-0" placeholder="Nhập đường dẫn URL ảnh..." v-model="form.imageUrl" />
+                </div>
+                <button type="button" class="btn btn-outline-navy fw-bold text-nowrap rounded-3 px-3" @click="triggerFileUpload">
+                  <i class="bi bi-upload me-1"></i> Tải ảnh
+                </button>
+                <input type="file" ref="fileInput" class="d-none" accept="image/*" @change="handleFileUpload">
+              </div>
+              
+              <div class="image-preview-wrapper border rounded-3 bg-light d-flex justify-content-center align-items-center position-relative mt-2" 
+                   style="height: 180px; border-style: dashed !important;">
+                <img v-if="form.imageUrl" :src="form.imageUrl" class="img-fluid h-100 object-fit-contain p-1" alt="Product preview" />
+                <div v-else class="text-muted text-center d-flex flex-column align-items-center">
+                  <i class="bi bi-card-image fs-1 opacity-50 mb-2"></i>
+                  <span class="small fw-medium">Xem trước hình ảnh</span>
+                </div>
+                <button v-if="form.imageUrl" type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-2 rounded-circle shadow-sm" 
+                        style="width: 32px; height: 32px; padding: 0;" @click="form.imageUrl = ''" title="Xóa ảnh">
+                  <i class="bi bi-x-lg"></i>
+                </button>
+              </div>
             </div>
 
             <div class="mb-3">
               <label class="form-label fw-bold text-secondary mb-1">Chất liệu mặc định</label>
-              <input class="form-control custom-input" v-model="form.defaultMaterial" />
+              <input class="form-control custom-input" v-model="form.defaultMaterial" placeholder="Ví dụ: Thép SKD11..." />
             </div>
             
             <div class="mb-4">
               <label class="form-label fw-bold text-secondary mb-1">Mô tả ngắn</label>
-              <textarea class="form-control custom-input" rows="2" v-model="form.description"></textarea>
+              <textarea class="form-control custom-input custom-scrollbar" rows="3" v-model="form.description" 
+                        style="resize: vertical; max-height: 150px; overflow-y: auto;" 
+                        placeholder="Nhập mô tả chi tiết sản phẩm..."></textarea>
             </div>
             
             <div v-if="saveError" class="alert alert-danger alert-fit-content py-2 rounded-3">{{ saveError }}</div>
@@ -235,6 +259,8 @@ const showModal = ref(false);
 const editingId = ref(null);
 const saving = ref(false);
 const saveError = ref('');
+const fileInput = ref(null); // Ref cho ô upload file
+
 const form = reactive({
   name: '', sku: '', price: null, stockQuantity: null,
   categoryId: null, imageUrl: '', description: '', defaultMaterial: '',
@@ -292,6 +318,28 @@ async function loadProducts() {
 function changePage(p) {
   currentPage.value = p;
   loadProducts();
+}
+
+// ─── Hình ảnh Upload Handler ──────────────────────────────────
+function triggerFileUpload() {
+  if (fileInput.value) {
+    fileInput.value.click();
+  }
+}
+
+function handleFileUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  // Dùng FileReader chuyển đổi file ảnh sang dạng Base64 để hiển thị Preview nhanh
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    form.imageUrl = e.target.result; // Nhét chuỗi Base64 vào ô URL để hiển thị
+  };
+  reader.readAsDataURL(file);
+  
+  // Xóa value để có thể chọn lại chính file đó nếu cần
+  event.target.value = '';
 }
 
 // ─── Modal ───────────────────────────────────────────────────
@@ -365,6 +413,8 @@ onMounted(async () => {
 .text-navy { color: #0b2e59 !important; }
 .btn-navy { background-color: #0b2e59; color: #fff; border: none; transition: 0.3s; }
 .btn-navy:hover { background-color: #173b6c; color: #fff; transform: translateY(-2px); box-shadow: 0 4px 10px rgba(11, 46, 89, 0.2); }
+.btn-outline-navy { color: #0b2e59; border-color: #0b2e59; background: white; transition: 0.3s; }
+.btn-outline-navy:hover { background-color: #0b2e59; color: #fff; }
 
 /* --- 1. HIỆU ỨNG THỐNG KÊ (HOVER ĐỔI MÀU + RUNG ICON) --- */
 .stat-card {
@@ -428,6 +478,12 @@ onMounted(async () => {
 /* Form Modal */
 .custom-input { border: 1px solid #cbd5e1; border-radius: 8px; padding: 0.7rem 1rem; }
 .custom-input:focus { border-color: #0b2e59; box-shadow: 0 0 0 3px rgba(11, 46, 89, 0.1); }
+
+/* Tùy chỉnh thanh cuộn đẹp mắt cho textarea và nội dung modal */
+.custom-scrollbar::-webkit-scrollbar { width: 6px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
 /* Modal Overlay */
 .modal-overlay {
