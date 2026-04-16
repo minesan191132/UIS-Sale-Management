@@ -478,18 +478,6 @@ async function submitOrder() {
                     <i class="bi bi-qr-code fs-3 text-primary opacity-75"></i>
                   </div>
                 </label>
-
-                <label class="border rounded-3 p-3 d-flex align-items-center cursor-pointer transition-all"
-                       :class="{ 'border-primary bg-primary bg-opacity-10': selectedPayment === 'COD' }">
-                  <input class="form-check-input mt-0 me-3" type="radio" value="COD" v-model="selectedPayment" style="transform: scale(1.2);">
-                  <div class="d-flex flex-grow-1 justify-content-between align-items-center">
-                    <div>
-                      <h6 class="mb-0 fw-bold text-dark">Thanh toán khi nhận hàng (COD)</h6>
-                      <small class="text-muted">Thanh toán bằng tiền mặt khi xe tải giao hàng đến</small>
-                    </div>
-                    <i class="bi bi-truck fs-3 text-success opacity-75"></i>
-                  </div>
-                </label>
               </div>
             </div>
           </div>
