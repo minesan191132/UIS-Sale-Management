@@ -41,6 +41,8 @@
             <option value="AWAITING_PAYMENT">Chờ thanh toán</option>
             <option value="DEPOSITED">Đã thanh toán</option>
             <option value="PROCESSING">Đang chuẩn bị</option>
+            <option value="AWAITING_DELIVERY">Chờ giao hàng</option>
+            <option value="SHIPPING">Đang giao</option>
             <option value="COMPLETED">Đã nhận hàng</option>
             <option value="CANCELLED">Đã hủy</option>
           </select>
@@ -140,10 +142,13 @@
                 <button v-if="order.status === 'DEPOSITED'" @click="startPreparation(order)" class="btn btn-action-circle bg-light text-navy border" title="Bắt đầu chuẩn bị">
                   <i class="bi bi-box-seam-fill"></i>
                 </button>
-                <button v-if="order.status === 'PROCESSING' && order.deliveryDate" @click="openDelayModal(order)" class="btn btn-action-circle bg-light text-warning border" title="Báo trễ hẹn">
+                <button v-if="order.status === 'PROCESSING'" @click="openReadyToDeliverModal(order)" class="btn btn-action-circle bg-light text-info border" title="Sẵn sàng giao (nhập ngày)">
+                  <i class="bi bi-calendar-check-fill"></i>
+                </button>
+                <button v-if="order.status === 'AWAITING_DELIVERY' && order.deliveryDate" @click="openDelayModal(order)" class="btn btn-action-circle bg-light text-warning border" title="Báo trễ hẹn">
                   <i class="bi bi-calendar-x-fill"></i>
                 </button>
-                <button v-if="order.status === 'PROCESSING' && isFullyPaid(order)" @click="shipOrder(order)" class="btn btn-action-circle bg-light text-info border" title="Giao cho ĐVVC">
+                <button v-if="order.status === 'AWAITING_DELIVERY'" @click="shipOrder(order)" class="btn btn-action-circle bg-light text-primary border" title="Giao cho ĐVVC">
                   <i class="bi bi-truck"></i>
                 </button>
                 <button v-if="order.status === 'SHIPPING'" @click="completeOrder(order)" class="btn btn-action-circle bg-success text-white border-0 shadow-sm" title="Xác nhận đã giao">
@@ -255,12 +260,14 @@
           </div>
           
           <div class="modal-footer border-top px-4 py-3 bg-white justify-content-end"
-               v-if="canAdminCancelOrder(selectedOrder) || selectedOrder?.status === 'AWAITING_PAYMENT' || selectedOrder?.status === 'DEPOSITED' || selectedOrder?.status === 'PROCESSING'">
+               v-if="canAdminCancelOrder(selectedOrder) || selectedOrder?.status === 'AWAITING_PAYMENT' || selectedOrder?.status === 'DEPOSITED' || selectedOrder?.status === 'PROCESSING' || selectedOrder?.status === 'AWAITING_DELIVERY' || selectedOrder?.status === 'SHIPPING'">
             <div class="d-flex gap-2">
               <button v-if="canAdminCancelOrder(selectedOrder)" @click="cancelOrderFromModal" class="btn btn-outline-danger rounded-pill px-4 fw-bold hover-lift"><i class="bi bi-slash-circle me-1"></i>Hủy đơn</button>
               <button v-if="selectedOrder?.status === 'AWAITING_PAYMENT'" @click="confirmPaymentFromModal" class="btn btn-success rounded-pill px-4 fw-bold shadow-sm hover-lift"><i class="bi bi-currency-dollar me-1"></i>Xác nhận thanh toán</button>
               <button v-if="selectedOrder?.status === 'DEPOSITED'" @click="startPreparationFromModal" class="btn btn-navy rounded-pill px-4 fw-bold shadow-sm hover-lift"><i class="bi bi-box-seam me-1"></i>Bắt đầu chuẩn bị</button>
-              <button v-if="selectedOrder?.status === 'PROCESSING'" @click="markDeliveredFromModal" class="btn btn-info text-white rounded-pill px-4 fw-bold shadow-sm hover-lift"><i class="bi bi-truck me-1"></i>Đã giao hàng</button>
+              <button v-if="selectedOrder?.status === 'PROCESSING'" @click="openReadyToDeliverFromModal" class="btn btn-info text-white rounded-pill px-4 fw-bold shadow-sm hover-lift"><i class="bi bi-calendar-check me-1"></i>Sẵn sàng giao</button>
+              <button v-if="selectedOrder?.status === 'AWAITING_DELIVERY'" @click="shipOrderFromModal" class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm hover-lift"><i class="bi bi-truck me-1"></i>Giao cho ĐVVC</button>
+              <button v-if="selectedOrder?.status === 'SHIPPING'" @click="completeOrderFromModal" class="btn btn-success rounded-pill px-4 fw-bold shadow-sm hover-lift"><i class="bi bi-check-lg me-1"></i>Đã giao thành công</button>
             </div>
           </div>
         </div>
@@ -302,6 +309,40 @@
       </div>
     </div>
 
+    <div class="modal fade" id="readyToDeliverModal" tabindex="-1">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+          <div class="modal-header bg-info text-white px-4 py-3 border-0">
+            <h5 class="modal-title fw-bolder"><i class="bi bi-calendar-check me-2"></i>Sẵn Sàng Giao Hàng</h5>
+            <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body p-4 bg-white" v-if="selectedOrder">
+            <div class="bg-light p-3 rounded-3 mb-4 border">
+              <p class="mb-1 text-secondary small">Mã đơn hàng: <b class="text-dark">{{ selectedOrder.orderNumber }}</b></p>
+              <p class="mb-0 text-secondary small">Tổng giá trị: <b class="text-danger">{{ formatCurrency(selectedOrder.totalPrice) }}</b></p>
+            </div>
+
+            <form @submit.prevent="submitReadyToDeliver">
+              <div class="mb-4">
+                <label class="form-label fw-bold text-dark small text-uppercase">
+                  Ngày giao hàng dự kiến <span class="text-danger">*</span>
+                </label>
+                <input v-model="readyToDeliverDate" type="date" class="form-control custom-input" required />
+                <div class="form-text">Ngày giao sẽ hiển thị cho khách hàng</div>
+              </div>
+              <div class="d-flex gap-2 justify-content-end pt-3 border-top">
+                <button type="button" class="btn btn-light border rounded-pill px-4 fw-bold" data-bs-dismiss="modal">Hủy</button>
+                <button type="submit" class="btn btn-info text-white fw-bold rounded-pill px-4 shadow-sm" :disabled="submittingReadyToDeliver">
+                  <span v-if="!submittingReadyToDeliver"><i class="bi bi-check-lg me-1"></i>Xác nhận sẵn sàng giao</span>
+                  <span v-else class="spinner-border spinner-border-sm"></span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -325,8 +366,11 @@ const dateFrom = ref('')
 const dateTo = ref('')
 const delayDeliveryForm = ref({ newDate: '', reason: '' })
 const submittingDelay = ref(false)
+const readyToDeliverDate = ref('')
+const submittingReadyToDeliver = ref(false)
 let bsModal = null
 let bsDelayModal = null
+let bsReadyToDeliverModal = null
 
 const catalogSummary = computed(() => {
   const base = { awaitingPayment: 0, processing: 0, shipping: 0 }
@@ -434,19 +478,52 @@ const startPreparation = async (order) => {
   if (result.isConfirmed) updateStatus(order.id, 'PROCESSING', 'Đã bắt đầu chuẩn bị đơn!')
 }
 
-const markDelivered = async (order) => {
-  const result = await Swal.fire({ title: 'Đã giao hàng?', text: `Đơn ${order.orderNumber} -> Hoàn thành.`, icon: 'question', showCancelButton: true, confirmButtonText: 'Đã giao', confirmButtonColor: '#10b981' })
-  if (result.isConfirmed) updateStatus(order.id, 'COMPLETED', 'Đã đánh dấu giao thành công!')
-}
-
 const confirmPaymentFromModal = async () => { const ok = await updateStatus(selectedOrder.value.id, 'DEPOSITED', 'Đã xác nhận thanh toán!'); if (ok) bsModal?.hide() }
 const startPreparationFromModal = async () => { const ok = await updateStatus(selectedOrder.value.id, 'PROCESSING', 'Đã bắt đầu chuẩn bị!'); if (ok) bsModal?.hide() }
-const markDeliveredFromModal = async () => { const ok = await updateStatus(selectedOrder.value.id, 'COMPLETED', 'Đã giao thành công!'); if (ok) bsModal?.hide() }
 const cancelOrderFromModal = async () => { if (!selectedOrder.value) return; await cancelOrderByAdmin(selectedOrder.value) }
 
-const isFullyPaid = (order) => {
-  if (!order || !order.totalPrice || !order.depositAmount) return false
-  return order.depositAmount >= order.totalPrice
+const openReadyToDeliverModal = async (order) => {
+  selectedOrder.value = order
+  readyToDeliverDate.value = ''
+  await nextTick()
+  if (!bsReadyToDeliverModal) {
+    bsReadyToDeliverModal = new Modal(document.getElementById('readyToDeliverModal'))
+  }
+  bsReadyToDeliverModal?.show()
+}
+
+const submitReadyToDeliver = async () => {
+  if (!readyToDeliverDate.value) {
+    Swal.fire('Lỗi', 'Vui lòng chọn ngày giao hàng', 'warning')
+    return
+  }
+
+  submittingReadyToDeliver.value = true
+  try {
+    await apiClient.put(`/orders/${selectedOrder.value.id}/ready-to-deliver`, {
+      deliveryDate: readyToDeliverDate.value,
+    })
+    bsReadyToDeliverModal?.hide()
+    await loadOrders(currentPage.value)
+    Swal.fire({
+      icon: 'success',
+      title: 'Đã cập nhật!',
+      text: 'Đơn hàng chuyển sang trạng thái chờ giao hàng.',
+      timer: 2500,
+      showConfirmButton: false,
+    })
+  } catch (error) {
+    Swal.fire('Lỗi', error.response?.data?.error || 'Không thể cập nhật trạng thái', 'error')
+  } finally {
+    submittingReadyToDeliver.value = false
+  }
+}
+
+const openReadyToDeliverFromModal = async () => {
+  if (!selectedOrder.value) return
+  bsModal?.hide()
+  await nextTick()
+  await openReadyToDeliverModal(selectedOrder.value)
 }
 
 const openDelayModal = async (order) => {
@@ -476,8 +553,10 @@ const shipOrder = async (order) => {
       await apiClient.put(`/orders/${order.id}/ship`)
       await loadOrders(currentPage.value)
       Swal.fire({ icon: 'success', title: 'Đã giao cho ĐVVC!', timer: 2000, showConfirmButton: false })
+      return true
     } catch (error) { Swal.fire('Lỗi', error.response?.data?.error || 'Không thể giao', 'error') }
   }
+  return false
 }
 
 const completeOrder = async (order) => {
@@ -487,12 +566,32 @@ const completeOrder = async (order) => {
       await apiClient.put(`/orders/${order.id}/complete`)
       await loadOrders(currentPage.value)
       Swal.fire({ icon: 'success', title: 'Hoàn thành đơn hàng!', timer: 2000, showConfirmButton: false })
+      return true
     } catch (error) { Swal.fire('Lỗi', error.response?.data?.error || 'Không thể hoàn thành', 'error') }
   }
+  return false
+}
+
+const shipOrderFromModal = async () => {
+  if (!selectedOrder.value) return
+  const ok = await shipOrder(selectedOrder.value)
+  if (ok) bsModal?.hide()
+}
+
+const completeOrderFromModal = async () => {
+  if (!selectedOrder.value) return
+  const ok = await completeOrder(selectedOrder.value)
+  if (ok) bsModal?.hide()
 }
 
 const getStatusText = (status) => {
-  return getOrderStatusLabel(status, { DEPOSITED: 'Đã thanh toán', PROCESSING: 'Đang chuẩn bị', COMPLETED: 'Đã giao hàng' })
+  return getOrderStatusLabel(status, {
+    DEPOSITED: 'Đã thanh toán',
+    PROCESSING: 'Đang chuẩn bị',
+    AWAITING_DELIVERY: 'Chờ giao hàng',
+    SHIPPING: 'Đang giao',
+    COMPLETED: 'Đã giao hàng',
+  })
 }
 
 // HỆ THỐNG MÀU SẮC CHUẨN MỚI (Pastel Badges)
@@ -515,6 +614,7 @@ const getStatusDotClass = (status) => {
     AWAITING_PAYMENT: 'bg-warning shadow-warning',
     DEPOSITED:        'bg-info shadow-info',
     PROCESSING:       'bg-navy shadow-navy',
+    AWAITING_DELIVERY:'bg-info shadow-info',
     SHIPPING:         'bg-primary shadow-primary',
     COMPLETED:        'bg-success shadow-success',
     CANCELLED:        'bg-danger shadow-danger',

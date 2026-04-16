@@ -461,6 +461,49 @@ public class OrderService {
         return mapToDTO(saved);
     }
 
+    /**
+     * Admin: set delivery date and mark READY_MADE order ready to ship.
+     * PROCESSING -> AWAITING_DELIVERY
+     */
+    @Transactional
+    public OrderResponseDTO setDeliveryDateAndReadyToDeliver(Long orderId, LocalDate deliveryDate) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Đơn hàng không tồn tại"));
+
+        if (order.getOrderType() != OrderType.READY_MADE) {
+            throw new IllegalStateException("Chức năng này chỉ áp dụng cho đơn sản phẩm phôi (READY_MADE)");
+        }
+
+        if (order.getStatus() != OrderStatus.PROCESSING) {
+            throw new IllegalStateException("Đơn hàng phải đang ở trạng thái 'Đang chuẩn bị' (PROCESSING)");
+        }
+
+        if (deliveryDate == null) {
+            throw new IllegalArgumentException("Vui lòng chọn ngày giao hàng");
+        }
+
+        if (deliveryDate.isBefore(LocalDate.now())) {
+            throw new IllegalArgumentException("Ngày giao hàng không được ở trong quá khứ");
+        }
+
+        order.setDeliveryDate(deliveryDate);
+        order.setStatus(OrderStatus.AWAITING_DELIVERY);
+        Order saved = orderRepository.save(order);
+
+        notifyOrderStatusTransition(saved, OrderStatus.PROCESSING, OrderStatus.AWAITING_DELIVERY);
+        orderAuditService.recordStatusEvent(
+            saved,
+            OrderEventType.STATUS_CHANGED,
+            OrderStatus.PROCESSING,
+            OrderStatus.AWAITING_DELIVERY,
+            null,
+            "ADMIN",
+            "Admin đã đặt ngày giao và đánh dấu sẵn sàng giao hàng");
+
+        log.info("READY_MADE order {} -> AWAITING_DELIVERY, delivery={}", saved.getOrderNumber(), deliveryDate);
+        return mapToDTO(saved);
+    }
+
     private OrderImportBatch createOrUpdateImportBatchFromParsedItems(
             List<OrderItemDTO> items,
             User owner,
