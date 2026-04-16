@@ -43,9 +43,8 @@
             class="header-chip orders-chip position-relative"
           >
             <i class="bi bi-box-seam"></i>
-            <!-- <span>Đơn hàng của tôi</span> -->
-            <span v-if="unreadNotificationCount > 0" class="orders-badge">
-              {{ unreadNotificationCount > 99 ? '99+' : unreadNotificationCount }}
+            <span class="orders-badge">
+              {{ myOrdersTotalCount > 99 ? '99+' : myOrdersTotalCount }}
             </span>
           </router-link>
 
@@ -107,47 +106,93 @@
     </div>
   </nav>
 </template>
-  
-  <script setup>
-  import { ref, onMounted, computed } from 'vue';
-  import { getStoredUser, logout, isAuthenticated, notificationsAPI } from '../../services/api';
-  import { Dropdown } from 'bootstrap';
-  import { cartItemCount } from '../../store/cart.js';
-  
-  const user = ref(isAuthenticated() ? getStoredUser() : null);
-  const unreadNotificationCount = ref(0);
-  const showManufacturingCta = computed(() => !user.value || user.value.role === 'CUSTOMER');
-  let dropdownInstance = null;
 
-  const loadUnreadNotificationCount = async () => {
-    if (!user.value || user.value.role !== 'CUSTOMER') {
-      unreadNotificationCount.value = 0;
-      return;
+<script setup>
+import { ref, onMounted, computed } from 'vue';
+import apiClient, { getStoredUser, logout, isAuthenticated } from '../../services/api';
+import { Dropdown } from 'bootstrap';
+import { cartItemCount } from '../../store/cart.js';
+
+const user = ref(isAuthenticated() ? getStoredUser() : null);
+const myOrdersTotalCount = ref(0);
+const showManufacturingCta = computed(() => !user.value || user.value.role === 'CUSTOMER');
+let dropdownInstance = null;
+
+const extractTotalCount = (data) => {
+  const directTotal = Number(data?.totalElements);
+  if (Number.isFinite(directTotal) && directTotal >= 0) return directTotal;
+
+  const nestedTotal = Number(data?.page?.totalElements);
+  if (Number.isFinite(nestedTotal) && nestedTotal >= 0) return nestedTotal;
+
+  const numberOfElements = Number(data?.numberOfElements);
+  if (Number.isFinite(numberOfElements) && numberOfElements >= 0) return numberOfElements;
+
+  if (Array.isArray(data?.content)) return data.content.length;
+  if (Array.isArray(data)) return data.length;
+
+  return 0;
+};
+
+const loadMyOrdersTotalCount = async () => {
+  if (!user.value || user.value.role !== 'CUSTOMER') {
+    myOrdersTotalCount.value = 0;
+    return;
+  }
+
+  try {
+    const [customResult, readyResult, pendingImportResult, rejectedImportResult] = await Promise.allSettled([
+      apiClient.get('/orders/my', {
+        params: { page: 0, size: 1, orderType: 'CUSTOM_MANUFACTURING' },
+      }),
+      apiClient.get('/orders/my', {
+        params: { page: 0, size: 1, orderType: 'READY_MADE' },
+      }),
+      apiClient.get('/orders/imports/my'),
+      apiClient.get('/orders/imports/my', {
+        params: { status: 'REJECTED' },
+      }),
+    ]);
+
+    let total = 0;
+
+    if (customResult.status === 'fulfilled') {
+      total += extractTotalCount(customResult.value?.data);
     }
-    try {
-      const data = await notificationsAPI.getUnreadCount();
-      unreadNotificationCount.value = Number(data?.unreadCount || 0);
-    } catch (e) {
-      unreadNotificationCount.value = 0;
+    if (readyResult.status === 'fulfilled') {
+      total += extractTotalCount(readyResult.value?.data);
     }
-  };
-
-  const toggleDropdown = () => {
-    const el = document.getElementById('userDropdown');
-    if (!dropdownInstance && el) {
-      dropdownInstance = new Dropdown(el);
+    if (pendingImportResult.status === 'fulfilled') {
+      const pendingImports = Array.isArray(pendingImportResult.value?.data) ? pendingImportResult.value.data : [];
+      total += pendingImports.length;
     }
-    dropdownInstance?.toggle();
-  };
+    if (rejectedImportResult.status === 'fulfilled') {
+      const rejectedImports = Array.isArray(rejectedImportResult.value?.data) ? rejectedImportResult.value.data : [];
+      total += rejectedImports.length;
+    }
 
-  const handleLogout = () => {
-    logout();
-  };
+    myOrdersTotalCount.value = Math.max(0, total);
+  } catch (e) {
+    myOrdersTotalCount.value = 0;
+  }
+};
 
-  onMounted(() => {
-    loadUnreadNotificationCount();
-  });
-  </script>
+const toggleDropdown = () => {
+  const el = document.getElementById('userDropdown');
+  if (!dropdownInstance && el) {
+    dropdownInstance = new Dropdown(el);
+  }
+  dropdownInstance?.toggle();
+};
+
+const handleLogout = () => {
+  logout();
+};
+
+onMounted(() => {
+  loadMyOrdersTotalCount();
+});
+</script>
 
 <style scoped>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap');
