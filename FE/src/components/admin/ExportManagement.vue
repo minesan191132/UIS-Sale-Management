@@ -1379,18 +1379,9 @@ const formatWeight = (weight) => { if (weight === null || weight === undefined |
 .review-table-compact td { padding: 0.4rem 0.35rem; }
 .review-table-compact tbody td { font-size: 0.78rem; }
 
-/* Cột dính (Sticky Columns) */
-.review-table .sticky-col-left-stt,
-.review-table .sticky-col-left-drawing,
-.review-table .sticky-col-right-actions { position: sticky; z-index: 3; }
-.review-table .sticky-col-left-stt { left: 0; min-width: 52px; }
-.review-table .sticky-col-left-drawing { left: 267px; }
-.review-table .sticky-col-right-actions { right: 0; }
-.review-table thead .sticky-col-left-stt,
-.review-table thead .sticky-col-left-drawing,
-.review-table thead .sticky-col-right-actions { z-index: 5; }
-.review-table tbody .sticky-col-left-drawing { box-shadow: 2px 0 5px rgba(0,0,0,0.02); }
-.review-table tbody .sticky-col-right-actions { box-shadow: -2px 0 5px rgba(0,0,0,0.02); }
+/* Các cột đã Gỡ Sticky theo xu hướng thiết kế nhất quán (Chỉ giữ min-width định dạng) */
+.review-table .sticky-col-left-stt { min-width: 50px; }
+.review-table .sticky-col-left-drawing { min-width: 105px; }
 
 /* Animation Modal Tabs */
 .modal-tab-fade-enter-active, .modal-tab-fade-leave-active { transition: opacity 0.2s ease, transform 0.2s ease; }
