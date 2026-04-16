@@ -58,6 +58,13 @@ public class OrderComplaint {
     @Column(name = "status", nullable = false, length = 20)
     private ComplaintStatus status = ComplaintStatus.OPEN;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "complaint_type", nullable = false, length = 50)
+    private ComplaintType type = ComplaintType.MISSING_ITEM;
+
+    @Column(name = "admin_note", columnDefinition = "TEXT")
+    private String adminNote;
+
     @OneToMany(mappedBy = "complaint", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderComplaintItem> missingItems = new ArrayList<>();
 

@@ -12,9 +12,12 @@ public class OrderComplaintResponseDTO {
     private Long orderId;
     private String orderNumber;
     private ComplaintStatus status;
+    private org.example.features.complaint.entity.ComplaintType type;
+    private String adminNote;
     private String description;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<OrderComplaintItemResponseDTO> missingItems;
     private List<OrderComplaintImageResponseDTO> images;
+    private List<OrderComplaintHistoryResponseDTO> history;
 }

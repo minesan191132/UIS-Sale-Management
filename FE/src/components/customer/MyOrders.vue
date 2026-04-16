@@ -195,13 +195,13 @@
               {{ isActionLocked(order, 'confirm') ? 'Đang cập nhật' : 'Đã nhận hàng' }}
             </button>
             <button
-              v-if="order.status === 'SHIPPING'"
+              v-if="order.status === 'SHIPPING' || order.status === 'COMPLETED'"
               @click="openComplaintModal(order)"
               :disabled="isActionLocked(order, 'complaint')"
               class="action-link-btn danger-action mt-1">
               <span v-if="isActionLocked(order, 'complaint')" class="spinner-border spinner-border-sm me-1"></span>
               <i v-else class="bi bi-exclamation-triangle me-1"></i>
-              {{ isActionLocked(order, 'complaint') ? 'Đang mở' : (hasComplaintForOrder(order.id) ? 'Sửa khiếu nại' : 'Khiếu nại') }}
+              {{ isActionLocked(order, 'complaint') ? 'Đang mở' : (hasComplaintForOrder(order.id) ? 'Xem khiếu nại' : 'Khiếu nại') }}
             </button>
           </div>
         </div>
@@ -643,46 +643,83 @@
         <div class="modal-content border-0 shadow-lg" v-if="complaintOrder">
           <div class="modal-header bg-danger text-white">
             <h5 class="modal-title">
-              <i class="bi bi-exclamation-octagon me-2"></i>
-              {{ hasComplaintForOrder(complaintOrder.id) ? 'Sửa khiếu nại thiếu hàng' : 'Khiếu nại thiếu hàng' }}
+              <i class="bi bi-exclamation-triangle"></i>
+              {{ hasComplaintForOrder(complaintOrder.id) ? 'Chi tiết Khiếu nại Đơn hàng' : 'Khiếu nại Đơn hàng' }}
             </h5>
             <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
           </div>
-          <div class="modal-body">
+          <div class="modal-body p-4 bg-light">
             <div class="alert alert-warning py-2 small mb-3">
-              <i class="bi bi-info-circle me-1"></i>Bạn chỉ có thể gửi khiếu nại khi đơn đang ở trạng thái ĐANG GIAO.
+              <i class="bi bi-info-circle me-1"></i>Bạn chỉ có thể giải quyết khiếu nại ở trạng thái ĐANG GIAO hoặc HOÀN THÀNH.
             </div>
-            <div v-if="complaintDraftRestoredAt" class="alert alert-info py-2 small mb-3">
-              <i class="bi bi-clock-history me-1"></i>Đã khôi phục bản nháp lưu lúc {{ formatDate(complaintDraftRestoredAt) }}.
-            </div>
-            <div class="mb-3">
-              <label class="form-label fw-semibold">Mô tả khiếu nại</label>
-              <textarea v-model="complaintDescription" class="form-control" rows="3" placeholder="Ví dụ: Thiếu 2 sản phẩm mã XYZ trong kiện hàng..."></textarea>
-            </div>
-            <div class="mb-3">
-              <label class="form-label fw-semibold">Chi tiết số lượng thiếu theo từng sản phẩm</label>
-              <div class="table-responsive border rounded">
-                <table class="table table-sm mb-0 align-middle">
-                  <thead class="table-light">
-                    <tr>
-                      <th>Sản phẩm</th>
-                      <th class="text-center" style="width: 120px;">Đặt</th>
-                      <th style="width: 180px;">Thiếu</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="item in complaintOrder.items || []" :key="`complaint-item-${item.id}`">
-                      <td>
-                        <div class="fw-semibold">{{ item.itemName || item.itemCode || 'Sản phẩm' }}</div>
-                        <small class="text-muted">{{ item.itemCode || '---' }}</small>
-                      </td>
-                      <td class="text-center">{{ item.quantity || 0 }}</td>
-                      <td><input v-model.number="complaintMissingByItem[item.id]" type="number" min="0" :max="item.quantity || 0" class="form-control form-control-sm" /></td>
-                    </tr>
-                  </tbody>
-                </table>
+            
+            <!-- Trạng thái & Phản hồi của Admin (Làm nổi bật) -->
+            <div v-if="complaintAdminNote || (complaintStatus && complaintStatus !== 'OPEN')" class="alert mb-4 shadow-sm border" :class="{ 'alert-info border-info': complaintStatus === 'IN_REVIEW', 'alert-success border-success': complaintStatus === 'RESOLVED', 'alert-danger border-danger': complaintStatus === 'REJECTED', 'alert-secondary': complaintStatus === 'OPEN' }">
+              <h5 class="alert-heading fw-bold mb-2">
+                <i class="bi bi-info-circle-fill me-2"></i>Trạng thái: {{ complaintStatus }}
+              </h5>
+              <div v-if="complaintAdminNote" class="mt-3">
+                <p class="mb-2 fw-bold text-dark"><i class="bi bi-chat-square-quote me-1"></i>Phản hồi từ Ban Quản Trị:</p>
+                <div class="p-3 bg-white rounded text-dark border shadow-sm" style="white-space: pre-wrap; font-size: 0.95rem">{{ complaintAdminNote }}</div>
               </div>
             </div>
+
+            <div class="card shadow-sm border-0 mb-4">
+              <div class="card-body">
+                <h6 class="card-title fw-bold text-dark mb-3">Thông tin khiếu nại</h6>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label fw-semibold small text-muted">Loại khiếu nại</label>
+                    <select v-model="complaintType" class="form-select form-select-sm" :disabled="complaintStatus === 'IN_REVIEW'">
+                      <option value="MISSING_ITEM">Thiếu hàng</option>
+                      <option value="DEFECTIVE_ITEM">Hàng lỗi / Hỏng hóc</option>
+                      <option value="OTHER">Lý do khác</option>
+                    </select>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label fw-semibold small text-muted">Mô tả khiếu nại</label>
+                    <textarea v-model="complaintDescription" class="form-control form-control-sm" rows="3" placeholder="Nhập mô tả cụ thể..." :disabled="complaintStatus === 'IN_REVIEW'"></textarea>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card shadow-sm border-0 mb-4">
+              <div class="card-body p-0">
+                <div class="table-responsive">
+                  <table class="table table-bordered table-striped table-hover mb-0 align-middle" style="font-size: 0.85rem">
+                    <thead class="table-light">
+                      <tr>
+                        <th>Sản phẩm</th>
+                        <th class="text-center" style="width: 70px;">Đặt</th>
+                        <th style="width: 100px;">SL Thiếu</th>
+                        <th style="width: 100px;">SL Lỗi</th>
+                        <th>Ghi chú lỗi</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="item in complaintOrder.items || []" :key="`complaint-item-${item.id}`">
+                        <td>
+                          <div class="fw-semibold text-dark">{{ item.itemName || 'Sản phẩm' }}</div>
+                          <small class="text-muted font-monospace">{{ item.itemCode }}</small>
+                        </td>
+                        <td class="text-center fw-bold">{{ item.quantity || 0 }}</td>
+                        <td>
+                          <input v-model.number="complaintMissingByItem[item.id]" type="number" min="0" :max="item.quantity || 0" class="form-control form-control-sm" :disabled="complaintStatus === 'IN_REVIEW' || complaintType === 'DEFECTIVE_ITEM'" />
+                        </td>
+                        <td>
+                          <input v-model.number="complaintDefectiveByItem[item.id]" type="number" min="0" :max="item.quantity || 0" class="form-control form-control-sm" :disabled="complaintStatus === 'IN_REVIEW' || complaintType === 'MISSING_ITEM'" />
+                        </td>
+                        <td>
+                          <input v-model="complaintReasonByItem[item.id]" type="text" class="form-control form-control-sm" placeholder="Ghi chú thêm..." :disabled="complaintStatus === 'IN_REVIEW'" />
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
             <div class="mb-3">
               <label class="form-label fw-semibold">Ảnh minh chứng</label>
               <div v-if="complaintExistingImages.length > 0" class="mb-2">
@@ -708,10 +745,28 @@
                 </div>
               </div>
             </div>
+
+            <!-- History section -->
+            <div v-if="complaintHistory && complaintHistory.length > 0" class="card shadow-sm border-0 mt-4 mb-3">
+              <div class="card-header bg-white fw-bold"><i class="bi bi-clock-history me-2"></i>Lịch sử khiếu nại</div>
+              <div class="card-body p-0">
+                <div class="list-group list-group-flush" style="max-height: 250px; overflow-y: auto;">
+                  <div v-for="hi in complaintHistory" :key="hi.id" class="list-group-item">
+                    <div class="d-flex w-100 justify-content-between">
+                      <h6 class="mb-1 small fw-bold text-dark">{{ hi.actionType }} - <span class="badge" :class="hi.newStatus === 'OPEN' ? 'bg-secondary' : 'bg-success'">{{ hi.newStatus || 'UNKNOWN' }}</span></h6>
+                      <small class="text-muted">{{ formatDate(hi.createdAt) }}</small>
+                    </div>
+                    <p class="mb-1 small text-muted">Bởi: <span class="fw-medium text-dark">{{ hi.actionByUserName || 'Khách hàng' }}</span></p>
+                    <small>Ghi chú: <span class="text-secondary">{{ hi.note || 'Không có' }}</span></small>
+                  </div>
+                </div>
+              </div>
+            </div>
+
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
-            <button type="button" class="btn btn-danger" :disabled="isSavingComplaint" @click="submitComplaint">
+            <button type="button" class="btn btn-danger" :disabled="isSavingComplaint || complaintStatus === 'IN_REVIEW'" @click="submitComplaint" v-if="complaintStatus !== 'IN_REVIEW'">
               <span v-if="isSavingComplaint" class="spinner-border spinner-border-sm me-2"></span>
               {{ hasComplaintForOrder(complaintOrder.id) ? 'Cập nhật khiếu nại' : 'Gửi khiếu nại' }}
             </button>
@@ -760,8 +815,14 @@ const getDefaultStatusForType = (type) =>
 const activeStatus = ref(getDefaultStatusForType(activeOrderType.value))
 const statusCounts = ref({})
 const complaintOrder = ref(null)
+const complaintType = ref('MISSING_ITEM')
 const complaintDescription = ref('')
+const complaintStatus = ref('')
+const complaintAdminNote = ref('')
+const complaintHistory = ref([])
 const complaintMissingByItem = ref({})
+const complaintDefectiveByItem = ref({})
+const complaintReasonByItem = ref({})
 const complaintExistingImages = ref([])
 const complaintRemovedImageIds = ref([])
 const complaintNewImages = ref([])
@@ -1900,8 +1961,8 @@ const confirmReceivedOrder = async (order) => {
 const openComplaintModal = async (order) => {
   if (!order?.id || isActionLocked(order, 'complaint')) return
 
-  if (order.status !== 'SHIPPING') {
-    await Swal.fire('Không hợp lệ', 'Chỉ có thể khiếu nại khi đơn đang giao hàng.', 'warning')
+  if (order.status !== 'SHIPPING' && order.status !== 'COMPLETED') {
+    await Swal.fire('Không hợp lệ', 'Chỉ có thể khiếu nại khi đơn đang giao hoặc đã hoàn thành.', 'warning')
     return
   }
 
@@ -1921,58 +1982,35 @@ const openComplaintModal = async (order) => {
     }
 
     complaintDescription.value = existingComplaint?.description || ''
+    complaintType.value = existingComplaint?.type || 'MISSING_ITEM'
+    complaintStatus.value = existingComplaint?.status || 'OPEN'
+    complaintAdminNote.value = existingComplaint?.adminNote || ''
+    complaintHistory.value = existingComplaint?.history || []
+
     complaintExistingImages.value = Array.isArray(existingComplaint?.images) ? existingComplaint.images : []
     complaintRemovedImageIds.value = []
     complaintNewImages.value = []
 
     const missingMap = {}
+    const defectiveMap = {}
+    const reasonMap = {}
     ;(complaintOrder.value?.items || []).forEach((item) => {
       missingMap[item.id] = 0
+      defectiveMap[item.id] = 0
+      reasonMap[item.id] = ''
     })
     ;(existingComplaint?.missingItems || []).forEach((item) => {
       if (item?.orderItemId != null) {
         missingMap[item.orderItemId] = Number(item.missingQuantity || 0)
+        defectiveMap[item.orderItemId] = Number(item.defectiveQuantity || 0)
+        reasonMap[item.orderItemId] = item.reasonNote || ''
       }
     })
     complaintMissingByItem.value = missingMap
+    complaintDefectiveByItem.value = defectiveMap
+    complaintReasonByItem.value = reasonMap
 
-    const draft = loadComplaintDraft(order.id)
-    if (draft) {
-      const restorePrompt = await Swal.fire({
-        title: 'Khôi phục bản nháp khiếu nại?',
-        text: `Đã tìm thấy bản nháp lưu lúc ${formatDate(draft.savedAt)}.`,
-        icon: 'question',
-        showDenyButton: true,
-        showCancelButton: true,
-        confirmButtonText: 'Khôi phục',
-        denyButtonText: 'Xóa nháp',
-        cancelButtonText: 'Bỏ qua',
-        confirmButtonColor: '#0d6efd',
-        denyButtonColor: '#dc2626',
-        cancelButtonColor: '#64748b',
-      })
-
-      if (restorePrompt.isConfirmed) {
-        complaintDescription.value = draft.description || ''
-
-        const normalizedDraftMissing = normalizeComplaintMissingMap(complaintOrder.value, draft.missingByItem)
-        const restoredMissingMap = {}
-        ;(complaintOrder.value?.items || []).forEach((item) => {
-          restoredMissingMap[item.id] = Number(normalizedDraftMissing[item.id] || 0)
-        })
-        complaintMissingByItem.value = restoredMissingMap
-
-        const existingImageIds = new Set((complaintExistingImages.value || []).map((img) => Number(img.id)))
-        complaintRemovedImageIds.value = (draft.removedImageIds || [])
-          .map((id) => Number(id))
-          .filter((id) => existingImageIds.has(id))
-          .sort((a, b) => a - b)
-
-        complaintDraftRestoredAt.value = draft.savedAt || Date.now()
-      } else if (restorePrompt.isDenied) {
-        clearComplaintDraft(order.id)
-      }
-    }
+    const isComplaintReadOnly = existingComplaint?.status === 'IN_REVIEW'
 
     setComplaintInitialState()
 
@@ -2002,7 +2040,6 @@ const toggleKeepExistingComplaintImage = (imageId) => {
 
 const removeNewComplaintImage = (index) => {
   complaintNewImages.value = complaintNewImages.value.filter((_, idx) => idx !== index)
-  scheduleComplaintDraftSave()
 }
 
 const onComplaintImagesSelected = (event) => {
@@ -2023,7 +2060,6 @@ const onComplaintImagesSelected = (event) => {
 
   const accepted = files.slice(0, availableSlots)
   complaintNewImages.value = [...complaintNewImages.value, ...accepted]
-  scheduleComplaintDraftSave()
 
   if (accepted.length < files.length) {
     Swal.fire('Giới hạn ảnh', `Chỉ nhận thêm ${availableSlots} ảnh.`, 'info')
@@ -2042,14 +2078,30 @@ const submitComplaint = async () => {
   }
 
   const missingItems = (complaintOrder.value.items || [])
-    .map((item) => ({
-      orderItemId: item.id,
-      missingQuantity: Number(complaintMissingByItem.value[item.id] || 0),
-    }))
-    .filter((item) => item.missingQuantity > 0)
+    .map((item) => {
+      const missingRaw = Number(complaintMissingByItem.value[item.id] || 0)
+      const defectiveRaw = Number(complaintDefectiveByItem.value[item.id] || 0)
+      
+      const missingQty = complaintType.value === 'DEFECTIVE_ITEM' ? 0 : missingRaw
+      const defectiveQty = complaintType.value === 'MISSING_ITEM' ? 0 : defectiveRaw
+
+      return {
+        orderItemId: item.id,
+        missingQuantity: missingQty,
+        defectiveQuantity: defectiveQty,
+        reasonNote: complaintReasonByItem.value[item.id] || ''
+      }
+    })
+    .filter((item) => item.missingQuantity !== 0 || item.defectiveQuantity !== 0)
+
+  const hasNegative = missingItems.some((item) => item.missingQuantity < 0 || item.defectiveQuantity < 0)
+  if (hasNegative) {
+    Swal.fire('Dữ liệu không hợp lệ', 'Số lượng lỗi hoặc thiếu không được là số âm.', 'warning')
+    return
+  }
 
   if (missingItems.length === 0) {
-    Swal.fire('Thiếu dữ liệu', 'Vui lòng nhập số lượng thiếu cho ít nhất 1 sản phẩm.', 'warning')
+    Swal.fire('Thiếu dữ liệu', 'Vui lòng nhập số lượng lỗi/thiếu cho ít nhất 1 sản phẩm.', 'warning')
     return
   }
 
@@ -2063,6 +2115,7 @@ const submitComplaint = async () => {
   }
 
   const formData = new FormData()
+  formData.append('type', complaintType.value)
   formData.append('description', normalizedDescription)
   formData.append('missingItems', JSON.stringify(missingItems))
   keepImageIds.forEach((id) => formData.append('keepImageIds', String(id)))
@@ -2078,7 +2131,6 @@ const submitComplaint = async () => {
       [complaintOrder.value.id]: true,
     }
 
-    clearComplaintDraft(complaintOrder.value.id)
     bypassComplaintHideGuard.value = true
     bsComplaintModal?.hide()
     await Promise.all([

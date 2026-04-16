@@ -71,6 +71,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.example.features.complaint.entity.OrderComplaint;
+import org.example.features.complaint.entity.ComplaintStatus;
+import org.example.features.complaint.repository.OrderComplaintRepository;
+
 /**
  * Order Service
  * Handles order creation, Excel import, and order lifecycle management
@@ -112,6 +116,7 @@ public class OrderService {
         FIELD_DELIVERY_DATE, "Delivery Date");
 
     private final OrderRepository orderRepository;
+    private final OrderComplaintRepository orderComplaintRepository;
     private final OrderEventRepository orderEventRepository;
     private final OrderImportBatchRepository orderImportBatchRepository;
     private final OrderItemRepository orderItemRepository;
@@ -1640,6 +1645,14 @@ public class OrderService {
         if (order.getStatus() != OrderStatus.SHIPPING) {
             throw new IllegalStateException(
                     "Chỉ có thể xác nhận đã nhận khi đơn đang ở trạng thái ĐANG GIAO. Trạng thái hiện tại: " + order.getStatus());
+        }
+
+        Optional<OrderComplaint> activeComplaint = orderComplaintRepository.findByOrderIdAndUserId(orderId, userId);
+        if (activeComplaint.isPresent()) {
+            ComplaintStatus cStatus = activeComplaint.get().getStatus();
+            if (cStatus == ComplaintStatus.OPEN || cStatus == ComplaintStatus.IN_REVIEW) {
+                throw new IllegalStateException("Đơn hàng đang có khiếu nại (Mã KN-" + activeComplaint.get().getId() + ") chưa được giải quyết xong. Bạn không thể xác nhận nhận hàng lúc này.");
+            }
         }
 
         order.setStatus(OrderStatus.COMPLETED);

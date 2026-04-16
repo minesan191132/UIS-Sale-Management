@@ -495,6 +495,7 @@ public class OrderController {
     @PostMapping(value = "/{id}/complaint/my", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> upsertMyComplaint(
             @PathVariable Long id,
+            @RequestParam(defaultValue = "MISSING_ITEM") org.example.features.complaint.entity.ComplaintType type,
             @RequestParam String description,
             @RequestParam String missingItems,
             @RequestParam(required = false) List<Long> keepImageIds,
@@ -504,6 +505,7 @@ public class OrderController {
             OrderComplaintResponseDTO complaint = orderComplaintService.upsertMyComplaint(
                     id,
                     userDetails.getUserId(),
+                    type,
                     description,
                     missingItems,
                     keepImageIds,

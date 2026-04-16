@@ -25,6 +25,11 @@
           <i class="bi bi-people flex-shrink-0"></i> <span>Danh sách User</span>
         </RouterLink>
       </li>
+      <li>
+        <RouterLink to="/admin/complaints" class="sidebar-link" style="white-space: nowrap;" active-class="active">
+          <i class="bi bi-exclamation-triangle flex-shrink-0"></i> <span>Quản lý Khiếu nại</span>
+        </RouterLink>
+      </li>
 
       <li class="nav-item mt-2 w-100">
         <div class="sidebar-link d-flex justify-content-between align-items-center cursor-pointer w-100" 

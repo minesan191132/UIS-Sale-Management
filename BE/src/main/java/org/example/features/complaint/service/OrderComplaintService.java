@@ -7,14 +7,18 @@ import lombok.extern.slf4j.Slf4j;
 import org.example.features.company.entity.User;
 import org.example.features.company.entity.UserRole;
 import org.example.features.company.repository.UserRepository;
-import org.example.features.complaint.dto.ComplaintMissingItemInputDTO;
+import org.example.features.complaint.dto.ComplaintItemInputDTO;
+import org.example.features.complaint.dto.OrderComplaintHistoryResponseDTO;
 import org.example.features.complaint.dto.OrderComplaintImageResponseDTO;
 import org.example.features.complaint.dto.OrderComplaintItemResponseDTO;
 import org.example.features.complaint.dto.OrderComplaintResponseDTO;
 import org.example.features.complaint.entity.ComplaintStatus;
+import org.example.features.complaint.entity.ComplaintType;
 import org.example.features.complaint.entity.OrderComplaint;
+import org.example.features.complaint.entity.OrderComplaintHistory;
 import org.example.features.complaint.entity.OrderComplaintImage;
 import org.example.features.complaint.entity.OrderComplaintItem;
+import org.example.features.complaint.repository.OrderComplaintHistoryRepository;
 import org.example.features.complaint.repository.OrderComplaintRepository;
 import org.example.features.notification.entity.NotificationType;
 import org.example.features.notification.service.UserNotificationService;
@@ -23,6 +27,10 @@ import org.example.features.order.entity.OrderItem;
 import org.example.features.order.entity.OrderStatus;
 import org.example.features.order.repository.OrderRepository;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -41,6 +49,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.Iterator;
 
 @Service
 @RequiredArgsConstructor
@@ -53,6 +62,7 @@ public class OrderComplaintService {
 
     private final OrderRepository orderRepository;
     private final OrderComplaintRepository orderComplaintRepository;
+    private final OrderComplaintHistoryRepository orderComplaintHistoryRepository;
     private final UserRepository userRepository;
     private final UserNotificationService userNotificationService;
     private final ObjectMapper objectMapper;
@@ -71,26 +81,30 @@ public class OrderComplaintService {
     @Transactional
     public OrderComplaintResponseDTO upsertMyComplaint(Long orderId,
                                                        Long userId,
+                                                       ComplaintType type,
                                                        String description,
-                                                       String missingItemsJson,
+                                                       String complaintItemsJson,
                                                        List<Long> keepImageIds,
                                                        List<MultipartFile> images) {
         Order order = loadOwnedOrder(orderId, userId);
         ensureShippingOrder(order);
 
         String normalizedDescription = normalizeDescription(description);
-        List<ComplaintMissingItemInputDTO> missingInputs = parseMissingItems(missingItemsJson);
+        List<ComplaintItemInputDTO> inputs = parseComplaintItems(complaintItemsJson);
 
         OrderComplaint complaint = orderComplaintRepository.findByOrderIdAndUserId(orderId, userId)
                 .orElseGet(OrderComplaint::new);
         boolean isNewComplaint = complaint.getId() == null;
 
+        String oldStatusStr = !isNewComplaint ? complaint.getStatus().name() : null;
+
         complaint.setOrder(order);
         complaint.setUser(order.getUser());
+        complaint.setType(type != null ? type : ComplaintType.MISSING_ITEM);
         complaint.setDescription(normalizedDescription);
         complaint.setStatus(ComplaintStatus.OPEN);
 
-        replaceMissingItems(complaint, order, missingInputs);
+        replaceComplaintItems(complaint, order, inputs);
         reconcileExistingImages(complaint, keepImageIds);
 
         OrderComplaint persisted = orderComplaintRepository.save(complaint);
@@ -103,8 +117,62 @@ public class OrderComplaintService {
         OrderComplaint saved = orderComplaintRepository.save(persisted);
         pushComplaintNotifications(saved, isNewComplaint);
 
+        // Save history event
+        saveHistory(saved, userId, isNewComplaint ? "CREATED" : "UPDATED", oldStatusStr, ComplaintStatus.OPEN.name(), "Khách hàng cập nhật khiếu nại");
+
         return toDTO(saved);
     }
+
+    @Transactional(readOnly = true)
+    public Page<OrderComplaintResponseDTO> adminGetAllComplaints(int page, int size, String keyword, ComplaintStatus status) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("updatedAt").descending().and(Sort.by("createdAt").descending()));
+        
+        Page<OrderComplaint> result;
+        if (keyword != null && !keyword.trim().isEmpty() && status != null) {
+            result = orderComplaintRepository.findByOrder_OrderNumberContainingIgnoreCaseAndStatus(keyword.trim(), status, pageable);
+        } else if (keyword != null && !keyword.trim().isEmpty()) {
+            result = orderComplaintRepository.findByOrder_OrderNumberContainingIgnoreCase(keyword.trim(), pageable);
+        } else if (status != null) {
+            result = orderComplaintRepository.findByStatus(status, pageable);
+        } else {
+            result = orderComplaintRepository.findAll(pageable);
+        }
+
+        return result.map(this::toDTO);
+    }
+
+    @Transactional
+    public OrderComplaintResponseDTO adminUpdateComplaintStatus(Long complaintId, ComplaintStatus newStatus, String adminNote, Long adminId) {
+        OrderComplaint complaint = orderComplaintRepository.findById(complaintId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy khiếu nại"));
+
+        ComplaintStatus oldStatus = complaint.getStatus();
+        complaint.setStatus(newStatus);
+        
+        if (adminNote != null && !adminNote.trim().isEmpty()) {
+            complaint.setAdminNote(adminNote.trim());
+        }
+
+        OrderComplaint saved = orderComplaintRepository.save(complaint);
+
+        String action = oldStatus == newStatus ? "ADMIN_REPLY" : "STATUS_CHANGED";
+        saveHistory(saved, adminId, action, oldStatus.name(), newStatus.name(), adminNote);
+
+        // Notify customer
+        if (oldStatus != newStatus || (adminNote != null && !adminNote.isEmpty())) {
+            Order order = saved.getOrder();
+            userNotificationService.pushNotificationToUser(
+                    saved.getUser().getId(),
+                    order,
+                    NotificationType.COMPLAINT,
+                    "Cập nhật khiếu nại đơn " + order.getOrderNumber(),
+                    "Admin đã xử lý khiếu nại của bạn: " + newStatus.name(),
+                    "complaint-update-" + complaint.getId() + "-" + System.currentTimeMillis());
+        }
+
+        return toDTO(saved);
+    }
+
 
     private Order loadOwnedOrder(Long orderId, Long userId) {
         Order order = orderRepository.findById(orderId)
@@ -118,8 +186,13 @@ public class OrderComplaintService {
     }
 
     private void ensureShippingOrder(Order order) {
-        if (order.getStatus() != OrderStatus.SHIPPING) {
-            throw new IllegalStateException("Chỉ có thể khiếu nại khi đơn đang ở trạng thái ĐANG GIAO");
+        if (order.getStatus() != OrderStatus.SHIPPING && order.getStatus() != OrderStatus.COMPLETED) {
+            throw new IllegalStateException("Chỉ có thể khiếu nại khi đơn đang ở trạng thái ĐANG GIAO hoặc HOÀN THÀNH");
+        }
+        if (order.getStatus() == OrderStatus.COMPLETED) {
+            if (order.getCompletedAt() != null && order.getCompletedAt().isBefore(java.time.LocalDateTime.now().minusDays(7))) {
+                throw new IllegalStateException("Chỉ có thể khiếu nại trong vòng 7 ngày kể từ khi xác nhận Hoàn thành đơn hàng.");
+            }
         }
     }
 
@@ -130,42 +203,48 @@ public class OrderComplaintService {
         return description.trim();
     }
 
-    private List<ComplaintMissingItemInputDTO> parseMissingItems(String missingItemsJson) {
+    private List<ComplaintItemInputDTO> parseComplaintItems(String missingItemsJson) {
         if (missingItemsJson == null || missingItemsJson.isBlank()) {
-            throw new IllegalArgumentException("Vui lòng cung cấp chi tiết số lượng thiếu");
+            throw new IllegalArgumentException("Vui lòng cung cấp chi tiết tình trạng sản phẩm");
         }
 
         try {
-            List<ComplaintMissingItemInputDTO> parsed = objectMapper.readValue(
+            List<ComplaintItemInputDTO> parsed = objectMapper.readValue(
                     missingItemsJson,
-                    new TypeReference<List<ComplaintMissingItemInputDTO>>() {});
+                    new TypeReference<List<ComplaintItemInputDTO>>() {});
 
             if (parsed == null || parsed.isEmpty()) {
-                throw new IllegalArgumentException("Vui lòng chọn ít nhất 1 sản phẩm thiếu");
+                throw new IllegalArgumentException("Vui lòng chọn ít nhất 1 sản phẩm bị lỗi/thiếu");
             }
 
             return parsed;
         } catch (IllegalArgumentException e) {
             throw e;
         } catch (Exception e) {
-            throw new IllegalArgumentException("Dữ liệu sản phẩm thiếu không hợp lệ");
+            throw new IllegalArgumentException("Dữ liệu chi tiết sản phẩm không hợp lệ");
         }
     }
 
-    private void replaceMissingItems(OrderComplaint complaint,
+    private void replaceComplaintItems(OrderComplaint complaint,
                                      Order order,
-                                     List<ComplaintMissingItemInputDTO> missingInputs) {
+                                     List<ComplaintItemInputDTO> inputs) {
         Map<Long, OrderItem> orderItemsById = order.getItems().stream()
                 .collect(Collectors.toMap(OrderItem::getId, item -> item));
 
-        Map<Long, Integer> normalizedByItem = new LinkedHashMap<>();
-        for (ComplaintMissingItemInputDTO input : missingInputs) {
-            if (input == null || input.getOrderItemId() == null || input.getMissingQuantity() == null) {
-                throw new IllegalArgumentException("Chi tiết số lượng thiếu không hợp lệ");
+        Map<Long, ComplaintItemInputDTO> normalizedByItem = new LinkedHashMap<>();
+        for (ComplaintItemInputDTO input : inputs) {
+            if (input == null || input.getOrderItemId() == null) {
+                throw new IllegalArgumentException("Chi tiết sản phẩm không hợp lệ");
             }
 
-            int missingQuantity = input.getMissingQuantity();
-            if (missingQuantity <= 0) {
+            int missQty = input.getMissingQuantity() == null ? 0 : input.getMissingQuantity();
+            int defQty = input.getDefectiveQuantity() == null ? 0 : input.getDefectiveQuantity();
+
+            if (missQty < 0 || defQty < 0) {
+                throw new IllegalArgumentException("Số lượng lỗi hoặc thiếu không được là số âm");
+            }
+
+            if (missQty == 0 && defQty == 0) {
                 continue;
             }
 
@@ -175,22 +254,40 @@ public class OrderComplaintService {
             }
 
             int orderedQty = orderItem.getQuantity() == null ? 0 : orderItem.getQuantity();
-            if (missingQuantity > orderedQty) {
-                throw new IllegalArgumentException("Số lượng thiếu không được lớn hơn số lượng đã đặt");
+            if (missQty + defQty > orderedQty) {
+                throw new IllegalArgumentException("Tổng số lượng lỗi và thiếu không được lớn hơn số lượng đã đặt");
             }
 
-            normalizedByItem.put(orderItem.getId(), missingQuantity);
+            normalizedByItem.put(orderItem.getId(), input);
         }
 
         if (normalizedByItem.isEmpty()) {
-            throw new IllegalArgumentException("Vui lòng nhập số lượng thiếu cho ít nhất 1 sản phẩm");
+            throw new IllegalArgumentException("Vui lòng nhập số lượng lỗi/thiếu cho ít nhất 1 sản phẩm");
         }
 
-        complaint.getMissingItems().clear();
-        normalizedByItem.forEach((orderItemId, missingQty) -> {
+        Iterator<OrderComplaintItem> iterator = complaint.getMissingItems().iterator();
+        while (iterator.hasNext()) {
+            OrderComplaintItem existingItem = iterator.next();
+            Long oId = existingItem.getOrderItem().getId();
+
+            if (!normalizedByItem.containsKey(oId)) {
+                iterator.remove();
+            } else {
+                ComplaintItemInputDTO data = normalizedByItem.get(oId);
+                existingItem.setMissingQuantity(data.getMissingQuantity() == null ? 0 : data.getMissingQuantity());
+                existingItem.setDefectiveQuantity(data.getDefectiveQuantity() == null ? 0 : data.getDefectiveQuantity());
+                existingItem.setReasonNote(data.getReasonNote());
+                
+                normalizedByItem.remove(oId);
+            }
+        }
+
+        normalizedByItem.forEach((orderItemId, data) -> {
             OrderComplaintItem complaintItem = new OrderComplaintItem();
             complaintItem.setOrderItem(orderItemsById.get(orderItemId));
-            complaintItem.setMissingQuantity(missingQty);
+            complaintItem.setMissingQuantity(data.getMissingQuantity() == null ? 0 : data.getMissingQuantity());
+            complaintItem.setDefectiveQuantity(data.getDefectiveQuantity() == null ? 0 : data.getDefectiveQuantity());
+            complaintItem.setReasonNote(data.getReasonNote());
             complaint.addMissingItem(complaintItem);
         });
     }
@@ -312,6 +409,17 @@ public class OrderComplaintService {
         }
     }
 
+    private void saveHistory(OrderComplaint complaint, Long userId, String actionType, String oldStatus, String newStatus, String note) {
+        OrderComplaintHistory history = new OrderComplaintHistory();
+        history.setComplaint(complaint);
+        history.setActionByUserId(userId);
+        history.setActionType(actionType);
+        history.setOldStatus(oldStatus);
+        history.setNewStatus(newStatus);
+        history.setNote(note);
+        orderComplaintHistoryRepository.save(history);
+    }
+
     private void pushComplaintNotifications(OrderComplaint complaint, boolean isNewComplaint) {
         Order order = complaint.getOrder();
         String actionText = isNewComplaint ? "đã gửi" : "đã cập nhật";
@@ -334,7 +442,7 @@ public class OrderComplaintService {
                     order,
                     NotificationType.COMPLAINT,
                     isNewComplaint ? "Có khiếu nại mới" : "Khiếu nại đã được cập nhật",
-                    "Đơn " + order.getOrderNumber() + " có khiếu nại thiếu hàng từ khách hàng.",
+                    "Đơn " + order.getOrderNumber() + " có khiếu nại từ khách hàng.",
                     "complaint-admin-" + complaint.getId() + "-" + admin.getId() + "-" + System.currentTimeMillis());
         }
     }
@@ -345,17 +453,21 @@ public class OrderComplaintService {
         dto.setOrderId(complaint.getOrder() != null ? complaint.getOrder().getId() : null);
         dto.setOrderNumber(complaint.getOrder() != null ? complaint.getOrder().getOrderNumber() : null);
         dto.setStatus(complaint.getStatus());
+        dto.setType(complaint.getType());
+        dto.setAdminNote(complaint.getAdminNote());
         dto.setDescription(complaint.getDescription());
         dto.setCreatedAt(complaint.getCreatedAt());
         dto.setUpdatedAt(complaint.getUpdatedAt());
 
-        List<OrderComplaintItemResponseDTO> missingItemDTOs = complaint.getMissingItems().stream().map(item -> {
+        List<OrderComplaintItemResponseDTO> itemDTOs = complaint.getMissingItems().stream().map(item -> {
             OrderComplaintItemResponseDTO itemDTO = new OrderComplaintItemResponseDTO();
             itemDTO.setOrderItemId(item.getOrderItem() != null ? item.getOrderItem().getId() : null);
             itemDTO.setItemCode(item.getOrderItem() != null ? item.getOrderItem().getItemCode() : null);
             itemDTO.setItemName(item.getOrderItem() != null ? item.getOrderItem().getItemName() : null);
             itemDTO.setOrderedQuantity(item.getOrderItem() != null ? item.getOrderItem().getQuantity() : null);
             itemDTO.setMissingQuantity(item.getMissingQuantity());
+            itemDTO.setDefectiveQuantity(item.getDefectiveQuantity());
+            itemDTO.setReasonNote(item.getReasonNote());
             return itemDTO;
         }).toList();
 
@@ -367,8 +479,28 @@ public class OrderComplaintService {
             return imageDTO;
         }).toList();
 
-        dto.setMissingItems(missingItemDTOs);
+        dto.setMissingItems(itemDTOs);
         dto.setImages(imageDTOs);
+
+        if (complaint.getId() != null) {
+            List<OrderComplaintHistory> historyLogs = orderComplaintHistoryRepository.findByComplaintIdOrderByCreatedAtDesc(complaint.getId());
+            List<OrderComplaintHistoryResponseDTO> historyDTOs = historyLogs.stream().map(h -> {
+                OrderComplaintHistoryResponseDTO hdr = new OrderComplaintHistoryResponseDTO();
+                hdr.setId(h.getId());
+                hdr.setActionByUserId(h.getActionByUserId());
+                hdr.setActionType(h.getActionType());
+                hdr.setOldStatus(h.getOldStatus());
+                hdr.setNewStatus(h.getNewStatus());
+                hdr.setNote(h.getNote());
+                hdr.setCreatedAt(h.getCreatedAt());
+                if (h.getActionByUserId() != null) {
+                    userRepository.findById(h.getActionByUserId()).ifPresent(u -> hdr.setActionByUserName(u.getFullName()));
+                }
+                return hdr;
+            }).toList();
+            dto.setHistory(historyDTOs);
+        }
+
         return dto;
     }
 }

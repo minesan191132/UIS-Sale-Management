@@ -39,6 +39,12 @@ public class OrderComplaintItem {
     @JoinColumn(name = "order_item_id", nullable = false)
     private OrderItem orderItem;
 
-    @Column(name = "missing_quantity", nullable = false)
+    @Column(name = "missing_quantity")
     private Integer missingQuantity;
+
+    @Column(name = "defective_quantity", nullable = false)
+    private Integer defectiveQuantity = 0;
+
+    @Column(name = "reason_note", columnDefinition = "TEXT")
+    private String reasonNote;
 }
