@@ -1252,9 +1252,45 @@ public class OrderService {
             throw new IllegalStateException("Vui lòng review tất cả sản phẩm trước khi báo giá");
         }
 
+        // Persist latest draft values from admin UI before locking quote.
+        if (quoteRequest.getItems() != null && !quoteRequest.getItems().isEmpty()) {
+            Map<Long, QuoteRequestDTO.QuoteItemUpdateDTO> updatesById = quoteRequest.getItems().stream()
+                    .filter(update -> update != null && update.getId() != null)
+                    .collect(Collectors.toMap(
+                            QuoteRequestDTO.QuoteItemUpdateDTO::getId,
+                            update -> update,
+                            (left, right) -> right));
+
+            for (OrderItem item : order.getItems()) {
+                QuoteRequestDTO.QuoteItemUpdateDTO update = updatesById.get(item.getId());
+                if (update == null) {
+                    continue;
+                }
+
+                if (update.getUnitPrice() != null) {
+                    if (item.getReviewStatus() == ItemReviewStatus.APPROVED) {
+                        if (update.getUnitPrice().compareTo(BigDecimal.ZERO) <= 0) {
+                            throw new IllegalArgumentException("Đơn giá phải lớn hơn 0 cho sản phẩm đã duyệt");
+                        }
+                        item.setUnitPrice(update.getUnitPrice());
+
+                        if (item.getDrawingNumber() != null && !item.getDrawingNumber().isBlank()) {
+                            quotePricingService.upsertPrice(item.getDrawingNumber(), null, update.getUnitPrice());
+                        }
+                    } else if (update.getUnitPrice().compareTo(BigDecimal.ZERO) > 0) {
+                        item.setUnitPrice(update.getUnitPrice());
+                    } else {
+                        item.setUnitPrice(null);
+                    }
+                }
+
+                item.setAdminNote(normalizeItemNotes(update.getAdminNote()));
+            }
+        }
+
         // Auto-calculate total from approved items: sum(unitPrice * quantity)
         BigDecimal totalPrice = order.getItems().stream()
-                .filter(item -> item.getReviewStatus() == ItemReviewStatus.APPROVED)
+                .filter(item -> item.getReviewStatus() == ItemReviewStatus.APPROVED && item.getUnitPrice() != null)
                 .map(item -> item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 

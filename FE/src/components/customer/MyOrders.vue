@@ -1301,7 +1301,7 @@ const autoOpenPaymentForNewOrder = async (orderId) => {
     selectedPaymentOrderId.value = orderId
     await nextTick()
     if (!bsPaymentModal && paymentModalRef.value) {
-      bsPaymentModal = new Modal(paymentModalRef.value)
+      bsPaymentModal = new Modal(paymentModalRef.value, { focus: false })
     }
     bsPaymentModal?.show()
   } catch (error) {
@@ -1554,7 +1554,7 @@ const openDetailModal = async (order) => {
     await nextTick()
 
     if (!bsModal && detailModalRef.value) {
-      bsModal = new Modal(detailModalRef.value)
+      bsModal = new Modal(detailModalRef.value, { focus: false })
     }
     bsModal?.show()
     loadOrderHistory(selectedOrder.value)
@@ -1742,7 +1742,39 @@ const getItemRowClass = (item) => {
     REJECTED: 'bg-danger bg-opacity-10',
     NEED_DISCUSSION: 'bg-warning bg-opacity-10',
   }
-  return map[item?.reviewStatus] || ''
+  const baseClass = map[item?.reviewStatus] || ''
+  return hasAnyItemNote(item) ? `${baseClass} row-has-note` : baseClass
+}
+
+const hasCustomerItemNote = (item) => {
+  const note = item?.notes ? String(item.notes).trim() : ''
+  return !!note
+}
+
+const hasAdminItemNote = (item) => {
+  const note = item?.adminNote ? String(item.adminNote).trim() : ''
+  return !!note
+}
+
+const hasAnyItemNote = (item) => {
+  return hasCustomerItemNote(item) || hasAdminItemNote(item)
+}
+
+const preserveItemOrder = (previousItems = [], incomingItems = []) => {
+  if (!Array.isArray(incomingItems)) return []
+  if (!Array.isArray(previousItems) || previousItems.length === 0) return incomingItems
+
+  const indexById = new Map()
+  previousItems.forEach((item, index) => {
+    if (item?.id != null) indexById.set(item.id, index)
+  })
+
+  return [...incomingItems].sort((a, b) => {
+    const indexA = indexById.has(a?.id) ? indexById.get(a.id) : Number.MAX_SAFE_INTEGER
+    const indexB = indexById.has(b?.id) ? indexById.get(b.id) : Number.MAX_SAFE_INTEGER
+    if (indexA !== indexB) return indexA - indexB
+    return Number(a?.id || 0) - Number(b?.id || 0)
+  })
 }
 
 const getReviewProgress = (order) => {
@@ -1766,8 +1798,15 @@ const syncOrderAfterItemNoteUpdate = (updatedOrder) => {
 
   const currentOrderId = selectedOrder.value.id
   const wasTempImport = !!selectedOrder.value.isTempImport
+  const previousItems = selectedOrder.value.items || []
 
-  selectedOrder.value = { ...updatedOrder, isTempImport: wasTempImport }
+  const normalizedUpdatedOrder = {
+    ...updatedOrder,
+    items: preserveItemOrder(previousItems, updatedOrder.items || []),
+    isTempImport: wasTempImport,
+  }
+
+  selectedOrder.value = normalizedUpdatedOrder
 
   const orderIndex = orders.value.findIndex((order) => {
     return order.id === currentOrderId && !!order.isTempImport === wasTempImport
@@ -1776,8 +1815,7 @@ const syncOrderAfterItemNoteUpdate = (updatedOrder) => {
   if (orderIndex !== -1) {
     orders.value[orderIndex] = {
       ...orders.value[orderIndex],
-      ...updatedOrder,
-      isTempImport: wasTempImport,
+      ...normalizedUpdatedOrder,
     }
   }
 }
@@ -1847,7 +1885,7 @@ const openPaymentModal = async (order) => {
   selectedPaymentOrderId.value = order.id
   await nextTick()
   if (!bsPaymentModal && paymentModalRef.value) {
-    bsPaymentModal = new Modal(paymentModalRef.value)
+    bsPaymentModal = new Modal(paymentModalRef.value, { focus: false })
   }
   bsPaymentModal?.show()
 }
@@ -1873,7 +1911,7 @@ const openContractModal = async (order) => {
 
     await nextTick()
     if (!bsContractModal && contractModalRef.value) {
-      bsContractModal = new Modal(contractModalRef.value)
+      bsContractModal = new Modal(contractModalRef.value, { focus: false })
     }
     bsContractModal?.show()
   } catch (error) {
@@ -2084,7 +2122,7 @@ const openComplaintModal = async (order) => {
 
     await nextTick()
     if (!bsComplaintModal && complaintModalRef.value) {
-      bsComplaintModal = new Modal(complaintModalRef.value)
+      bsComplaintModal = new Modal(complaintModalRef.value, { focus: false })
     }
 
     attachComplaintModalGuards()
@@ -2436,7 +2474,7 @@ const openRemainingPaymentModal = (order) => {
   selectedOrder.value = order
   nextTick().then(() => {
     if (!bsPaymentModal && paymentModalRef.value) {
-      bsPaymentModal = new Modal(paymentModalRef.value)
+      bsPaymentModal = new Modal(paymentModalRef.value, { focus: false })
     }
     bsPaymentModal?.show()
   })
@@ -2606,6 +2644,16 @@ const formatTime = (dateStr) => {
 .review-table tbody td {
   font-size: 0.84rem;
   border-bottom: 1px solid #f1f5f9;
+}
+
+.review-table tbody tr.row-has-note > td {
+  background-image: linear-gradient(0deg, rgba(245, 158, 11, 0.12), rgba(245, 158, 11, 0.12));
+  border-top-color: rgba(245, 158, 11, 0.45);
+  border-bottom-color: rgba(245, 158, 11, 0.45);
+}
+
+.review-table tbody tr.row-has-note > td:first-child {
+  box-shadow: inset 4px 0 0 #f59e0b;
 }
 
 .review-table-comfortable td {

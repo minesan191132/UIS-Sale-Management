@@ -451,10 +451,15 @@
                               <button v-if="selectedOrder?.status === 'PENDING_QUOTE'" type="button" class="btn btn-light border btn-sm rounded-pill fw-medium text-secondary w-100" @click="openAdminNoteEditor(item)">
                                 <i class="bi bi-chat-left-text me-1"></i>{{ getReviewDraft(item).adminNote ? 'Sửa Note' : 'Thêm Note' }}
                               </button>
-                              <button v-else-if="item.adminNote" type="button" class="btn btn-light border btn-sm rounded-pill fw-medium text-secondary w-100" @click="openItemNotePopup(item)">
-                                <i class="bi bi-chat-left-text me-1"></i>Xem Note
-                              </button>
-                              <span v-else class="text-muted small">—</span>
+                              <template v-else>
+                                <button v-if="hasCustomerItemNote(item)" type="button" class="btn btn-light border btn-sm rounded-pill fw-medium text-secondary w-100" @click="openItemNotePopup(item, 'customer')">
+                                  <i class="bi bi-chat-left-text me-1"></i>Xem Note KH
+                                </button>
+                                <button v-if="hasAdminItemNote(item)" type="button" class="btn btn-light border btn-sm rounded-pill fw-medium text-secondary w-100" @click="openItemNotePopup(item, 'admin')">
+                                  <i class="bi bi-chat-left-text me-1"></i>Xem Note Admin
+                                </button>
+                                <span v-if="!hasCustomerItemNote(item) && !hasAdminItemNote(item)" class="text-muted small">—</span>
+                              </template>
                             </div>
                           </td>
                         </tr>
@@ -470,10 +475,10 @@
                   </div>
                 </div>
 
-                <div v-if="selectedOrder?.items?.some(item => item.adminNote)" class="mt-4 bg-white p-3 rounded-4 border shadow-sm">
-                  <div class="small text-navy fw-bold text-uppercase mb-2"><i class="bi bi-stickies me-1"></i>Tổng hợp Ghi chú sản phẩm:</div>
+                <div v-if="selectedOrder?.items?.some(item => hasCustomerItemNote(item))" class="mt-4 bg-white p-3 rounded-4 border shadow-sm">
+                  <div class="small text-navy fw-bold text-uppercase mb-2"><i class="bi bi-stickies me-1"></i>Tổng hợp Ghi chú khách hàng:</div>
                   <div class="d-flex flex-wrap gap-2">
-                    <button v-for="item in selectedOrder.items" :key="'note-' + item.id" v-show="item.adminNote" type="button" class="btn btn-light border btn-sm rounded-pill hover-lift text-dark fw-medium" @click="openItemNotePopup(item)">
+                    <button v-for="item in selectedOrder.items" :key="'customer-note-' + item.id" v-show="hasCustomerItemNote(item)" type="button" class="btn btn-light border btn-sm rounded-pill hover-lift text-dark fw-medium" @click="openItemNotePopup(item, 'customer')">
                       {{ item.itemName || 'Sản phẩm' }} <i class="bi bi-arrow-right-short text-muted mx-1"></i> <i class="bi bi-chat-text text-primary"></i>
                     </button>
                   </div>
@@ -799,7 +804,7 @@ const openReviewModal = async (order) => {
     initializeReviewDrafts(selectedOrder.value.items || []);
     await preloadDefaultPricesForDrafts(selectedOrder.value.items || []);
     await nextTick();
-    if (!bsModal && reviewModalRef.value) { bsModal = new Modal(reviewModalRef.value); }
+    if (!bsModal && reviewModalRef.value) { bsModal = new Modal(reviewModalRef.value, { focus: false }); }
     bsModal?.show();
     loadOrderHistory(selectedOrder.value);
   } catch (error) { Swal.fire('Lỗi', 'Không thể tải chi tiết đơn hàng', 'error'); }
@@ -910,12 +915,38 @@ const getReviewDraft = (item) => ensureDraft(item);
 const setDraftUnitPrice = (item, value) => { const draft = ensureDraft(item); draft.unitPrice = value; };
 const setDraftNote = (item, value) => { const draft = ensureDraft(item); draft.adminNote = value; };
 
+const preserveItemOrder = (previousItems = [], incomingItems = []) => {
+  if (!Array.isArray(incomingItems)) return [];
+  if (!Array.isArray(previousItems) || previousItems.length === 0) return incomingItems;
+
+  const indexById = new Map();
+  previousItems.forEach((item, index) => {
+    if (item?.id != null) indexById.set(item.id, index);
+  });
+
+  return [...incomingItems].sort((a, b) => {
+    const indexA = indexById.has(a?.id) ? indexById.get(a.id) : Number.MAX_SAFE_INTEGER;
+    const indexB = indexById.has(b?.id) ? indexById.get(b.id) : Number.MAX_SAFE_INTEGER;
+    if (indexA !== indexB) return indexA - indexB;
+    return Number(a?.id || 0) - Number(b?.id || 0);
+  });
+};
+
 const syncUpdatedOrderState = (updatedOrder) => {
-  selectedOrder.value = updatedOrder;
-  initializeReviewDrafts(updatedOrder.items || [], { preserveExisting: true });
-  const idx = orders.value.findIndex(o => o.id === updatedOrder.id);
-  if (idx !== -1) { orders.value[idx] = { ...updatedOrder, selected: orders.value[idx].selected }; }
-  if (expandedOrderId.value === updatedOrder.id) { orderDetail.value = { ...updatedOrder }; }
+  if (!updatedOrder?.id) return;
+
+  const previousItems = selectedOrder.value?.items || [];
+  const normalizedUpdatedOrder = {
+    ...updatedOrder,
+    items: preserveItemOrder(previousItems, updatedOrder.items || []),
+  };
+
+  selectedOrder.value = normalizedUpdatedOrder;
+  initializeReviewDrafts(normalizedUpdatedOrder.items || [], { preserveExisting: true });
+
+  const idx = orders.value.findIndex(o => o.id === normalizedUpdatedOrder.id);
+  if (idx !== -1) { orders.value[idx] = { ...normalizedUpdatedOrder, selected: orders.value[idx].selected }; }
+  if (expandedOrderId.value === normalizedUpdatedOrder.id) { orderDetail.value = { ...normalizedUpdatedOrder }; }
 };
 
 const reviewItem = async (item, status) => {
@@ -994,7 +1025,24 @@ const submitQuote = async (order) => {
   const { value: notes } = await Swal.fire({ title: `Gửi báo giá — ${order.orderNumber}`, html: `<p>Tổng: <strong>${formatCurrency(total)}</strong></p><p class="text-muted small">Cọc (60%): ${formatCurrency(total * 0.6)}</p>`, input: 'textarea', inputLabel: 'Ghi chú cho khách hàng', showCancelButton: true, confirmButtonText: 'Gửi báo giá', confirmButtonColor: '#198754' });
   if (notes !== undefined) {
     try {
-      await apiClient.put(`/orders/${order.id}/quote`, { notes: notes || null });
+      const itemsPayload = (order.items || []).map((item) => {
+        const draft = getReviewDraft(item);
+        const unitPriceRaw = draft?.unitPrice;
+        const normalizedUnitPrice = unitPriceRaw === '' || unitPriceRaw === null || unitPriceRaw === undefined
+          ? null
+          : Number(unitPriceRaw);
+
+        return {
+          id: item.id,
+          unitPrice: Number.isFinite(normalizedUnitPrice) ? normalizedUnitPrice : null,
+          adminNote: draft?.adminNote ? String(draft.adminNote).trim() : null,
+        };
+      });
+
+      await apiClient.put(`/orders/${order.id}/quote`, {
+        notes: notes || null,
+        items: itemsPayload,
+      });
       showStatusToast('Đã gửi báo giá', 'Báo giá đã được gửi cho khách hàng.');
       bsModal?.hide(); loadOrders(currentPage.value);
     } catch (error) { Swal.fire('Lỗi', error.response?.data?.error || 'Không thể gửi báo giá', 'error'); }
@@ -1221,7 +1269,8 @@ const getReviewBadgeClass = (status) => {
 
 const getItemRowClass = (item) => {
   const map = { APPROVED: '', REJECTED: 'bg-danger bg-opacity-10', NEED_DISCUSSION: 'bg-warning bg-opacity-10' };
-  return map[item.reviewStatus] || '';
+  const baseClass = map[item.reviewStatus] || '';
+  return hasAnyItemNote(item) ? `${baseClass} row-has-note` : baseClass;
 };
 
 const openAdminNoteEditor = async (item) => {
@@ -1232,10 +1281,29 @@ const openAdminNoteEditor = async (item) => {
   if (value === undefined) return; setDraftNote(item, value);
 };
 
-const openItemNotePopup = async (item) => {
-  const note = item?.adminNote ? String(item.adminNote).trim() : ''; if (!note) return;
+const hasCustomerItemNote = (item) => {
+  const note = item?.notes ? String(item.notes).trim() : '';
+  return !!note;
+};
+
+const hasAdminItemNote = (item) => {
+  const note = item?.adminNote ? String(item.adminNote).trim() : '';
+  return !!note;
+};
+
+const hasAnyItemNote = (item) => {
+  return hasCustomerItemNote(item) || hasAdminItemNote(item);
+};
+
+const openItemNotePopup = async (item, source = 'admin') => {
+  const rawNote = source === 'customer' ? item?.notes : item?.adminNote;
+  const note = rawNote ? String(rawNote).trim() : '';
+  if (!note) return;
+
   const itemName = item?.itemName ? String(item.itemName).trim() : 'Sản phẩm';
-  await Swal.fire({ title: `Ghi chú - ${itemName}`, html: `<div style="white-space: pre-wrap; text-align: left;">${escapeHtml(note)}</div>`, width: 650, confirmButtonText: 'Đóng', confirmButtonColor: '#0b2e59' });
+  const noteTitle = source === 'customer' ? 'Ghi chú khách hàng' : 'Ghi chú admin';
+
+  await Swal.fire({ title: `${noteTitle} - ${itemName}`, html: `<div style="white-space: pre-wrap; text-align: left;">${escapeHtml(note)}</div>`, width: 650, confirmButtonText: 'Đóng', confirmButtonColor: '#0b2e59' });
 };
 
 const getStatusText = (status) => { return getOrderStatusLabel(status, { DEPOSITED: 'Đã cọc' }); };
@@ -1374,6 +1442,16 @@ const formatWeight = (weight) => { if (weight === null || weight === undefined |
 .review-table th, .review-table td { vertical-align: middle; }
 .review-table thead th { white-space: nowrap; font-size: 0.78rem; border-bottom: 2px solid #e2e8f0; }
 .review-table tbody td { font-size: 0.84rem; border-bottom: 1px solid #f1f5f9; }
+
+.review-table tbody tr.row-has-note > td {
+  background-image: linear-gradient(0deg, rgba(245, 158, 11, 0.12), rgba(245, 158, 11, 0.12));
+  border-top-color: rgba(245, 158, 11, 0.45);
+  border-bottom-color: rgba(245, 158, 11, 0.45);
+}
+
+.review-table tbody tr.row-has-note > td:first-child {
+  box-shadow: inset 4px 0 0 #f59e0b;
+}
 
 .review-table-comfortable td { padding: 0.75rem 0.5rem; }
 .review-table-compact td { padding: 0.4rem 0.35rem; }
