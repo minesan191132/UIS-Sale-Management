@@ -32,6 +32,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -744,6 +745,43 @@ public class OrderController {
             log.error("Error shipping order {}", id, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Failed to ship order"));
+        }
+    }
+
+    /**
+     * Admin: Set delivery date and mark READY_MADE order as ready to deliver
+     * PUT /api/orders/{id}/ready-to-deliver
+     */
+    @PutMapping("/{id}/ready-to-deliver")
+    public ResponseEntity<?> readyToDeliver(
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, String> body,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        try {
+            if (userDetails == null || !"ADMIN".equals(userDetails.getRole())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("error", "Unauthorized"));
+            }
+
+            String dateStr = body != null ? body.get("deliveryDate") : null;
+            if (dateStr == null || dateStr.isBlank()) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "Vui lòng chọn ngày giao hàng"));
+            }
+
+            LocalDate deliveryDate = LocalDate.parse(dateStr);
+            OrderResponseDTO order = orderService.setDeliveryDateAndReadyToDeliver(id, deliveryDate);
+            return ResponseEntity.ok(order);
+        } catch (DateTimeParseException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Định dạng ngày không hợp lệ"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error setting ready-to-deliver for order {}", id, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to update order"));
         }
     }
 

@@ -75,15 +75,6 @@
                 </transition>
               </div>
 
-              <!-- Đơn Mua -->
-              <a href="#" class="nav-item" :class="{ active: activeSection === 'orders' }"
-                @click.prevent="switchSection('orders')">
-                <span class="nav-icon">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
-                </span>
-                <span class="nav-label">Lịch Sử Đơn Mua</span>
-              </a>
-
             </nav>
           </aside>
 
@@ -165,9 +156,6 @@
               v-else-if="activeSection === 'notifications'"
               @unread-count-changed="handleUnreadCountChanged" />
 
-            <!-- Lịch Sử Đơn Mua Section -->
-            <OrderHistorySection v-else-if="activeSection === 'orders'" />
-
           </main>
         </div>
       </div>
@@ -187,7 +175,6 @@ import Footer from '../base/Footer.vue'
 import PasswordSection from './password.vue'
 import AddressSection from './address.vue'
 import NotificationsSection from './notifications.vue'
-import OrderHistorySection from './orderhistory.vue'
 
 const PROFILE_DRAFT_STORAGE_PREFIX = 'account.profileDraft.v1.'
 const PROFILE_DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000

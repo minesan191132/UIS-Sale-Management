@@ -307,7 +307,7 @@ async function submitOrder() {
   const confirmSubmit = await Swal.fire({
     title: 'Xác nhận đặt hàng?',
     text: selectedPayment.value === 'BANK'
-      ? 'Bạn sẽ được chuyển đến trang QR để thanh toán ngay sau khi tạo đơn.'
+      ? 'Bạn sẽ được chuyển đến Đơn hàng của tôi để mở QR thanh toán ngay sau khi tạo đơn.'
       : 'Đơn hàng COD sẽ được xác nhận và nhân viên sẽ liên hệ với bạn.',
     icon: 'question',
     showCancelButton: true,
@@ -352,17 +352,23 @@ async function submitOrder() {
     bypassCheckoutLeaveGuard.value = true;
 
     if (selectedPayment.value === 'BANK') {
-      // Redirect to QR payment page
-      router.push({ name: 'payment-qr', params: { orderId: order.id } });
+      // Redirect to My Orders and auto-open payment QR modal for the new READY_MADE order.
+      router.push({
+        path: '/my-orders',
+        query: {
+          orderType: 'READY_MADE',
+          newOrderId: String(order.id),
+        },
+      });
     } else {
-      // COD — show success and go to order history
+      // COD — show success and go to My Orders
       await Swal.fire({
         icon: 'success',
         title: 'Đặt hàng thành công!',
         text: `Mã đơn hàng: ${order.orderNumber}. Nhân viên sẽ liên hệ xác nhận.`,
         confirmButtonText: 'Xem đơn hàng'
       });
-      router.push('/account');
+      router.push('/my-orders');
     }
   } catch (err) {
     const msg = err.response?.data?.error || err.message || 'Có lỗi xảy ra, vui lòng thử lại.';

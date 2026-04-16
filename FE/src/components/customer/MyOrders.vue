@@ -51,17 +51,19 @@
       <!-- Skeleton Loading -->
       <div v-if="isLoading" class="orders-table-card">
         <div class="orders-table-header">
-          <div class="col-header" style="width:28%">MÃ ĐƠN HÀNG</div>
-          <div class="col-header" style="width:20%">TRẠNG THÁI</div>
-          <div class="col-header" style="width:20%">NGÀY ĐẶT</div>
-          <div class="col-header" style="width:20%">GIÁ TRỊ</div>
+          <div class="col-header" style="width:24%">MÃ ĐƠN HÀNG</div>
+          <div class="col-header" style="width:16%">TRẠNG THÁI</div>
+          <div class="col-header" style="width:14%">NGÀY ĐẶT</div>
+          <div class="col-header" style="width:16%">NGÀY GIAO</div>
+          <div class="col-header" style="width:18%">GIÁ TRỊ</div>
           <div class="col-header" style="width:12%">THAO TÁC</div>
         </div>
         <div v-for="i in 4" :key="i" class="order-table-row skeleton-row">
-          <div style="width:28%"><div class="sk sk-title"></div><div class="sk sk-sub mt-1"></div></div>
-          <div style="width:20%"><div class="sk sk-badge"></div></div>
-          <div style="width:20%"><div class="sk sk-line"></div></div>
-          <div style="width:20%"><div class="sk sk-line"></div></div>
+          <div style="width:24%"><div class="sk sk-title"></div><div class="sk sk-sub mt-1"></div></div>
+          <div style="width:16%"><div class="sk sk-badge"></div></div>
+          <div style="width:14%"><div class="sk sk-line"></div></div>
+          <div style="width:16%"><div class="sk sk-line"></div></div>
+          <div style="width:18%"><div class="sk sk-line"></div></div>
           <div style="width:12%"><div class="sk sk-btn"></div></div>
         </div>
       </div>
@@ -79,10 +81,11 @@
       <!-- Orders Table Card -->
       <div v-else class="orders-table-card fade-in">
         <div class="orders-table-header">
-          <div class="col-header" style="width:28%">MÃ ĐƠN HÀNG</div>
-          <div class="col-header" style="width:20%">TRẠNG THÁI</div>
-          <div class="col-header" style="width:20%">NGÀY ĐẶT</div>
-          <div class="col-header" style="width:20%">GIÁ TRỊ</div>
+          <div class="col-header" style="width:24%">MÃ ĐƠN HÀNG</div>
+          <div class="col-header" style="width:16%">TRẠNG THÁI</div>
+          <div class="col-header" style="width:14%">NGÀY ĐẶT</div>
+          <div class="col-header" style="width:16%">NGÀY GIAO</div>
+          <div class="col-header" style="width:18%">GIÁ TRỊ</div>
           <div class="col-header" style="width:12%">THAO TÁC</div>
         </div>
 
@@ -93,7 +96,7 @@
           :style="{ animationDelay: `${index * 0.06}s` }"
         >
           <!-- Mã đơn hàng -->
-          <div class="row-cell order-number-cell" style="width:28%">
+          <div class="row-cell order-number-cell" style="width:24%">
             <div class="order-number-text">{{ order.orderNumber }}</div>
             <div class="order-items-count"><i class="bi bi-box me-1"></i>{{ order.items?.length || 0 }} sản phẩm</div>
             <div v-if="order.status === 'PENDING_APPROVAL'" class="mini-alert mini-alert-warning mt-1">
@@ -108,24 +111,32 @@
           </div>
 
           <!-- Trạng thái -->
-          <div class="row-cell status-cell" style="width:20%">
+          <div class="row-cell status-cell" style="width:16%">
             <span :class="getStatusBadgeClass(order.status)" class="status-badge-lg">
               {{ getStatusText(order.status, order.orderType) }}
             </span>
           </div>
 
           <!-- Ngày đặt -->
-          <div class="row-cell date-cell" style="width:20%">
+          <div class="row-cell date-cell" style="width:14%">
             <div class="date-primary">{{ formatDateShort(order.createdAt) }}</div>
             <div class="date-secondary">{{ formatTime(order.createdAt) }}</div>
-            <div v-if="order.deliveryDate" class="delivery-date mt-1" :class="isDeliveryDateOverdue(order.deliveryDate) ? 'text-danger' : 'text-info'">
-              <i class="bi bi-truck me-1"></i>{{ formatDateShort(order.deliveryDate) }}
-              <i v-if="isDeliveryDateOverdue(order.deliveryDate)" class="bi bi-exclamation-circle ms-1"></i>
-            </div>
+          </div>
+
+          <!-- Ngày giao -->
+          <div class="row-cell delivery-cell" style="width:16%">
+            <template v-if="order.deliveryDate">
+              <div class="delivery-primary" :class="isDeliveryDateOverdue(order.deliveryDate) ? 'text-danger' : 'text-info'">
+                <i class="bi bi-truck me-1"></i>{{ formatDateShort(order.deliveryDate) }}
+                <i v-if="isDeliveryDateOverdue(order.deliveryDate)" class="bi bi-exclamation-circle ms-1"></i>
+              </div>
+              <div class="date-secondary">Dự kiến giao</div>
+            </template>
+            <div v-else class="date-secondary">Chưa cập nhật</div>
           </div>
 
           <!-- Giá trị -->
-          <div class="row-cell price-cell" style="width:20%">
+          <div class="row-cell price-cell" style="width:18%">
             <div v-if="order.totalPrice">
               <div class="price-total">{{ formatCurrency(order.totalPrice) }}</div>
               <div class="price-sub mt-1">
@@ -251,7 +262,14 @@
                 <p class="mb-1"><strong>Trạng thái:</strong>
                   <span :class="getStatusBadgeClass(selectedOrder.status)">{{ getStatusText(selectedOrder.status, selectedOrder.orderType) }}</span>
                 </p>
-                <p class="mb-0"><strong>Ngày tạo:</strong> {{ formatDate(selectedOrder.createdAt) }}</p>
+                <p class="mb-1"><strong>Ngày tạo:</strong> {{ formatDate(selectedOrder.createdAt) }}</p>
+                <p class="mb-0"><strong>Ngày giao:</strong>
+                  <span v-if="selectedOrder.deliveryDate" :class="isDeliveryDateOverdue(selectedOrder.deliveryDate) ? 'text-danger fw-semibold' : 'text-info fw-semibold'">
+                    {{ formatDateShort(selectedOrder.deliveryDate) }}
+                    <i v-if="isDeliveryDateOverdue(selectedOrder.deliveryDate)" class="bi bi-exclamation-circle ms-1"></i>
+                  </span>
+                  <span v-else class="text-muted">Chưa cập nhật</span>
+                </p>
               </div>
               <div class="col-md-4">
                 <p class="mb-1" v-if="selectedOrder.totalPrice">
@@ -492,7 +510,11 @@
             <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
           </div>
           <div class="modal-body p-0" v-if="selectedPaymentOrderId">
-            <PaymentQR :order-id="selectedPaymentOrderId" @payment-confirmed="onPaymentConfirmed" />
+            <PaymentQR
+              :order-id="selectedPaymentOrderId"
+              :order-type="activeOrderType"
+              @payment-confirmed="onPaymentConfirmed"
+            />
           </div>
         </div>
       </div>
@@ -813,6 +835,8 @@ const manufacturingStatusTabs = [
 
 const productStatusTabs = [
   { key: 'AWAITING_PAYMENT', label: 'Chờ thanh toán' },
+  { key: 'DEPOSITED', label: 'Đã thanh toán' },
+  { key: 'PROCESSING', label: 'Đang chuẩn bị' },
   { key: 'AWAITING_DELIVERY', label: 'Chờ giao hàng' },
   { key: 'SHIPPING', label: 'Đang giao' },
   { key: 'COMPLETED', label: 'Đã nhận hàng' },
@@ -845,6 +869,13 @@ const parsePositiveInt = (value, fallback = 0) => {
   const num = Number(value)
   if (!Number.isFinite(num)) return fallback
   return Math.max(0, Math.trunc(num))
+}
+
+const getQueryValue = (value) => {
+  if (Array.isArray(value)) {
+    return value.length > 0 ? value[0] : undefined
+  }
+  return value
 }
 
 const makeOrderActionKey = (order, actionName) => {
@@ -1176,7 +1207,7 @@ const clearOrderIdQuery = async () => {
 }
 
 const openOrderFromQueryIfPresent = async () => {
-  const orderId = Number(route.query?.orderId || 0)
+  const orderId = Number(getQueryValue(route.query?.orderId) || 0)
   if (!Number.isFinite(orderId) || orderId <= 0) return
 
   try {
@@ -1203,6 +1234,20 @@ const openOrderFromQueryIfPresent = async () => {
   }
 }
 
+const autoOpenPaymentForNewOrder = async (orderId) => {
+  try {
+    showStatusToast('Đặt hàng thành công!', 'Vui lòng thanh toán để hoàn tất đơn hàng.')
+    selectedPaymentOrderId.value = orderId
+    await nextTick()
+    if (!bsPaymentModal && paymentModalRef.value) {
+      bsPaymentModal = new Modal(paymentModalRef.value)
+    }
+    bsPaymentModal?.show()
+  } catch (error) {
+    console.warn('Failed to auto-open payment modal:', error)
+  }
+}
+
 const handleBeforeUnload = (event) => {
   if (!hasComplaintUnsavedChanges.value) return
   event.preventDefault()
@@ -1213,11 +1258,34 @@ onMounted(async () => {
   restoreViewState()
   window.addEventListener('beforeunload', handleBeforeUnload)
 
+  const newOrderId = getQueryValue(route.query?.newOrderId)
+  const queryOrderType = getQueryValue(route.query?.orderType)
+  if (newOrderId && queryOrderType === 'READY_MADE') {
+    activeOrderType.value = 'READY_MADE'
+    activeStatus.value = 'AWAITING_PAYMENT'
+    currentPage.value = 0
+    persistViewState({ orderType: 'READY_MADE', status: 'AWAITING_PAYMENT', page: 0 })
+  }
+
   await Promise.all([
     loadOrders(currentPage.value),
     loadStatusCounts(activeOrderType.value),
   ])
-  await openOrderFromQueryIfPresent()
+
+  if (newOrderId) {
+    const id = Number(newOrderId)
+    if (Number.isFinite(id) && id > 0) {
+      await autoOpenPaymentForNewOrder(id)
+    }
+
+    const nextQuery = { ...route.query }
+    delete nextQuery.newOrderId
+    delete nextQuery.orderType
+    delete nextQuery.orderId
+    await router.replace({ path: route.path, query: nextQuery })
+  } else {
+    await openOrderFromQueryIfPresent()
+  }
 })
 
 onBeforeUnmount(() => {
@@ -3063,7 +3131,7 @@ const formatTime = (dateStr) => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  align-self: center;
+  align-self: flex-start;
   width: fit-content;
   max-width: 100%;
   padding: 5px 12px;
@@ -3076,7 +3144,8 @@ const formatTime = (dateStr) => {
 }
 
 .status-cell {
-  align-items: center;
+  align-items: flex-start;
+  justify-content: flex-start;
 }
 
 /* Date Cell */
@@ -3092,8 +3161,13 @@ const formatTime = (dateStr) => {
   margin-top: 2px;
 }
 
-.delivery-date {
+.delivery-cell {
+  align-items: flex-start;
+}
+
+.delivery-primary {
   font-size: 0.78rem;
+  line-height: 1.3;
   font-weight: 500;
 }
 

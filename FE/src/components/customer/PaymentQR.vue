@@ -31,10 +31,13 @@
     <!-- Success: Paid deposit (1st payment) -->
     <div v-else-if="paymentInfo && paymentInfo.orderStatus === 'DEPOSITED'" class="paid-state">
       <div class="success-icon">✅</div>
-      <h3>Đã nhận tiền cọc!</h3>
-      <p>Đơn hàng <strong>{{ paymentInfo.orderNumber }}</strong> đã được xác nhận đặt cọc thành công.</p>
+      <h3>{{ isReadyMade ? 'Đã nhận thanh toán!' : 'Đã nhận tiền cọc!' }}</h3>
+      <p>
+        Đơn hàng <strong>{{ paymentInfo.orderNumber }}</strong>
+        {{ isReadyMade ? 'đã được xác nhận thanh toán thành công.' : 'đã được xác nhận đặt cọc thành công.' }}
+      </p>
       <div class="paid-amount">
-        Số tiền nhận: <strong>{{ formatCurrency(paymentInfo.depositAmount) }}</strong>
+        Số tiền nhận: <strong>{{ formatCurrency(isReadyMade ? paymentInfo.totalPrice : paymentInfo.depositAmount) }}</strong>
       </div>
     </div>
 
@@ -53,7 +56,8 @@
       <!-- Header -->
       <div class="qr-header">
         <h3>
-          <template v-if="isRemainingPhase">💳 Thanh toán mốc 2 (40%)</template>
+          <template v-if="isReadyMade">💳 Thanh toán đơn hàng (100%)</template>
+          <template v-else-if="isRemainingPhase">💳 Thanh toán mốc 2 (40%)</template>
           <template v-else>💳 Thanh toán mốc 1 (60%)</template>
         </h3>
         <p class="order-ref">Đơn hàng: <strong>{{ paymentInfo.orderNumber }}</strong></p>
@@ -69,7 +73,13 @@
           <span>{{ formatCurrency(paymentInfo.totalPrice) }}</span>
         </div>
         <div class="amount-row highlight">
-          <span>{{ isRemainingPhase ? 'Cần thanh toán (40% còn lại)' : 'Cần thanh toán (60% tiền cọc)' }}</span>
+          <span>{{
+            isReadyMade
+              ? 'Cần thanh toán (100%)'
+              : isRemainingPhase
+                ? 'Cần thanh toán (40% còn lại)'
+                : 'Cần thanh toán (60% tiền cọc)'
+          }}</span>
           <span class="amount-primary">{{ formatCurrency(payableAmount) }}</span>
         </div>
         <div v-if="hasMilestoneSummary" class="amount-row">
@@ -168,6 +178,10 @@ const props = defineProps({
   orderId: {
     type: [Number, String],
     required: true
+  },
+  orderType: {
+    type: String,
+    default: 'CUSTOM_MANUFACTURING'
   }
 })
 
@@ -189,6 +203,8 @@ const milestoneItems = computed(() => {
 })
 
 const hasMilestoneSummary = computed(() => milestoneItems.value.length > 0)
+
+const isReadyMade = computed(() => props.orderType === 'READY_MADE')
 
 const activeMilestone = computed(() => {
   return milestoneItems.value.find((milestone) => {
@@ -238,7 +254,9 @@ async function fetchPaymentInfo() {
   try {
     const [info, milestoneData] = await Promise.all([
       paymentAPI.getPaymentInfo(props.orderId),
-      paymentAPI.getMilestones(props.orderId).catch(() => null),
+      isReadyMade.value
+        ? Promise.resolve(null)
+        : paymentAPI.getMilestones(props.orderId).catch(() => null),
     ])
 
     paymentInfo.value = info
@@ -246,9 +264,9 @@ async function fetchPaymentInfo() {
       ? milestoneData
       : null
 
-    // Stop polling when payment was fully moved to the next order phase.
-    if (paymentInfo.value.orderStatus === 'DEPOSITED' ||
-        paymentInfo.value.orderStatus === 'AWAITING_DELIVERY') {
+    // READY_MADE: DEPOSITED = đã thanh toán 100%.
+    // CUSTOM_MANUFACTURING: DEPOSITED = đã cọc, AWAITING_DELIVERY = đã thanh toán đủ.
+    if (['DEPOSITED', 'AWAITING_DELIVERY'].includes(paymentInfo.value.orderStatus)) {
       stopPolling()
       emit('payment-confirmed', paymentInfo.value)
     }
