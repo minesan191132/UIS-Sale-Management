@@ -2,7 +2,7 @@
   <div class="sidebar-wrapper d-flex flex-column p-3 bg-white shadow-sm h-100 flex-shrink-0" 
        style="width: 280px; min-width: 280px; position: sticky; top: 0; left: 0; border-right: 1px solid #e2e8f0; z-index: 1040; overflow-y: auto;">
     
-    <router-link to="/admin" class="brand-box d-flex align-items-center mb-4 px-2 text-decoration-none">
+    <router-link to="/admin/dashboard" class="brand-box d-flex align-items-center mb-4 px-2 text-decoration-none">
       <div class="logo-icon bg-navy text-white rounded-3 d-flex align-items-center justify-content-center me-3 shadow-sm flex-shrink-0" style="width: 40px; height: 40px;">
         <i class="bi bi-shield-check fs-5"></i>
       </div>
