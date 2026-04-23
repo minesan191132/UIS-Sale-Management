@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="vi">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kích hoạt tài khoản - UIS</title>
+</head>
+
+<body style="margin:0;padding:0;background:#f0f4f8;font-family:'Segoe UI',Arial,sans-serif;color:#333;">
+  <div style="max-width:600px;margin:40px auto;padding:20px;">
+
+    <!-- Header -->
+    <div
+      style="background:linear-gradient(135deg,#0f172a 0%,#1e3a8a 100%);border-radius:12px 12px 0 0;padding:32px 40px;text-align:center;">
+      <div style="font-size:28px;font-weight:700;color:#fff;letter-spacing:2px;">UIS</div>
+      <div style="font-size:13px;color:#93c5fd;margin-top:4px;">UTSUNOMIYA MECHANICAL SALES WEBSITES</div>
+    </div>
+
+    <!-- Body -->
+    <div style="background:#ffffff;padding:36px 40px;">
+      <h2 style="font-size:20px;color:#1e3a8a;margin:0 0 16px;">Chào mừng bạn đến với UIS!</h2>
+
+      <p style="font-size:15px;color:#555;line-height:1.7;margin:0 0 12px;">
+        Xin chào <strong th:text="${username}">Người dùng</strong>,
+      </p>
+
+      <!-- Welcome Banner -->
+      <div
+        style="background:linear-gradient(135deg,#f0f4ff,#e0e7ff);border-radius:10px;padding:18px 22px;margin:18px 0;border-left:4px solid #1e3a8a;">
+        <p style="font-size:14px;color:#3730a3;margin:0;">
+          Tài khoản của bạn đã được tạo thành công. Vui lòng kích hoạt tài khoản để bắt đầu sử dụng hệ thống.
+        </p>
+      </div>
+
+      <p style="font-size:15px;color:#555;line-height:1.7;margin:0 0 12px;">
+        Nhấn vào nút bên dưới để kích hoạt tài khoản của bạn:
+      </p>
+
+      <!-- Activate Button -->
+      <div style="text-align:center;margin:30px 0;">
+        <a th:href="${verificationUrl}" style="display:inline-block;background:linear-gradient(135deg,#0f172a 0%,#1e3a8a 100%);
+                color:#ffffff;text-decoration:none;font-size:16px;font-weight:600;
+                padding:14px 40px;border-radius:8px;letter-spacing:0.5px;">
+          Kích hoạt tài khoản
+        </a>
+      </div>
+
+      <!-- Link fallback -->
+      <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;padding:14px 18px;margin-top:16px;">
+        <p style="font-size:12px;color:#9ca3af;margin:0 0 6px;">
+          Nếu nút không hoạt động, hãy sao chép và dán liên kết sau vào trình duyệt:
+        </p>
+        <a th:href="${verificationUrl}" th:text="${verificationUrl}"
+          style="font-size:12px;color:#1e3a8a;word-break:break-all;">
+          Liên kết kích hoạt
+        </a>
+      </div>
+
+      <!-- Expiry Note -->
+      <div
+        style="background:#fff7ed;border-left:4px solid #f97316;border-radius:4px;padding:14px 18px;margin-top:16px;">
+        <p style="font-size:13px;color:#92400e;margin:0;">
+          <strong>Lưu ý:</strong> Liên kết kích hoạt chỉ có hiệu lực trong <strong>3 phút</strong>.
+          Nếu hết hạn, vui lòng yêu cầu gửi lại email.
+        </p>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div
+      style="background:#f8fafc;border-top:1px solid #e5e7eb;border-radius:0 0 12px 12px;padding:20px 40px;text-align:center;">
+      <p style="font-size:12px;color:#9ca3af;margin:0;">
+        Email này được gửi tự động từ hệ thống
+        <span style="font-weight:600;color:#1e3a8a;">UIS - UTSUNOMIYA MECHANICAL SALES WEBSITES</span>.<br>
+        Vui lòng không trả lời email này.
+      </p>
+    </div>
+
+  </div>
+</body>
+
+</html>

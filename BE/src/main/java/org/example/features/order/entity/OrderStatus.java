@@ -16,6 +16,11 @@ public enum OrderStatus {
     PENDING_QUOTE,
 
     /**
+     * Quote is ready, waiting for customer to confirm contract before deposit
+     */
+    AWAITING_CONTRACT,
+
+    /**
      * Quote provided, waiting for customer payment
      */
     AWAITING_PAYMENT,

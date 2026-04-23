@@ -9,4 +9,6 @@ public class OrderComplaintItemResponseDTO {
     private String itemName;
     private Integer orderedQuantity;
     private Integer missingQuantity;
+    private Integer defectiveQuantity;
+    private String reasonNote;
 }

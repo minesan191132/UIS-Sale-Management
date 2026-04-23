@@ -7,6 +7,7 @@ import org.example.features.company.entity.Company;
 import org.example.features.company.entity.User;
 import org.example.features.company.repository.CompanyRepository;
 import org.example.features.company.repository.UserRepository;
+import org.example.features.contract.service.ContractService;
 import org.example.features.order.dto.OrderItemDTO;
 import org.example.features.order.dto.OrderResponseDTO;
 import org.example.features.order.entity.ImportBatchStatus;
@@ -23,6 +24,7 @@ import org.example.features.order.repository.OrderItemRepository;
 import org.example.features.order.repository.OrderRepository;
 import org.example.features.order.repository.OrderEventRepository;
 import org.example.features.notification.service.UserNotificationService;
+import org.example.features.payment.service.PaymentMilestoneService;
 import org.example.features.payment.service.PaymentService;
 import org.example.features.productadmin.AdminProductService;
 import org.example.features.warehouse.repository.DrawingMetaRepository;
@@ -67,7 +69,9 @@ class OrderServiceExcelImportTest {
                 mock(OrderItemRepository.class),
                 mock(UserRepository.class),
                 mock(CompanyRepository.class),
+                mock(ContractService.class),
                 mock(PaymentService.class),
+                mock(PaymentMilestoneService.class),
                 mock(QuotePricingService.class),
                 mock(DrawingMetaRepository.class),
                 mock(AdminProductService.class),

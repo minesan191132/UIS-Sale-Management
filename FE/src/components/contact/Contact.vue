@@ -111,14 +111,14 @@ const submitForm = async () => {
             <h3 class="text-uppercase fw-bold text-dark mb-4 section-title">Gửi tin nhắn</h3>
             
             <!-- Alert thành công -->
-            <div v-if="successMsg" class="alert alert-success alert-dismissible fade show d-flex align-items-center gap-2" role="alert">
+            <div v-if="successMsg" class="alert alert-success alert-fit-content alert-dismissible fade show d-flex align-items-center gap-2" role="alert">
               <i class="fas fa-check-circle"></i>
               <span>{{ successMsg }}</span>
               <button type="button" class="btn-close" @click="successMsg = ''"></button>
             </div>
 
             <!-- Alert lỗi -->
-            <div v-if="errorMsg" class="alert alert-danger alert-dismissible fade show d-flex align-items-center gap-2" role="alert">
+            <div v-if="errorMsg" class="alert alert-danger alert-fit-content alert-dismissible fade show d-flex align-items-center gap-2" role="alert">
               <i class="fas fa-exclamation-circle"></i>
               <span>{{ errorMsg }}</span>
               <button type="button" class="btn-close" @click="errorMsg = ''"></button>

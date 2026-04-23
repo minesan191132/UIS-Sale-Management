@@ -21,7 +21,7 @@
     </div>
 
     <!-- Error -->
-    <div v-else-if="error" class="alert alert-danger">
+    <div v-else-if="error" class="alert alert-danger alert-fit-content">
       <i class="bi bi-exclamation-triangle me-2"></i>{{ error }}
     </div>
 

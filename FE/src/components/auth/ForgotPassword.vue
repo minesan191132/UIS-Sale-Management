@@ -1,45 +1,38 @@
 <template>
-  <div class="auth-container">
-    <a href="/" class="home-icon text-white">
-      <i class="bi bi-house-door-fill fs-2"></i>
+  <div class="auth-bg">
+    <a href="/" class="home-btn">
+      <i class="bi bi-house-door-fill"></i>
     </a>
 
-    <div class="card shadow auth-card">
-      <div class="card-body p-4 p-md-5">
+    <div class="auth-card">
+      <div class="card-header-bar">
+        <div class="brand-logo">UIS</div>
+        <div class="brand-sub">Quên mật khẩu</div>
+      </div>
 
-        <h2 class="text-center mb-4 auth-title">Quên mật khẩu</h2>
-        <p class="text-center text-muted mb-4 small">
-          Nhập email đăng ký của bạn. Chúng tôi sẽ gửi mã OTP để xác thực.
-        </p>
-        <hr class="mb-4">
+      <div class="card-body-inner">
+        <p class="page-desc">Nhập email đăng ký của bạn. Chúng tôi sẽ gửi mã OTP để xác thực.</p>
 
         <form @submit.prevent="handleSendOtp" novalidate>
 
-          <div class="mb-4 text-start">
-            <label for="email" class="form-label text-muted">Email đăng ký*</label>
+          <div class="field-group">
+            <label for="email" class="field-label">Email đăng ký <span class="required">*</span></label>
             <input
-              type="email"
-              class="form-control"
-              :class="{ 'is-invalid': errors.email }"
-              id="email"
-              v-model="email"
-              placeholder="Ví dụ: admin@congty.com"
+              type="email" class="field-input"
+              :class="{ 'input-error': errors.email }"
+              id="email" v-model="email" placeholder="abc@gmail.com"
             >
-            <span v-if="errors.email" class="text-danger small mt-1 d-block">{{ errors.email }}</span>
+            <span v-if="errors.email" class="error-msg">{{ errors.email }}</span>
           </div>
 
-          <hr>
+          <button type="submit" class="btn-primary" :disabled="isLoading">
+            <span v-if="isLoading" class="spinner-border spinner-border-sm me-2"></span>
+            {{ isLoading ? 'Đang gửi...' : 'Gửi mã OTP' }}
+          </button>
 
-          <div class="d-grid gap-2 mb-3">
-            <button type="submit" class="btn btn-brown text-white py-2" :disabled="isLoading">
-              <span v-if="isLoading" class="spinner-border spinner-border-sm me-2" role="status"></span>
-              {{ isLoading ? 'Đang gửi...' : 'Gửi mã OTP' }}
-            </button>
-          </div>
-
-          <div class="text-center text-secondary mt-4 footer-links d-flex flex-wrap justify-content-center">
-            <router-link class="text-decoration-none text-secondary custom-link" to="/login">
-              <i class="bi bi-arrow-left me-1"></i> Quay lại Đăng nhập
+          <div class="footer-links">
+            <router-link to="/login" class="footer-link">
+              <i class="bi bi-arrow-left me-1"></i>Quay lại Đăng nhập
             </router-link>
           </div>
 
@@ -62,10 +55,7 @@ const errors = ref({});
 
 const handleSendOtp = async () => {
   errors.value = {};
-  if (!email.value) {
-    errors.value.email = 'Vui lòng nhập email';
-    return;
-  }
+  if (!email.value) { errors.value.email = 'Vui lòng nhập email'; return; }
 
   isLoading.value = true;
   try {
@@ -73,8 +63,7 @@ const handleSendOtp = async () => {
     router.push({ path: '/forgot-password/verify', query: { email: email.value } });
   } catch (error) {
     Swal.fire({
-      icon: 'error',
-      title: 'Gửi OTP thất bại',
+      icon: 'error', title: 'Gửi OTP thất bại',
       text: error.response?.data?.message || 'Không thể kết nối đến máy chủ',
     });
   } finally {
@@ -84,72 +73,76 @@ const handleSendOtp = async () => {
 </script>
 
 <style scoped>
-.auth-container {
-  min-height: 100vh;
-  width: 100%;
-  background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  position: relative;
-  padding: 20px;
-}
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-.home-icon {
-  position: absolute;
-  top: 20px;
-  left: 20px;
-  cursor: pointer;
-  transition: transform 0.2s;
+.auth-bg {
+  min-height: 100vh; width: 100%;
+  background:
+    linear-gradient(135deg, rgba(15,23,42,0.82) 0%, rgba(30,58,138,0.78) 100%),
+    url('@/assets/picture/HomePageimg/gia-cong-co-khi-chinh-xac.jpg') center / cover no-repeat;
+  display: flex; justify-content: center; align-items: center;
+  position: relative; padding: 24px 16px;
+  font-family: 'Inter', sans-serif;
 }
-
-.home-icon:hover { transform: scale(1.1); }
+.home-btn {
+  position: absolute; top: 20px; left: 20px;
+  color: rgba(255,255,255,0.85); font-size: 1.4rem;
+  text-decoration: none; transition: color 0.2s, transform 0.2s;
+}
+.home-btn:hover { color: #fff; transform: scale(1.15); }
 
 .auth-card {
-  width: 100%;
-  max-width: 450px;
-  border: none;
-  border-radius: 8px;
-  background-color: #fdfdfd;
+  width: 100%; max-width: 460px; background: #fff;
+  border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); overflow: hidden;
+}
+.card-header-bar {
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+  padding: 28px 36px; text-align: center;
+}
+.brand-logo { font-size: 26px; font-weight: 700; color: #fff; letter-spacing: 3px; }
+.brand-sub { font-size: 12px; color: #93c5fd; margin-top: 4px; }
+
+.card-body-inner { padding: 30px 36px 32px; }
+
+.page-desc {
+  font-size: 14px; color: #64748b; margin-bottom: 24px;
+  line-height: 1.6; text-align: center;
 }
 
-.auth-title {
-  color: #333;
-  font-weight: 500;
+.field-group { margin-bottom: 20px; }
+.field-label {
+  display: block; font-size: 13px; font-weight: 700;
+  color: #1e293b; margin-bottom: 6px;
 }
+.required { color: #ef4444; margin-left: 2px; }
 
-.form-control {
-  background-color: #fff;
-  border: 1px solid #ced4da;
-  padding: 10px 15px;
+.field-input {
+  width: 100%; padding: 11px 14px;
+  border: 1.5px solid #e2e8f0; border-radius: 8px;
+  font-size: 14px; color: #1e293b; background: #f8fafc;
+  transition: all 0.2s; outline: none; box-sizing: border-box;
 }
-
-.form-control:focus {
-  box-shadow: none;
-  border-color: #E67E22;
+.field-input:focus {
+  border-color: #1e3a8a; background: #fff;
+  box-shadow: 0 0 0 3px rgba(30,58,138,0.12);
 }
+.field-input.input-error { border-color: #ef4444; background: #fff5f5; }
+.error-msg { display: block; font-size: 12px; color: #ef4444; margin-top: 4px; }
 
-.btn-brown {
-  background-color: #1e3a8a;
-  border: none;
-  font-weight: 500;
+.btn-primary {
+  display: block; width: 100%; padding: 12px;
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+  color: #fff; font-size: 15px; font-weight: 600;
+  border: none; border-radius: 8px; cursor: pointer;
+  transition: opacity 0.2s, transform 0.1s; margin-bottom: 22px;
 }
+.btn-primary:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
+.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 
-.btn-brown:hover {
-  background-color: #182f6e;
-  color: #fff;
+.footer-links { text-align: center; }
+.footer-link {
+  font-size: 13px; color: #64748b; text-decoration: none;
+  font-weight: 500; transition: color 0.2s;
 }
-
-.footer-links a, .footer-links router-link {
-  display: inline;
-  font-size: 0.95rem;
-  transition: color 0.2s;
-}
-
-.custom-link:hover {
-  color: #3E2723 !important;
-  text-decoration: underline !important;
-}
-
-hr { opacity: 0.1; }
+.footer-link:hover { color: #1e3a8a; text-decoration: underline; }
 </style>

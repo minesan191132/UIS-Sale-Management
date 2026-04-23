@@ -40,11 +40,24 @@
             </button>
           </div>
 
-          <div class="text-center text-secondary mt-4 footer-links d-flex flex-wrap justify-content-center">
-            <router-link class="text-decoration-none text-secondary custom-link" to="/forgot-password">
-              <i class="bi bi-envelope me-1"></i> Gửi lại mã OTP
-            </router-link>
-            <span class="mx-2">|</span>
+          <div class="text-center mt-3">
+            <button
+              type="button"
+              class="btn btn-resend"
+              :disabled="countdown > 0 || isResending"
+              @click="handleResendOtp"
+            >
+              <span v-if="isResending" class="spinner-border spinner-border-sm me-1" role="status"></span>
+              <span v-if="countdown > 0">
+                <i class="bi bi-clock me-1"></i>Gửi lại sau {{ countdown }} giây
+              </span>
+              <span v-else>
+                <i class="bi bi-envelope me-1"></i>Gửi lại mã OTP
+              </span>
+            </button>
+          </div>
+
+          <div class="text-center text-secondary mt-3 footer-links d-flex flex-wrap justify-content-center">
             <router-link class="text-decoration-none text-secondary custom-link" to="/login">
               <i class="bi bi-arrow-left me-1"></i> Quay lại Đăng nhập
             </router-link>
@@ -57,7 +70,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import Swal from 'sweetalert2';
 import { authAPI } from '../../services/api';
@@ -68,8 +81,35 @@ const route = useRoute();
 const email = route.query.email || '';
 const otp = ref('');
 const isLoading = ref(false);
+const isResending = ref(false);
 const errors = ref({});
 
+// === Đếm ngược ===
+const COUNTDOWN_SECONDS = 60;
+const countdown = ref(COUNTDOWN_SECONDS);
+let countdownTimer = null;
+
+const startCountdown = () => {
+  clearInterval(countdownTimer);
+  countdown.value = COUNTDOWN_SECONDS;
+  countdownTimer = setInterval(() => {
+    if (countdown.value > 0) {
+      countdown.value--;
+    } else {
+      clearInterval(countdownTimer);
+    }
+  }, 1000);
+};
+
+onMounted(() => {
+  startCountdown();
+});
+
+onUnmounted(() => {
+  clearInterval(countdownTimer);
+});
+
+// === Xác thực OTP ===
 const handleVerifyOtp = async () => {
   errors.value = {};
   if (!otp.value || otp.value.length !== 6) {
@@ -93,87 +133,125 @@ const handleVerifyOtp = async () => {
     isLoading.value = false;
   }
 };
+
+// === Gửi lại OTP ===
+const handleResendOtp = async () => {
+  if (countdown.value > 0 || isResending.value) return;
+
+  isResending.value = true;
+  try {
+    await authAPI.forgotPassword(email);
+
+    // Xóa trắng ô OTP để không nhập lại mã cũ
+    otp.value = '';
+    errors.value = {};
+
+    // Reset đếm ngược
+    startCountdown();
+
+    Swal.fire({
+      icon: 'success',
+      title: 'Đã gửi lại mã OTP!',
+      text: `Mã OTP mới đã được gửi đến ${email}. Vui lòng kiểm tra hộp thư.`,
+      timer: 3000,
+      showConfirmButton: false,
+    });
+  } catch (error) {
+    Swal.fire({
+      icon: 'error',
+      title: 'Gửi lại thất bại',
+      text: error.response?.data?.message || 'Không thể gửi lại mã OTP. Vui lòng thử lại.',
+    });
+  } finally {
+    isResending.value = false;
+  }
+};
 </script>
 
 <style scoped>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 .auth-container {
-  min-height: 100vh;
-  width: 100%;
-  background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  position: relative;
-  padding: 20px;
+  min-height: 100vh; width: 100%;
+  background:
+    linear-gradient(135deg, rgba(15,23,42,0.82) 0%, rgba(30,58,138,0.78) 100%),
+    url('@/assets/picture/HomePageimg/gia-cong-co-khi-chinh-xac.jpg') center / cover no-repeat;
+  display: flex; justify-content: center; align-items: center;
+  position: relative; padding: 24px 16px;
+  font-family: 'Inter', sans-serif;
 }
 
 .home-icon {
-  position: absolute;
-  top: 20px;
-  left: 20px;
-  cursor: pointer;
-  transition: transform 0.2s;
+  position: absolute; top: 20px; left: 20px;
+  color: rgba(255,255,255,0.85); font-size: 1.4rem;
+  text-decoration: none; transition: color 0.2s, transform 0.2s;
 }
-
-.home-icon:hover { transform: scale(1.1); }
+.home-icon:hover { color: #fff; transform: scale(1.15); }
 
 .auth-card {
-  width: 100%;
-  max-width: 450px;
-  border: none;
-  border-radius: 8px;
-  background-color: #fdfdfd;
+  width: 100%; max-width: 450px; background: #fff;
+  border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); overflow: hidden;
 }
 
+/* Thêm class này vào template nếu cần header giống các trang khác */
 .auth-title {
-  color: #333;
-  font-weight: 500;
+  font-size: 20px; font-weight: 700; color: #1e3a8a;
+  text-align: center; margin-bottom: 8px;
+}
+
+.form-label {
+  display: block; font-size: 13px; font-weight: 700;
+  color: #1e293b; margin-bottom: 6px;
 }
 
 .form-control {
-  background-color: #fff;
-  border: 1px solid #ced4da;
-  padding: 10px 15px;
+  width: 100%; padding: 11px 14px;
+  border: 1.5px solid #e2e8f0; border-radius: 8px;
+  font-size: 14px; color: #1e293b; background: #f8fafc;
+  transition: all 0.2s; outline: none;
 }
-
 .form-control:focus {
-  box-shadow: none;
-  border-color: #E67E22;
+  border-color: #1e3a8a; background: #fff;
+  box-shadow: 0 0 0 3px rgba(30,58,138,0.12);
 }
+.form-control.is-invalid { border-color: #ef4444; background: #fff5f5; }
 
 .otp-input {
-  font-size: 1.4rem;
-  letter-spacing: 0.5rem;
-  font-weight: 600;
+  font-size: 1.6rem; letter-spacing: 10px; font-weight: 700;
+  text-align: center;
 }
 
 .btn-brown {
-  background-color: #1e3a8a;
-  border: none;
-  font-weight: 500;
+  display: block; width: 100%; padding: 12px;
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+  color: #fff; font-size: 15px; font-weight: 600;
+  border: none; border-radius: 8px; cursor: pointer;
+  transition: opacity 0.2s, transform 0.1s;
 }
+.btn-brown:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
+.btn-brown:disabled { opacity: 0.6; cursor: not-allowed; }
 
-.btn-brown:hover {
-  background-color: #182f6e;
-  color: #fff;
+/* Nút gửi lại OTP */
+.btn-resend {
+  background: none; border: 1.5px solid #e2e8f0;
+  border-radius: 8px; color: #64748b;
+  font-size: 13px; font-weight: 500;
+  padding: 8px 18px; transition: all 0.2s; cursor: pointer;
 }
+.btn-resend:not(:disabled):hover {
+  border-color: #1e3a8a; color: #1e3a8a; background: #f0f4ff;
+}
+.btn-resend:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .footer-links {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.25rem;
-  font-size: 0.95rem;
+  display: flex; align-items: center; justify-content: center;
+  gap: 6px; font-size: 13px;
 }
-
 .custom-link {
-  transition: color 0.2s;
+  color: #64748b; text-decoration: none; font-weight: 500; transition: color 0.2s;
 }
+.custom-link:hover { color: #1e3a8a !important; text-decoration: underline !important; }
 
-.custom-link:hover {
-  color: #3E2723 !important;
-  text-decoration: underline !important;
-}
-
-hr { opacity: 0.1; }
+hr { opacity: 0.08; }
 </style>
+

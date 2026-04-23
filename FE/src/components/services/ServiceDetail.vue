@@ -96,7 +96,7 @@ const goBack = () => {
 
     <!-- Không tìm thấy dịch vụ -->
     <div v-if="!currentService" class="container py-5 text-center">
-      <div class="alert alert-warning">
+      <div class="alert alert-warning alert-fit-content">
         <i class="fas fa-exclamation-triangle me-2"></i>
         Dịch vụ không tồn tại
       </div>

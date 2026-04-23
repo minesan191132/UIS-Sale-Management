@@ -1,125 +1,142 @@
 <template>
-  <div class="p-4 bg-light min-vh-100">
-    <h2 class="fw-bold mb-4 text-uppercase fs-4">Danh sách User</h2>
+  <div class="users-container p-4 min-vh-100 d-flex flex-column w-100" style="background-color: #f8f9fa; max-width: 100%;">
+    
+    <div class="d-flex justify-content-between align-items-end mb-4 pb-2">
+      <div>
+        <h2 class="fw-bolder mb-1 text-dark fs-3 text-uppercase">Danh sách User</h2>
+        <p class="text-muted mb-0">Quản lý phân quyền, thông tin liên hệ và trạng thái tài khoản khách hàng.</p>
+      </div>
+    </div>
 
-    <div class="card border-0 shadow-sm p-4 bg-white rounded-4">
-      <!-- Search & Filter -->
-      <div class="row g-3 mb-4">
-        <div class="col-md-2">
-          <select v-model="filters.role" class="form-select border-0 bg-light py-2 shadow-none">
-            <option value="all">Tất cả vai trò</option>
+    <div class="main-grid-section flex-grow-1 d-flex flex-column">
+      
+      <div class="filter-bar bg-white p-3 rounded-pill shadow-sm mb-4 d-flex gap-3 align-items-center">
+        <div style="width: 180px;">
+          <select v-model="filters.role" @change="fetchUsers" class="form-select modern-admin-select shadow-none fw-medium text-secondary py-2 px-4">
+            <option value="all">Vai trò: Tất cả</option>
             <option value="ADMIN">Admin</option>
             <option value="CUSTOMER">Customer</option>
           </select>
         </div>
-        <div class="col-md-4">
-          <input
-            v-model="filters.search"
-            @keyup.enter="fetchUsers"
-            type="text"
-            class="form-control border-0 bg-light py-2 shadow-none"
-            placeholder="Tìm theo email hoặc tên..."
-          />
+        
+        <div class="search-box flex-grow-1 position-relative">
+          <i class="bi bi-search position-absolute text-muted" style="top: 50%; left: 20px; transform: translateY(-50%);"></i>
+          <input v-model="filters.search" @keyup.enter="fetchUsers" type="text" 
+                 class="form-control border-0 bg-light rounded-pill shadow-none ps-5 py-2 fw-medium"
+                 placeholder="Tìm kiếm theo email hoặc tên người dùng..." />
         </div>
-        <div class="col-md-4">
-          <input
-            v-model="filters.companySearch"
-            @keyup.enter="fetchUsers"
-            type="text"
-            class="form-control border-0 bg-light py-2 shadow-none"
-            placeholder="Tìm theo tên công ty..."
-          />
+        
+        <div class="search-box flex-grow-1 position-relative">
+          <i class="bi bi-buildings position-absolute text-muted" style="top: 50%; left: 20px; transform: translateY(-50%);"></i>
+          <input v-model="filters.companySearch" @keyup.enter="fetchUsers" type="text" 
+                 class="form-control border-0 bg-light rounded-pill shadow-none ps-5 py-2 fw-medium"
+                 placeholder="Tìm kiếm theo tên công ty..." />
         </div>
-        <div class="col-md-2 text-end">
-          <button class="btn btn-primary w-100 py-2 fw-bold shadow-sm" @click="fetchUsers">
-            Tìm kiếm
-          </button>
-        </div>
+        
+        <button class="btn btn-navy rounded-pill px-4 py-2 fw-bold shadow-sm" @click="fetchUsers">
+          <i class="bi bi-funnel-fill me-1"></i> Lọc
+        </button>
+      </div>
+    </div>
+
+      <div v-if="loading" class="text-center py-5 flex-grow-1 d-flex flex-column justify-content-center">
+        <div class="spinner-grow text-primary mx-auto" role="status" style="width: 3rem; height: 3rem;"></div>
+        <p class="mt-3 text-muted fw-bold">Đang tải dữ liệu người dùng...</p>
       </div>
 
-      <!-- Loading -->
-      <div v-if="loading" class="text-center py-5">
-        <div class="spinner-border text-primary" role="status"></div>
-        <p class="mt-2 text-muted">Đang tải...</p>
+      <div v-else-if="error" class="alert alert-danger alert-fit-content rounded-4 shadow-sm border-0 py-3 fw-medium">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i> {{ error }}
       </div>
 
-      <!-- Error -->
-      <div v-else-if="error" class="alert alert-danger">{{ error }}</div>
-
-      <!-- Table -->
-      <div v-else class="table-responsive rounded-3 overflow-hidden">
-        <table class="table table-hover align-middle mb-0">
-          <thead class="table-dark">
-            <tr class="small text-uppercase fw-bold">
-              <th class="ps-4" style="width:50px">STT</th>
-              <th style="width:18%">Email</th>
-              <th style="width:13%">Họ và tên</th>
-              <th style="width:11%">SĐT</th>
-              <th style="width:15%">Công ty</th>
-              <th style="width:10%">Vai trò</th>
-              <th style="width:9%">Trạng thái</th>
-              <th style="width:10%">Ngày tạo</th>
-              <th class="text-end pe-4" style="width:120px">Hành động</th>
+      <div v-else class="table-responsive px-1 pb-4 flex-grow-1">
+        <table class="table modern-table mb-0 w-100 align-middle">
+          <thead>
+            <tr>
+              <th class="ps-4" style="width: 60px;">#</th>
+              <th>Người dùng</th>
+              <th>Liên hệ</th>
+              <th>Doanh nghiệp</th>
+              <th class="text-center">Vai trò</th>
+              <th class="text-center">Trạng thái</th>
+              <th class="pe-4 text-end">Thao tác</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="users.length === 0">
-              <td colspan="9" class="text-center py-5 text-muted">Không tìm thấy người dùng nào</td>
+              <td colspan="7" class="text-center py-5 bg-white rounded-4 shadow-sm">
+                <div class="d-inline-flex align-items-center justify-content-center bg-light rounded-circle mb-3" style="width: 80px; height: 80px;">
+                  <i class="bi bi-people fs-1 text-muted opacity-50"></i>
+                </div>
+                <h5 class="text-muted fw-bold">Không có dữ liệu!</h5>
+                <p class="text-muted small mb-0">Không tìm thấy người dùng nào khớp với bộ lọc.</p>
+              </td>
             </tr>
-            <tr v-for="(user, index) in users" :key="user.id">
-              <td class="ps-4 text-muted small">{{ page * pageSize + index + 1 }}</td>
-              <td>
-                <div class="fw-semibold text-dark small">{{ user.email }}</div>
+            
+            <tr v-for="(user, index) in users" :key="user.id" class="shadow-sm bg-white hover-lift">
+              <td class="ps-4 py-3 text-muted fw-bold small">
+                {{ page * pageSize + index + 1 }}
               </td>
-              <td>
-                <div class="fw-bold">{{ user.fullName || '—' }}</div>
+              
+              <td class="py-3">
+                <div class="d-flex align-items-center gap-3">
+                  <div class="avatar-circle text-white fw-bold fs-5 d-flex align-items-center justify-content-center flex-shrink-0 shadow-sm" 
+                       :style="{ backgroundColor: getAvatarColor(user.email) }" style="width: 48px; height: 48px; border-radius: 14px;">
+                    {{ getInitials(user.fullName, user.email) }}
+                  </div>
+                  <div>
+                    <h6 class="mb-1 fw-bolder text-dark">{{ user.fullName || 'Chưa cập nhật tên' }}</h6>
+                    <span class="text-muted small fw-medium"><i class="bi bi-envelope me-1"></i>{{ user.email }}</span>
+                  </div>
+                </div>
               </td>
-              <td>
-                <div class="small text-muted">{{ user.phone || '—' }}</div>
+              
+              <td class="py-3">
+                <div class="fw-semibold text-secondary">
+                  <i class="bi bi-telephone-fill text-muted me-1 opacity-50"></i> 
+                  {{ user.phone || '—' }}
+                </div>
               </td>
-              <td>
-                <div class="small text-muted">{{ user.companyName || '—' }}</div>
-                <div v-if="user.companyTaxCode" class="small text-muted fst-italic">MST: {{ user.companyTaxCode }}</div>
+              
+              <td class="py-3">
+                <div class="company-name fw-bold text-dark mb-1" :title="user.companyName">{{ user.companyName || '—' }}</div>
+                <span v-if="user.companyTaxCode" class="badge bg-light text-secondary border px-2 py-1 fw-medium" style="font-size: 0.7rem;">
+                  MST: {{ user.companyTaxCode }}
+                </span>
               </td>
-              <td>
-                <span
-                  class="badge rounded-pill fw-normal px-3 py-2"
-                  :class="roleBadgeClass(user.role)"
-                >
+              
+              <td class="py-3 text-center">
+                <span class="badge rounded-pill px-3 py-2 fw-bold" :class="roleBadgeClass(user.role)" style="font-size: 0.75rem;">
+                  <i class="me-1" :class="user.role === 'ADMIN' ? 'bi-shield-lock-fill' : 'bi-person-badge'"></i> 
                   {{ roleLabel(user.role) }}
                 </span>
               </td>
-              <td>
-                <span
-                  class="badge rounded-pill fw-normal px-2 py-1"
-                  :class="user.isActive ? 'bg-success-subtle text-success border border-success' : 'bg-danger-subtle text-danger border border-danger'"
-                >
-                  {{ user.isActive ? 'Hoạt động' : 'Bị khoá' }}
-                </span>
+              
+              <td class="py-3 text-center">
+                <div class="d-flex align-items-center justify-content-center gap-2">
+                  <span class="glowing-dot" :class="user.isActive ? 'bg-success shadow-success' : 'bg-danger shadow-danger'"></span>
+                  <span class="fw-bold" :class="user.isActive ? 'text-success' : 'text-danger'" style="font-size: 0.85rem;">
+                    {{ user.isActive ? 'Hoạt động' : 'Đã khoá' }}
+                  </span>
+                </div>
               </td>
-              <td class="small text-muted">{{ formatDate(user.createdAt) }}</td>
-              <td class="text-end pe-4">
-                <div class="d-flex gap-1 justify-content-end">
-                  <!-- Ẩn nút khoá nếu là Admin đang hoạt động -->
-                  <button
-                    v-if="!(user.role === 'ADMIN' && user.isActive)"
-                    class="btn btn-sm btn-outline-warning rounded-pill px-2"
-                    title="Khoá / Mở khoá tài khoản"
-                    @click="handleToggleActive(user)"
-                  >
-                    {{ user.isActive ? '🔓' : '🔒' }}
+              
+              <td class="pe-4 py-3 text-end">
+                <div class="d-flex justify-content-end gap-2">
+                  <button v-if="!(user.role === 'ADMIN' && user.isActive)"
+                          class="btn btn-action-circle" 
+                          :class="user.isActive ? 'bg-light text-warning border' : 'bg-light text-success border'"
+                          :title="user.isActive ? 'Khoá tài khoản' : 'Mở khoá tài khoản'"
+                          @click="handleToggleActive(user)">
+                    <i class="bi" :class="user.isActive ? 'bi-lock-fill' : 'bi-unlock-fill'"></i>
                   </button>
-                  <span
-                    v-else
-                    class="btn btn-sm rounded-pill px-2 text-muted"
-                    style="cursor:not-allowed; opacity:0.4;"
-                    title="Không thể khoá tài khoản Admin"
-                  >🔒</span>
-                  <button
-                    class="btn btn-light btn-sm border px-3 rounded-pill fw-bold"
-                    @click="openEdit(user)"
-                  >
-                   XEM CHI TIET
+                  <button v-else
+                          class="btn btn-action-circle bg-light text-muted border opacity-50" 
+                          style="cursor:not-allowed;" title="Không thể khoá Admin">
+                    <i class="bi bi-shield-fill-check"></i>
+                  </button>
+                  
+                  <button class="btn btn-action-circle bg-light text-primary border" @click="openEdit(user)" title="Xem & Chỉnh sửa">
+                    <i class="bi bi-pencil-fill"></i>
                   </button>
                 </div>
               </td>
@@ -128,155 +145,117 @@
         </table>
       </div>
 
-      <!-- Pagination -->
-      <div v-if="totalPages > 1" class="d-flex justify-content-between align-items-center mt-4">
-        <span class="text-muted small">Tổng: {{ totalElements }} người dùng</span>
-        <nav>
-          <ul class="pagination pagination-sm mb-0">
-            <li class="page-item" :class="{ disabled: page === 0 }">
-              <button class="page-link" @click="goPage(page - 1)">‹</button>
-            </li>
-            <li
-              v-for="p in totalPages"
-              :key="p"
-              class="page-item"
-              :class="{ active: page === p - 1 }"
-            >
-              <button class="page-link" @click="goPage(p - 1)">{{ p }}</button>
-            </li>
-            <li class="page-item" :class="{ disabled: page === totalPages - 1 }">
-              <button class="page-link" @click="goPage(page + 1)">›</button>
-            </li>
-          </ul>
-        </nav>
+      <div v-if="totalPages > 1" class="d-flex justify-content-between align-items-center mt-2 pb-4 px-2">
+        <span class="text-muted fw-medium">Tổng số: <b class="text-dark">{{ totalElements }}</b> tài khoản</span>
+        <div class="d-flex align-items-center gap-2">
+          <button class="btn btn-white shadow-sm border rounded-circle w-40 h-40 d-flex align-items-center justify-content-center hover-lift" :disabled="page === 0" @click="goPage(page - 1)">
+            <i class="bi bi-chevron-left"></i>
+          </button>
+          <span class="px-3 fw-bold text-navy">Trang {{ page + 1 }} / {{ totalPages }}</span>
+          <button class="btn btn-white shadow-sm border rounded-circle w-40 h-40 d-flex align-items-center justify-content-center hover-lift" :disabled="page >= totalPages - 1" @click="goPage(page + 1)">
+            <i class="bi bi-chevron-right"></i>
+          </button>
+        </div>
       </div>
+
     </div>
 
-    <!-- Edit Modal - Full Page Style -->
-    <div v-if="editUser" class="modal-backdrop-custom" @click.self="editUser = null">
-      <div class="modal-fullpage shadow-lg bg-white">
-        <!-- Header -->
-        <div class="modal-header-bar d-flex align-items-center justify-content-between px-5 py-4 border-bottom">
+    <div v-if="editUser" class="modal-overlay" @click.self="editUser = null">
+      <div class="modal-fullpage shadow-lg bg-white rounded-4 border-0">
+        <div class="bg-navy text-white px-5 py-4 d-flex align-items-center justify-content-between">
           <div>
-            <h4 class="fw-bold mb-0">✏️ Chỉnh sửa người dùng</h4>
-            <p class="text-muted small mb-0 mt-1">Cập nhật thông tin tài khoản người dùng</p>
+            <h4 class="fw-bolder mb-0"><i class="bi bi-person-lines-fill me-2"></i> Hồ sơ người dùng</h4>
+            <p class="text-white-50 small mb-0 mt-1">Xem chi tiết và cập nhật thông tin liên hệ</p>
           </div>
-          <button class="btn-close" @click="editUser = null"></button>
+          <button class="btn-close btn-close-white shadow-none" @click="editUser = null"></button>
         </div>
 
-        <!-- Body -->
-        <div class="modal-body-scroll px-5 py-4">
-          <div class="row g-4">
+        <div class="modal-body-scroll px-5 py-4 bg-slate-50">
+          <div class="row g-5">
 
-            <!-- Left column -->
             <div class="col-md-6">
-              <h6 class="fw-bold text-uppercase text-muted small mb-3 border-bottom pb-2">Thông tin cơ bản</h6>
+              <div class="card border-0 shadow-sm rounded-4 p-4 h-100">
+                <h6 class="fw-bolder text-navy text-uppercase small mb-4 d-flex align-items-center">
+                  <i class="bi bi-person-badge fs-5 me-2"></i> Thông tin cơ bản
+                </h6>
 
-              <!-- Email (locked) -->
-              <div class="mb-4">
-                <label class="form-label fw-semibold">Email <span class="badge bg-secondary ms-1 fw-normal small">Không thể sửa</span></label>
-                <div class="input-group">
-                  <span class="input-group-text bg-light border-0">
-                    <svg width="16" height="16" fill="currentColor" class="text-muted" viewBox="0 0 16 16">
-                      <path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V4Zm2-1a1 1 0 0 0-1 1v.217l7 4.2 7-4.2V4a1 1 0 0 0-1-1H2Zm13 2.383-4.708 2.825L15 11.105V5.383Zm-.034 6.876-5.64-3.471L8 9.583l-1.326-.795-5.64 3.47A1 1 0 0 0 2 13h12a1 1 0 0 0 .966-.741Z"/>
-                    </svg>
-                  </span>
-                  <input class="form-control bg-light border-0 text-muted" :value="editUser.email" readonly disabled />
+                <div class="mb-4">
+                  <label class="form-label fw-bold text-secondary small">Địa chỉ Email <i class="bi bi-lock-fill text-muted ms-1" title="Không thể sửa"></i></label>
+                  <div class="input-group">
+                    <span class="input-group-text bg-light border-end-0 text-muted px-3"><i class="bi bi-envelope-at"></i></span>
+                    <input class="form-control custom-input bg-light border-start-0 ps-0 text-muted fw-medium" :value="editUser.email" readonly disabled />
+                  </div>
                 </div>
-              </div>
 
-              <!-- Họ và tên (readonly) -->
-              <div class="mb-4">
-                <label class="form-label fw-semibold">Họ và tên <span class="badge bg-secondary ms-1 fw-normal small">Không thể sửa</span></label>
-                <input
-                  :value="editUser.fullName || '—'"
-                  type="text"
-                  class="form-control border-0 bg-light text-muted"
-                  readonly
-                  disabled
-                />
-              </div>
+                <div class="mb-4">
+                  <label class="form-label fw-bold text-secondary small">Họ và tên <i class="bi bi-lock-fill text-muted ms-1"></i></label>
+                  <input :value="editUser.fullName || '—'" class="form-control custom-input bg-light text-muted fw-medium" readonly disabled />
+                </div>
 
-              <!-- SĐT (có thể sửa) -->
-              <div class="mb-4">
-                <label class="form-label fw-semibold">Số điện thoại</label>
-                <input
-                  v-model="editForm.phone"
-                  type="tel"
-                  class="form-control border-0 bg-light"
-                  placeholder="Nhập số điện thoại..."
-                />
-              </div>
-
-              <!-- Vai trò (readonly) -->
-              <div class="mb-4">
-                <label class="form-label fw-semibold">Vai trò <span class="badge bg-secondary ms-1 fw-normal small">Không thể sửa</span></label>
-                <input
-                  :value="roleLabel(editUser.role)"
-                  class="form-control border-0 bg-light text-muted"
-                  readonly
-                  disabled
-                />
+                <div class="mb-4">
+                  <label class="form-label fw-bold text-dark small">Số điện thoại liên hệ <span class="text-primary">*</span></label>
+                  <div class="input-group">
+                    <span class="input-group-text bg-white border-end-0 text-primary px-3"><i class="bi bi-telephone"></i></span>
+                    <input v-model="editForm.phone" type="tel" class="form-control custom-input border-start-0 ps-0 fw-bold" placeholder="Nhập số điện thoại mới..." />
+                  </div>
+                </div>
               </div>
             </div>
 
-            <!-- Right column -->
             <div class="col-md-6">
-              <h6 class="fw-bold text-uppercase text-muted small mb-3 border-bottom pb-2">Bảo mật tài khoản</h6>
+              <div class="card border-0 shadow-sm rounded-4 p-4 h-100">
+                <h6 class="fw-bolder text-navy text-uppercase small mb-4 d-flex align-items-center">
+                  <i class="bi bi-shield-check fs-5 me-2"></i> Bảo mật & Doanh nghiệp
+                </h6>
 
-              <!-- Trạng thái -->
-              <div class="mb-4">
-                <label class="form-label fw-semibold">Trạng thái tài khoản</label>
-                <div class="p-3 rounded-3 bg-light d-flex align-items-center gap-3">
-                  <span
-                    class="badge rounded-pill px-3 py-2"
-                    :class="editUser.isActive ? 'bg-success' : 'bg-danger'"
-                  >
-                    {{ editUser.isActive ? '✅ Đang hoạt động' : '🔒 Đang bị khoá' }}
-                  </span>
-                  <span class="text-muted small">Dùng nút khoá/mở khoá ngoài bảng để thay đổi</span>
+                <div class="mb-4">
+                  <label class="form-label fw-bold text-secondary small">Vai trò hệ thống <i class="bi bi-lock-fill text-muted ms-1"></i></label>
+                  <input :value="roleLabel(editUser.role)" class="form-control custom-input bg-light text-muted fw-bold" readonly disabled />
                 </div>
-              </div>
 
-              <!-- Công ty -->
-              <div class="mb-4">
-                <label class="form-label fw-semibold">Công ty <span class="badge bg-secondary ms-1 fw-normal small">Không thể sửa</span></label>
-                <input
-                  class="form-control border-0 bg-light text-muted"
-                  :value="editUser.companyName || '—'"
-                  readonly
-                  disabled
-                />
-                <div v-if="editUser.companyTaxCode" class="form-text">MST: {{ editUser.companyTaxCode }}</div>
-              </div>
+                <div class="mb-4">
+                  <label class="form-label fw-bold text-secondary small">Thông tin Công ty <i class="bi bi-lock-fill text-muted ms-1"></i></label>
+                  <div class="p-3 border rounded-3 bg-light">
+                    <div class="fw-bold text-dark mb-1">{{ editUser.companyName || 'Khách lẻ / Chưa cập nhật' }}</div>
+                    <div v-if="editUser.companyTaxCode" class="badge bg-white text-secondary border px-2 py-1">MST: {{ editUser.companyTaxCode }}</div>
+                  </div>
+                </div>
 
+                <div class="mb-2">
+                  <label class="form-label fw-bold text-secondary small">Trạng thái truy cập</label>
+                  <div class="p-3 rounded-3 d-flex align-items-center justify-content-between" :class="editUser.isActive ? 'bg-success bg-opacity-10 border border-success border-opacity-25' : 'bg-danger bg-opacity-10 border border-danger border-opacity-25'">
+                    <div class="d-flex align-items-center gap-2">
+                      <span class="glowing-dot" :class="editUser.isActive ? 'bg-success shadow-success' : 'bg-danger shadow-danger'"></span>
+                      <span class="fw-bold" :class="editUser.isActive ? 'text-success' : 'text-danger'">
+                        {{ editUser.isActive ? 'Tài khoản đang Hoạt động' : 'Tài khoản đang Bị khoá' }}
+                      </span>
+                    </div>
+                  </div>
+                  <div class="form-text mt-2 small"><i class="bi bi-info-circle me-1"></i>Dùng nút khoá ngoài danh sách để thay đổi.</div>
+                </div>
+
+              </div>
             </div>
           </div>
 
-          <!-- Error alert -->
-          <div v-if="saveError" class="alert alert-danger mt-2">{{ saveError }}</div>
+          <div v-if="saveError" class="alert alert-danger alert-fit-content mt-4 rounded-3 border-0 fw-medium shadow-sm"><i class="bi bi-exclamation-triangle-fill me-2"></i>{{ saveError }}</div>
         </div>
 
-        <!-- Footer -->
-        <div class="modal-footer-bar d-flex justify-content-end gap-3 px-5 py-4 border-top">
-          <button class="btn btn-light border rounded-pill px-5 py-2" @click="editUser = null">Huỷ</button>
-          <button
-            class="btn btn-primary rounded-pill px-5 py-2 fw-bold"
-            :disabled="saving"
-            @click="saveUser"
-          >
+        <div class="px-5 py-4 border-top bg-white d-flex justify-content-end gap-3 rounded-bottom-4">
+          <button class="btn btn-light border rounded-pill px-5 py-2 fw-bold" @click="editUser = null">Đóng</button>
+          <button class="btn btn-gradient-primary rounded-pill px-5 py-2 fw-bold shadow-sm" :disabled="saving" @click="saveUser">
             <span v-if="saving" class="spinner-border spinner-border-sm me-2"></span>
-            {{ saving ? 'Đang lưu...' : '💾 Lưu thay đổi' }}
+            {{ saving ? 'Đang xử lý...' : 'Lưu Thay Đổi' }}
           </button>
         </div>
       </div>
     </div>
-  </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue';
 import { usersAPI } from '../../services/api.js';
+import Swal from 'sweetalert2';
 
 const users = ref([]);
 const loading = ref(true);
@@ -293,6 +272,7 @@ const editForm = reactive({ phone: '' });
 const saving = ref(false);
 const saveError = ref('');
 
+// ─── API LOGIC (GIỮ NGUYÊN 100%) ─────────────────────────────
 const fetchUsers = async () => {
   loading.value = true;
   error.value = '';
@@ -339,75 +319,130 @@ const saveUser = async () => {
 };
 
 const handleToggleActive = async (user) => {
-  const action = user.isActive ? 'khoá' : 'mở khoá';
-  if (!confirm(`Bạn có chắc muốn ${action} tài khoản ${user.email}?`)) return;
+  const actionText = user.isActive ? 'khoá' : 'mở khoá';
+  const confirmColor = user.isActive ? '#dc3545' : '#10b981';
+
+  const result = await Swal.fire({
+    title: `Xác nhận ${actionText}?`,
+    html: `Bạn có chắc chắn muốn ${actionText} tài khoản <br><b class="text-navy">${user.email}</b>?`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: confirmColor,
+    cancelButtonColor: '#64748b',
+    confirmButtonText: `Đồng ý ${actionText}`,
+    cancelButtonText: 'Huỷ bỏ',
+    customClass: {
+      popup: 'rounded-4 shadow-lg border-0'
+    }
+  });
+
+  if (!result.isConfirmed) return;
+
   try {
     const updated = await usersAPI.toggleActive(user.id);
     user.isActive = updated.isActive;
+    
+    Swal.fire({
+      toast: true,
+      position: 'top-end',
+      icon: 'success',
+      title: `Đã ${actionText} thành công!`,
+      showConfirmButton: false,
+      timer: 3000
+    });
   } catch {
-    alert('Không thể thay đổi trạng thái tài khoản.');
+    Swal.fire('Lỗi hệ thống', 'Không thể thay đổi trạng thái tài khoản lúc này.', 'error');
   }
 };
 
 const roleBadgeClass = (role) => {
-  if (role === 'ADMIN') return 'bg-primary text-white';
-  return 'bg-success-subtle text-success border border-success';
+  if (role === 'ADMIN') return 'bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25';
+  return 'bg-info bg-opacity-10 text-info border border-info border-opacity-25';
 };
 
 const roleLabel = (role) => {
-  if (role === 'ADMIN') return 'Admin';
-  return 'Customer';
+  if (role === 'ADMIN') return 'Quản trị viên';
+  return 'Khách hàng';
 };
 
-const formatDate = (dateStr) => {
-  if (!dateStr) return '—';
-  const d = new Date(dateStr);
-  return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+// Auto generate avatar initials (Lấy chữ cái đầu)
+const getInitials = (name, email) => {
+  if (name) {
+    const names = name.trim().split(' ');
+    if (names.length >= 2) return (names[0][0] + names[names.length - 1][0]).toUpperCase();
+    return name.substring(0, 2).toUpperCase();
+  }
+  return email.substring(0, 2).toUpperCase();
+};
+
+// Auto generate colors for avatars based on email length
+const getAvatarColor = (email) => {
+  const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6'];
+  const index = email.length % colors.length;
+  return colors[index];
 };
 
 onMounted(fetchUsers);
 </script>
 
 <style scoped>
-.modal-backdrop-custom {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1050;
-  padding: 20px;
-}
+/* 1. MÀU SẮC CƠ BẢN */
+.text-navy { color: #1e3a8a !important; }
+.bg-navy { background-color: #3b82f6 !important; }
+.bg-slate-50 { background-color: #f8fafc !important; }
+.btn-navy { background-color: #3b82f6; color: #fff; border: none; transition: 0.3s; }
+.btn-navy:hover { background-color: #2563eb; color: #fff; box-shadow: 0 4px 10px rgba(59, 130, 246, 0.25); }
 
+.btn-gradient-primary { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; border: none; transition: 0.3s; }
+.btn-gradient-primary:hover { background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); box-shadow: 0 8px 20px rgba(37,99,235,0.3) !important; color: white; }
+
+/* Hiệu ứng Hover chung */
+.hover-lift { transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s; }
+.hover-lift:hover { transform: translateY(-4px); box-shadow: 0 10px 25px rgba(0,0,0,0.08) !important; }
+
+/* 2. BẢNG DỮ LIỆU SEPARATED ROW */
+.modern-table { border-collapse: separate; border-spacing: 0 12px; }
+.modern-table thead th { border: none; color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; padding-bottom: 0; }
+.modern-table tbody tr { border-radius: 16px; transition: transform 0.2s, box-shadow 0.2s; }
+.modern-table tbody td { border: none; background: #fff; }
+.modern-table tbody td:first-child { border-top-left-radius: 16px; border-bottom-left-radius: 16px; }
+.modern-table tbody td:last-child { border-top-right-radius: 16px; border-bottom-right-radius: 16px; }
+
+/* Cắt chữ tên công ty dài */
+.company-name { display: -webkit-box; -webkit-line-clamp: 1; line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; max-width: 250px; }
+
+/* Glowing Dots (Chấm sáng lân quang) */
+.glowing-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.shadow-success { box-shadow: 0 0 10px #10b981; }
+.shadow-danger { box-shadow: 0 0 10px #ef4444; }
+
+/* Nút Action Hình Tròn */
+.btn-action-circle {
+  width: 40px; height: 40px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+  transition: all 0.2s; font-size: 1.1rem; text-decoration: none;
+}
+.btn-action-circle.text-primary:hover { background-color: #dbeafe !important; color: #1d4ed8 !important; transform: scale(1.1); border-color: #bfdbfe !important; }
+.btn-action-circle.text-danger:hover { background-color: #fee2e2 !important; color: #dc2626 !important; transform: scale(1.1); border-color: #fecaca !important; }
+.btn-action-circle.text-warning:hover { background-color: #fef3c7 !important; color: #d97706 !important; transform: scale(1.1); border-color: #fde68a !important; }
+.btn-action-circle.text-success:hover { background-color: #d1fae5 !important; color: #059669 !important; transform: scale(1.1); border-color: #a7f3d0 !important; }
+.w-40 { width: 40px; } .h-40 { height: 40px; }
+
+/* Form Inputs Modal */
+.custom-input { border: 1px solid #cbd5e1; border-radius: 10px; padding: 0.6rem 1rem; transition: 0.2s; }
+.custom-input:focus, .search-box input:focus { border-color: #3b82f6 !important; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15) !important; background-color: #fff !important; }
+
+/* 3. MODAL FULLPAGE */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center; z-index: 1050; padding: 20px;
+}
 .modal-fullpage {
-  width: 100%;
-  max-width: 860px;
-  max-height: 90vh;
-  border-radius: 16px;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  animation: modal-in 0.2s ease;
+  width: 100%; max-width: 900px; max-height: 90vh; display: flex; flex-direction: column;
+  animation: modal-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
-
 @keyframes modal-in {
-  from { opacity: 0; transform: scale(0.96) translateY(-10px); }
+  from { opacity: 0; transform: scale(0.96) translateY(20px); }
   to   { opacity: 1; transform: scale(1) translateY(0); }
 }
-
-.modal-header-bar {
-  background: #fff;
-  flex-shrink: 0;
-}
-
-.modal-body-scroll {
-  flex: 1;
-  overflow-y: auto;
-}
-
-.modal-footer-bar {
-  background: #f8f9fa;
-  flex-shrink: 0;
-}
+.modal-body-scroll { flex: 1; overflow-y: auto; }
 </style>

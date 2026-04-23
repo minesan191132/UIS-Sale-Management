@@ -1,8 +1,11 @@
 <template>
   <nav class="navbar navbar-expand-lg navbar-dark modern-navbar sticky-top">
-    <div class="container">
-      <router-link class="navbar-brand d-flex align-items-center gap-2" to="/">
-        <span class="brand-text">UIS <span class="fw-light">STORE</span></span>
+    <div class="container nav-shell">
+      <router-link class="navbar-brand brand-link d-flex align-items-center" to="/">
+        <span class="brand-logo-wrap" aria-hidden="true">
+          <img src="/images/Logo.png" alt="UIS Logo" class="brand-logo-img" />
+        </span>
+        <span class="brand-text">UIS STORE</span>
       </router-link>
 
       <button class="navbar-toggler border-0 shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent">
@@ -10,7 +13,7 @@
       </button>
 
       <div class="collapse navbar-collapse" id="navbarContent">
-        <ul class="navbar-nav mx-auto mb-2 mb-lg-0">
+        <ul class="navbar-nav nav-main mx-lg-auto mb-2 mb-lg-0">
           <li class="nav-item">
             <router-link class="nav-link custom-link" to="/">Trang chủ</router-link>
           </li>
@@ -25,269 +28,595 @@
           </li>
         </ul>
 
-          <div class="d-flex align-items-center gap-3 actions-menu">
-            <router-link
-              v-if="showManufacturingCta"
-              to="/create-order"
-              class="btn btn-manufacturing-cta rounded-pill px-3 py-2 fw-semibold text-uppercase"
+        <div class="d-flex align-items-center gap-2 actions-menu">
+          <router-link
+            v-if="showManufacturingCta"
+            to="/create-order"
+            class="btn header-cta rounded-pill px-3 py-2 fw-bold text-uppercase"
+          >
+            Đặt gia công
+          </router-link>
+
+          <router-link
+            v-if="user && user.role === 'CUSTOMER'"
+            to="/my-orders"
+            class="header-chip orders-chip position-relative"
+          >
+            <i class="bi bi-box-seam"></i>
+            <span class="orders-badge">
+              {{ myOrdersTotalCount > 99 ? '99+' : myOrdersTotalCount }}
+            </span>
+          </router-link>
+
+          <span class="actions-divider d-none d-lg-inline-flex"></span>
+
+          <router-link to="/cart" class="cart-btn position-relative" aria-label="Giỏ hàng">
+            <i class="bi bi-cart3"></i>
+            <span v-if="cartItemCount > 0" class="cart-badge">
+              {{ cartItemCount > 99 ? '99+' : cartItemCount }}
+            </span>
+          </router-link>
+
+          <div v-if="!user" class="auth-buttons d-flex align-items-center gap-2">
+            <router-link to="/login" class="btn auth-link">Đăng nhập</router-link>
+            <router-link to="/register" class="btn auth-register rounded-pill">Đăng ký</router-link>
+          </div>
+
+          <div v-else class="dropdown user-dropdown">
+            <button
+              class="btn user-trigger border-0 d-flex align-items-center gap-2"
+              type="button"
+              id="userDropdown"
+              @click="toggleDropdown"
+              aria-expanded="false"
             >
-              <i class="bi bi-tools me-1"></i>Đặt gia công
-            </router-link>
+              <span class="user-name d-none d-md-inline">{{ user.fullName }}</span>
+              <div class="avatar-wrap">
+                <img src="https://github.com/mdo.png" alt="Avatar" width="32" height="32" class="rounded-circle" />
+              </div>
+            </button>
 
-            <router-link to="/cart" class="cart-btn position-relative me">
-              <i class="fas fa-shopping-bag"></i>
-              <span v-if="cartItemCount > 0" class="cart-badge">
-                {{ cartItemCount }}
-              </span>
-            </router-link>
+            <ul class="dropdown-menu dropdown-menu-end user-menu shadow border-0" aria-labelledby="userDropdown">
+              <li class="dropdown-header-wrap">
+                <p class="menu-caption mb-1">Tài khoản của bạn</p>
+                <p class="menu-subcaption mb-0">Quản lý thông tin tài khoản</p>
+              </li>
 
-            <!-- Auth Buttons -->
-            <div v-if="!user" class="auth-buttons d-flex align-items-center gap-2">
-              <router-link to="/login" class="btn btn-link text-white text-decoration-none fw-500">
-                Đăng nhập
-              </router-link>
-              
-              <router-link to="/register" class="btn btn-primary btn-glow px-4 rounded-pill">
-                Đăng ký
-              </router-link>
-            </div>
+              <li>
+                <router-link to="/account" class="dropdown-item">
+                  <i class="bi bi-person-circle me-2"></i>Tài khoản
+                </router-link>
+              </li>
+              <li v-if="user.role === 'ADMIN'">
+                <router-link to="/admin/dashboard" class="dropdown-item">
+                  <i class="bi bi-speedometer2 me-2"></i>Quản trị
+                </router-link>
+              </li>
 
-            <!-- User Dropdown (Logged In) -->
-            <div v-else class="dropdown">
-              <button class="btn btn-outline-light border-0 dropdown-toggle d-flex align-items-center gap-2" type="button" id="userDropdown" @click="toggleDropdown" aria-expanded="false">
-                <img src="https://github.com/mdo.png" alt="Avatar" width="32" height="32" class="rounded-circle border border-2 border-white">
-                <div class="d-none d-md-flex flex-column text-start" style="line-height: 1.2;">
-                  <span class="fw-bold small">{{ user.fullName }}</span>
-                  <span class="opacity-75 mt-1" style="font-size: 0.65rem;">{{ user.role === 'ADMIN' ? 'Quản trị viên' : 'Khách hàng' }}</span>
-                </div>
-              </button>
-              <ul class="dropdown-menu dropdown-menu-end shadow border-0" aria-labelledby="userDropdown">
-                <!-- Account Setting -->
-                <li>
-                  <router-link to="/account" class="dropdown-item">
-                    <i class="bi bi-person-circle me-2"></i>Tài khoản
-                  </router-link>
-                </li>
-                <!-- Admin Menu -->
-                <li v-if="user.role === 'ADMIN'">
-                  <router-link to="/admin/dashboard" class="dropdown-item">
-                    <i class="bi bi-speedometer2 me-2"></i>Quản trị
-                  </router-link>
-                </li>
-                
-                <!-- Customer Menu -->
-                <li v-if="user.role === 'CUSTOMER'">
-                  <router-link to="/create-order" class="dropdown-item">
-                    <i class="bi bi-plus-circle me-2"></i>Đặt gia công
-                  </router-link>
-                </li>
-                <li v-if="user.role === 'CUSTOMER'">
-                  <router-link to="/my-orders" class="dropdown-item">
-                    <i class="bi bi-list-check me-2"></i>Đơn hàng của tôi
-                  </router-link>
-                </li>
-
-                <li><hr class="dropdown-divider"></li>
-                <li>
-                  <a class="dropdown-item text-danger" href="#" @click.prevent="handleLogout">
-                    <i class="bi bi-box-arrow-right me-2"></i>Đăng xuất
-                  </a>
-                </li>
-              </ul>
-            </div>
-
+              <li><hr class="dropdown-divider" /></li>
+              <li>
+                <a class="dropdown-item text-danger" href="#" @click.prevent="handleLogout">
+                  <i class="bi bi-box-arrow-right me-2"></i>Đăng xuất
+                </a>
+              </li>
+            </ul>
           </div>
         </div>
       </div>
-    </nav>
-  </template>
-  
-  <script setup>
-  import { ref, onMounted, computed } from 'vue';
-  import { getStoredUser, logout, isAuthenticated, notificationsAPI } from '../../services/api';
-  import { Dropdown } from 'bootstrap';
-  import { cartItemCount } from '../../store/cart.js';
-  
-  const user = ref(isAuthenticated() ? getStoredUser() : null);
-  const unreadNotificationCount = ref(0);
-  const showManufacturingCta = computed(() => !user.value || user.value.role === 'CUSTOMER');
-  let dropdownInstance = null;
+    </div>
+  </nav>
+</template>
 
-  const loadUnreadNotificationCount = async () => {
-    if (!user.value || user.value.role !== 'CUSTOMER') {
-      unreadNotificationCount.value = 0;
-      return;
+<script setup>
+import { ref, onMounted, computed } from 'vue';
+import apiClient, { getStoredUser, logout, isAuthenticated } from '../../services/api';
+import { Dropdown } from 'bootstrap';
+import { cartItemCount } from '../../store/cart.js';
+
+const user = ref(isAuthenticated() ? getStoredUser() : null);
+const myOrdersTotalCount = ref(0);
+const showManufacturingCta = computed(() => !user.value || user.value.role === 'CUSTOMER');
+let dropdownInstance = null;
+
+const extractTotalCount = (data) => {
+  const directTotal = Number(data?.totalElements);
+  if (Number.isFinite(directTotal) && directTotal >= 0) return directTotal;
+
+  const nestedTotal = Number(data?.page?.totalElements);
+  if (Number.isFinite(nestedTotal) && nestedTotal >= 0) return nestedTotal;
+
+  const numberOfElements = Number(data?.numberOfElements);
+  if (Number.isFinite(numberOfElements) && numberOfElements >= 0) return numberOfElements;
+
+  if (Array.isArray(data?.content)) return data.content.length;
+  if (Array.isArray(data)) return data.length;
+
+  return 0;
+};
+
+const loadMyOrdersTotalCount = async () => {
+  if (!user.value || user.value.role !== 'CUSTOMER') {
+    myOrdersTotalCount.value = 0;
+    return;
+  }
+
+  try {
+    const [customResult, readyResult, pendingImportResult, rejectedImportResult] = await Promise.allSettled([
+      apiClient.get('/orders/my', {
+        params: { page: 0, size: 1, orderType: 'CUSTOM_MANUFACTURING' },
+      }),
+      apiClient.get('/orders/my', {
+        params: { page: 0, size: 1, orderType: 'READY_MADE' },
+      }),
+      apiClient.get('/orders/imports/my'),
+      apiClient.get('/orders/imports/my', {
+        params: { status: 'REJECTED' },
+      }),
+    ]);
+
+    let total = 0;
+
+    if (customResult.status === 'fulfilled') {
+      total += extractTotalCount(customResult.value?.data);
     }
-    try {
-      const data = await notificationsAPI.getUnreadCount();
-      unreadNotificationCount.value = Number(data?.unreadCount || 0);
-    } catch (e) {
-      unreadNotificationCount.value = 0;
+    if (readyResult.status === 'fulfilled') {
+      total += extractTotalCount(readyResult.value?.data);
     }
-  };
-
-  const toggleDropdown = () => {
-    const el = document.getElementById('userDropdown');
-    if (!dropdownInstance && el) {
-      dropdownInstance = new Dropdown(el);
+    if (pendingImportResult.status === 'fulfilled') {
+      const pendingImports = Array.isArray(pendingImportResult.value?.data) ? pendingImportResult.value.data : [];
+      total += pendingImports.length;
     }
-    dropdownInstance?.toggle();
-  };
+    if (rejectedImportResult.status === 'fulfilled') {
+      const rejectedImports = Array.isArray(rejectedImportResult.value?.data) ? rejectedImportResult.value.data : [];
+      total += rejectedImports.length;
+    }
 
-  const handleLogout = () => {
-    logout();
-  };
+    myOrdersTotalCount.value = Math.max(0, total);
+  } catch (e) {
+    myOrdersTotalCount.value = 0;
+  }
+};
 
-  onMounted(() => {
-    loadUnreadNotificationCount();
-  });
-  </script>
+const toggleDropdown = () => {
+  const el = document.getElementById('userDropdown');
+  if (!dropdownInstance && el) {
+    dropdownInstance = new Dropdown(el);
+  }
+  dropdownInstance?.toggle();
+};
+
+const handleLogout = () => {
+  logout();
+};
+
+onMounted(() => {
+  loadMyOrdersTotalCount();
+});
+</script>
 
 <style scoped>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap');
+
 .modern-navbar {
   background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
-  padding: 1rem 0;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  transition: all 0.3s ease-in-out;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 0 12px 30px -16px rgba(2, 6, 23, 0.62);
+  padding: 0.64rem 0;
+  font-family: 'Manrope', 'Inter', sans-serif;
+}
+
+.nav-shell {
+  min-height: 68px;
+}
+
+.brand-link {
+  gap: 10px;
+}
+
+.navbar-brand {
+  margin-right: 0;
+}
+
+.brand-logo-wrap {
+  width: 1.58rem;
+  height: 1.58rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.brand-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  transform: scale(2.7);
+  transform-origin: center;
 }
 
 .brand-text {
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  font-size: 1.3rem;
+  font-size: 1.62rem;
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #ffffff;
+}
+
+.nav-main {
+  gap: 6px;
 }
 
 .custom-link {
-  font-size: 0.95rem;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.75) !important;
-  margin: 0 10px;
   position: relative;
-  transition: color 0.3s;
+  color: #b8c4dc !important;
+  font-size: 0.92rem;
+  font-weight: 600;
+  padding: 0.48rem 0.62rem !important;
+  transition: color 0.3s ease;
 }
 
-.custom-link:hover,
-.custom-link.router-link-active,
-.custom-link.router-link-exact-active {
-  color: #fff !important;
+.custom-link::before {
+  content: '';
+  position: absolute;
+  left: 0.5rem;
+  right: 0.5rem;
+  bottom: 0.12rem;
+  height: 13px;
+  border-radius: 999px;
+  background: radial-gradient(ellipse at center, rgba(255, 183, 125, 0.22) 0%, rgba(255, 183, 125, 0) 78%);
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.35s ease, transform 0.35s ease;
 }
 
 .custom-link::after {
   content: '';
   position: absolute;
-  width: 0;
+  left: 0.65rem;
+  right: 0.65rem;
+  bottom: 0.12rem;
   height: 2px;
-  bottom: 0;
-  left: 50%;
-  background-color: #38bdf8;
-  transition: all 0.3s ease-in-out;
-  transform: translateX(-50%);
+  border-radius: 99px;
+  opacity: 0;
+  transform: scaleX(0.4);
+  transform-origin: center;
+  background: linear-gradient(90deg, #ffb77d 0%, #fd8b00 100%);
+  transition: transform 0.34s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.34s ease;
+}
+
+.custom-link:hover,
+.custom-link.router-link-active,
+.custom-link.router-link-exact-active {
+  color: #ffe4c8 !important;
+}
+
+.custom-link:hover::before,
+.custom-link.router-link-active::before,
+.custom-link.router-link-exact-active::before {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .custom-link:hover::after,
 .custom-link.router-link-active::after,
 .custom-link.router-link-exact-active::after {
-  width: 100%;
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+.actions-menu {
+  margin-left: auto;
+  gap: 10px !important;
+}
+
+.header-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  color: #4d2600;
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  padding-inline: 1.35rem;
+  background: linear-gradient(135deg, #ffb77d 0%, #fd8b00 100%);
+  box-shadow: 0 10px 24px rgba(249, 115, 22, 0.32);
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.28s ease;
+}
+
+.header-cta:hover {
+  color: #4d2600;
+  transform: translateY(-1px);
+  box-shadow: 0 14px 26px rgba(249, 115, 22, 0.42);
+}
+
+.header-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 10px;
+  padding: 0.48rem 0.72rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #95a2ba;
+  text-decoration: none;
+  background: transparent;
+  transition: color 0.26s ease, background-color 0.26s ease, transform 0.26s ease;
+}
+
+.header-chip:hover,
+.header-chip.router-link-active,
+.header-chip.router-link-exact-active {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.05);
+  transform: translateY(-1px);
+}
+
+.orders-badge {
+  position: absolute;
+  top: -6px;
+  right: -7px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 700;
+  border: 2px solid #0b1324;
+}
+
+.actions-divider {
+  width: 1px;
+  height: 22px;
+  background: rgba(255, 255, 255, 0.14);
+  margin-inline: 0;
 }
 
 .cart-btn {
-  color: white;
-  font-size: 1.2rem;
-  padding: 8px;
-  transition: transform 0.2s;
-  display: flex;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
+  color: #95a2ba;
+  text-decoration: none;
+  transition: all 0.26s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .cart-btn:hover {
-  transform: translateY(-2px);
-  color: #38bdf8;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.06);
+  transform: translateY(-1px);
 }
 
 .cart-badge {
   position: absolute;
-  top: 0;
-  right: -5px;
-  background-color: #ef4444; 
-  color: white;
-  font-size: 0.7rem;
-  font-weight: bold;
+  top: -2px;
+  right: -4px;
+  min-width: 18px;
   height: 18px;
-  width: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background-color: #ef4444;
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  border: 2px solid #0f172a; 
+  border: 2px solid #0f172a;
 }
 
-.btn-manufacturing-cta {
-  display: inline-flex;
-  align-items: center;
-  background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%);
-  color: #0f172a;
-  border: none;
-  letter-spacing: 0.4px;
-  box-shadow: 0 8px 18px rgba(249, 115, 22, 0.35);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.btn-manufacturing-cta:hover {
-  color: #0f172a;
-  transform: translateY(-1px);
-  box-shadow: 0 10px 24px rgba(249, 115, 22, 0.45);
-}
-
-.btn-link:hover {
-  color: #93c5fd !important;
-}
-
-.btn-glow {
-  background: #2563eb;
-  border: none;
+.auth-link {
+  color: #dbe2fa;
+  border: 1px solid transparent;
   font-weight: 600;
-  box-shadow: 0 0 10px rgba(37, 99, 235, 0.5);
-  transition: all 0.3s ease;
+  font-size: 0.85rem;
 }
 
-.btn-glow:hover {
-  background: #3b82f6;
+.auth-link:hover {
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.auth-register {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.04);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.82rem;
+  padding-inline: 1rem;
+}
+
+.auth-register:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.user-trigger {
+  border-radius: 999px;
+  padding: 4px 6px 4px 11px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  transition: border-color 0.28s ease, background-color 0.28s ease, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.user-trigger:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 183, 125, 0.55) !important;
   transform: translateY(-1px);
-  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.6);
+}
+
+.user-name {
+  color: #ffffff;
+  font-size: 0.79rem;
+  font-weight: 700;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.avatar-wrap {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #1f2a43;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.avatar-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.user-menu {
+  width: 260px;
+  margin-top: 12px;
+  border-radius: 14px;
+  padding: 0.4rem;
+  background: rgba(19, 27, 45, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  display: block;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(10px) scale(0.98);
+  transform-origin: top right;
+  pointer-events: none;
+  transition: opacity 0.24s ease, transform 0.24s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.24s ease;
+}
+
+.user-menu.show {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.dropdown-header-wrap {
+  padding: 0.65rem 0.72rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+  margin-bottom: 0.25rem;
+}
+
+.menu-caption {
+  font-size: 0.67rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 800;
+  color: #ffb77d;
+}
+
+.menu-subcaption {
+  color: #93a3bf;
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.user-menu .dropdown-item {
+  border-radius: 10px;
+  color: #dbe2fa;
+  font-size: 0.84rem;
+  font-weight: 600;
+  padding: 0.56rem 0.72rem;
+  transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.user-menu .dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  transform: translateX(2px);
+}
+
+@media (min-width: 992px) {
+  .nav-main {
+    margin-left: 24px;
+  }
+
+  .nav-main .nav-item {
+    margin-inline: 1px;
+  }
+
+  .actions-menu > * {
+    margin: 0;
+  }
+}
+
+.user-menu .dropdown-divider {
+  border-color: rgba(255, 255, 255, 0.1);
+  margin: 0.3rem 0;
 }
 
 @media (max-width: 991.98px) {
-  .actions-menu {
-    flex-direction: column;
-    align-items: flex-start !important;
-    margin-top: 1.5rem;
-    padding-top: 1.5rem;
-    border-top: 1px solid rgba(255,255,255,0.1);
-    width: 100%;
+  .navbar-collapse {
+    margin-top: 0.9rem;
+    padding: 1rem;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(10, 18, 35, 0.95);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
   }
-  
+
+  .nav-main {
+    margin-bottom: 0.8rem !important;
+  }
+
+  .custom-link {
+    padding-inline: 0.35rem !important;
+  }
+
+  .brand-logo-img {
+    transform: scale(2.5);
+  }
+
+  .actions-menu {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 0.6rem !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    padding-top: 0.9rem;
+  }
+
+  .header-cta,
+  .header-chip,
+  .auth-link,
+  .auth-register,
+  .user-trigger {
+    width: 100%;
+    justify-content: center;
+  }
+
   .auth-buttons {
     width: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: 15px; 
-    margin-top: 1rem;
-  }
-  
-  .auth-buttons .btn {
-    width: 100%;
-    text-align: center;
-    justify-content: center;
+    display: grid !important;
+    grid-template-columns: 1fr;
+    gap: 0.5rem !important;
   }
 
   .cart-btn {
-    margin-bottom: 0.5rem;
-    align-self: flex-start;
+    width: 100%;
+    border-radius: 10px;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.05);
   }
 
-  .btn-manufacturing-cta {
+  .user-dropdown {
     width: 100%;
-    justify-content: center;
   }
 }
 </style>

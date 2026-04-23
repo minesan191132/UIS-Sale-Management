@@ -25,6 +25,7 @@ const ProductView = () => import('../components/admin/product.vue')
 const UserEditView = () => import('../components/admin/user_edit.vue')
 const UserListView = () => import('../components/admin/user_list.vue')
 const ProductOrderMgmtView = () => import('../components/admin/ProductOrderManagement.vue')
+const ComplaintMgmtView = () => import('../components/admin/ComplaintManagement.vue') // Thêm mới
 
 const ResendVerification = () => import('../components/auth/ResendVerification.vue')
 const ForgotPassword = () => import('../components/auth/ForgotPassword.vue')
@@ -44,6 +45,7 @@ const prefetchAdminChunks = () => {
       InvoiceMgmtView(),
       PreviewInvoiceView(),
       StatisticView(),
+      ComplaintMgmtView(),
     ]).catch(() => {
       // Ignore prefetch failures to avoid impacting navigation.
     });
@@ -166,6 +168,7 @@ const routes = [
       { path: 'products', name: 'products', component: ProductView, meta: { roles: ['ADMIN'] } },
       { path: 'users', name: 'users', component: UserListView, meta: { roles: ['ADMIN'] } },
       { path: 'user-edit', name: 'user-edit', component: UserEditView, meta: { roles: ['ADMIN'] } },
+      { path: 'complaints', name: 'complaints', component: ComplaintMgmtView, meta: { roles: ['ADMIN'] } }, // Thêm route mới
 
       { path: 'warehouse', name: 'warehouse', component: WarehouseView }, // Needed for import?
       { path: 'warehouse-history', name: 'warehouse-history', component: WarehouseHistoryView }

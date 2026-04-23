@@ -196,7 +196,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { paymentAPI } from '../../services/api'
+import apiClient, { paymentAPI } from '../../services/api'
 
 const route = useRoute()
 const router = useRouter()
@@ -279,6 +279,29 @@ async function init() {
     const data = await paymentAPI.getPaymentInfo(orderId.value)
     info.value = data
 
+    // Route /payment/:orderId is kept for compatibility, but READY_MADE must pay in My Orders modal.
+    let orderType = data?.orderType
+    if (!orderType) {
+      try {
+        const orderResponse = await apiClient.get(`/orders/${orderId.value}`)
+        orderType = orderResponse?.data?.orderType
+      } catch (lookupError) {
+        console.warn('Unable to resolve order type for payment route:', lookupError)
+      }
+    }
+
+    if (orderType === 'READY_MADE') {
+      loading.value = false
+      await router.replace({
+        path: '/my-orders',
+        query: {
+          newOrderId: String(orderId.value),
+          orderType: 'READY_MADE',
+        },
+      })
+      return
+    }
+
     // Nếu đã DEPOSITED từ trước, hiện success ngay
     if (data.orderStatus === 'DEPOSITED') {
       loading.value = false
@@ -341,7 +364,7 @@ function clearAll() {
 }
 
 function goBack() {
-  router.push('/account')
+  router.push('/my-orders')
 }
 
 async function copy(text, key) {

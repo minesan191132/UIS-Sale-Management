@@ -307,7 +307,7 @@ async function submitOrder() {
   const confirmSubmit = await Swal.fire({
     title: 'Xác nhận đặt hàng?',
     text: selectedPayment.value === 'BANK'
-      ? 'Bạn sẽ được chuyển đến trang QR để thanh toán ngay sau khi tạo đơn.'
+      ? 'Bạn sẽ được chuyển đến Đơn hàng của tôi để mở QR thanh toán ngay sau khi tạo đơn.'
       : 'Đơn hàng COD sẽ được xác nhận và nhân viên sẽ liên hệ với bạn.',
     icon: 'question',
     showCancelButton: true,
@@ -352,17 +352,23 @@ async function submitOrder() {
     bypassCheckoutLeaveGuard.value = true;
 
     if (selectedPayment.value === 'BANK') {
-      // Redirect to QR payment page
-      router.push({ name: 'payment-qr', params: { orderId: order.id } });
+      // Redirect to My Orders and auto-open payment QR modal for the new READY_MADE order.
+      router.push({
+        path: '/my-orders',
+        query: {
+          orderType: 'READY_MADE',
+          newOrderId: String(order.id),
+        },
+      });
     } else {
-      // COD — show success and go to order history
+      // COD — show success and go to My Orders
       await Swal.fire({
         icon: 'success',
         title: 'Đặt hàng thành công!',
         text: `Mã đơn hàng: ${order.orderNumber}. Nhân viên sẽ liên hệ xác nhận.`,
         confirmButtonText: 'Xem đơn hàng'
       });
-      router.push('/account');
+      router.push('/my-orders');
     }
   } catch (err) {
     const msg = err.response?.data?.error || err.message || 'Có lỗi xảy ra, vui lòng thử lại.';
@@ -386,12 +392,12 @@ async function submitOrder() {
         <h2 class="mb-0 fw-bold" style="color: #0b2e59;">Xác nhận đặt hàng</h2>
       </div>
 
-      <div class="alert alert-primary py-2 px-3 small mb-3">
+      <div class="alert alert-primary alert-fit-content py-2 px-3 small mb-3">
         <i class="bi bi-shield-check me-1"></i>
         Thông tin thanh toán được lưu nháp tự động để tránh mất dữ liệu khi rời trang.
       </div>
 
-      <div v-if="checkoutDraftRestoredAt" class="alert alert-info py-2 px-3 small mb-3">
+      <div v-if="checkoutDraftRestoredAt" class="alert alert-info alert-fit-content py-2 px-3 small mb-3">
         <i class="bi bi-clock-history me-1"></i>
         Đã khôi phục bản nháp lưu lúc {{ new Date(checkoutDraftRestoredAt).toLocaleString('vi-VN') }}.
       </div>
@@ -476,18 +482,6 @@ async function submitOrder() {
                       <small class="text-muted">Quét mã QR tự động xác nhận nhanh chóng</small>
                     </div>
                     <i class="bi bi-qr-code fs-3 text-primary opacity-75"></i>
-                  </div>
-                </label>
-
-                <label class="border rounded-3 p-3 d-flex align-items-center cursor-pointer transition-all"
-                       :class="{ 'border-primary bg-primary bg-opacity-10': selectedPayment === 'COD' }">
-                  <input class="form-check-input mt-0 me-3" type="radio" value="COD" v-model="selectedPayment" style="transform: scale(1.2);">
-                  <div class="d-flex flex-grow-1 justify-content-between align-items-center">
-                    <div>
-                      <h6 class="mb-0 fw-bold text-dark">Thanh toán khi nhận hàng (COD)</h6>
-                      <small class="text-muted">Thanh toán bằng tiền mặt khi xe tải giao hàng đến</small>
-                    </div>
-                    <i class="bi bi-truck fs-3 text-success opacity-75"></i>
                   </div>
                 </label>
               </div>

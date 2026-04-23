@@ -13,13 +13,31 @@
       <button @click="fetchPaymentInfo" class="btn-retry">Thử lại</button>
     </div>
 
+    <!-- Waiting for admin verification after webhook capture -->
+    <div v-else-if="isAwaitingAdminVerification" class="paid-state pending-verify-state">
+      <div class="success-icon">⏳</div>
+      <h3>Đã ghi nhận chuyển khoản</h3>
+      <p>
+        Hệ thống đã nhận giao dịch cho đơn
+        <strong>{{ paymentInfo.orderNumber }}</strong>
+        và đang chờ admin xác nhận.
+      </p>
+      <div class="paid-amount">
+        Số tiền đã ghi nhận: <strong>{{ formatCurrency(payableAmount) }}</strong>
+      </div>
+      <p class="pending-note">Bạn không cần chuyển lại tiền. Trạng thái sẽ tự động cập nhật sau khi được duyệt.</p>
+    </div>
+
     <!-- Success: Paid deposit (1st payment) -->
     <div v-else-if="paymentInfo && paymentInfo.orderStatus === 'DEPOSITED'" class="paid-state">
       <div class="success-icon">✅</div>
-      <h3>Đã nhận tiền cọc!</h3>
-      <p>Đơn hàng <strong>{{ paymentInfo.orderNumber }}</strong> đã được xác nhận đặt cọc thành công.</p>
+      <h3>{{ isReadyMade ? 'Đã nhận thanh toán!' : 'Đã nhận tiền cọc!' }}</h3>
+      <p>
+        Đơn hàng <strong>{{ paymentInfo.orderNumber }}</strong>
+        {{ isReadyMade ? 'đã được xác nhận thanh toán thành công.' : 'đã được xác nhận đặt cọc thành công.' }}
+      </p>
       <div class="paid-amount">
-        Số tiền nhận: <strong>{{ formatCurrency(paymentInfo.depositAmount) }}</strong>
+        Số tiền nhận: <strong>{{ formatCurrency(isReadyMade ? paymentInfo.totalPrice : paymentInfo.depositAmount) }}</strong>
       </div>
     </div>
 
@@ -38,10 +56,14 @@
       <!-- Header -->
       <div class="qr-header">
         <h3>
-          <template v-if="paymentInfo.orderStatus === 'AWAITING_REMAINING_PAYMENT'">💳 Thanh toán đợt 2 (40% còn lại)</template>
-          <template v-else>💳 Thanh toán đặt cọc 60%</template>
+          <template v-if="isReadyMade">💳 Thanh toán đơn hàng (100%)</template>
+          <template v-else-if="isRemainingPhase">💳 Thanh toán mốc 2 (40%)</template>
+          <template v-else>💳 Thanh toán mốc 1 (60%)</template>
         </h3>
         <p class="order-ref">Đơn hàng: <strong>{{ paymentInfo.orderNumber }}</strong></p>
+        <p v-if="hasMilestoneSummary" class="order-ref milestone-ref">
+          Mốc hiện tại: <strong>{{ currentMilestoneName }}</strong>
+        </p>
       </div>
 
       <!-- Amount Summary -->
@@ -51,14 +73,22 @@
           <span>{{ formatCurrency(paymentInfo.totalPrice) }}</span>
         </div>
         <div class="amount-row highlight">
-          <template v-if="paymentInfo.orderStatus === 'AWAITING_REMAINING_PAYMENT'">
-            <span>Cần thanh toán (40% còn lại)</span>
-            <span class="amount-primary">{{ formatCurrency(remainingAmount) }}</span>
-          </template>
-          <template v-else>
-            <span>Cần đặt cọc (60%)</span>
-            <span class="amount-primary">{{ formatCurrency(paymentInfo.depositAmount) }}</span>
-          </template>
+          <span>{{
+            isReadyMade
+              ? 'Cần thanh toán (100%)'
+              : isRemainingPhase
+                ? 'Cần thanh toán (40% còn lại)'
+                : 'Cần thanh toán (60% tiền cọc)'
+          }}</span>
+          <span class="amount-primary">{{ formatCurrency(payableAmount) }}</span>
+        </div>
+        <div v-if="hasMilestoneSummary" class="amount-row">
+          <span>Đã thanh toán xác nhận</span>
+          <span>{{ formatCurrency(milestoneSummary.totalPaid) }}</span>
+        </div>
+        <div v-if="hasMilestoneSummary" class="amount-row">
+          <span>Còn lại toàn đơn</span>
+          <span>{{ formatCurrency(milestoneSummary.totalRemaining) }}</span>
         </div>
       </div>
 
@@ -91,7 +121,7 @@
             <span class="info-label">Số tài khoản</span>
             <div class="info-value-copy">
               <span>{{ paymentInfo.bankAccount }}</span>
-              <button @click="copyText(paymentInfo.bankAccount)" class="btn-copy" title="Sao chép">
+              <button @click="copyText(paymentInfo.bankAccount, 'account')" class="btn-copy" title="Sao chép">
                 {{ copied.account ? '✓' : '📋' }}
               </button>
             </div>
@@ -103,8 +133,8 @@
           <div class="info-row">
             <span class="info-label">Số tiền</span>
             <div class="info-value-copy">
-              <span class="amount-text">{{ formatCurrency(paymentInfo.orderStatus === 'AWAITING_REMAINING_PAYMENT' ? remainingAmount : paymentInfo.depositAmount) }}</span>
-              <button @click="copyText(String(paymentInfo.orderStatus === 'AWAITING_REMAINING_PAYMENT' ? remainingAmount : paymentInfo.depositAmount))" class="btn-copy" title="Sao chép">
+              <span class="amount-text">{{ formatCurrency(payableAmount) }}</span>
+              <button @click="copyText(String(payableAmount), 'amount')" class="btn-copy" title="Sao chép">
                 {{ copied.amount ? '✓' : '📋' }}
               </button>
             </div>
@@ -113,7 +143,7 @@
             <span class="info-label">Nội dung CK</span>
             <div class="info-value-copy">
               <span class="content-highlight">{{ paymentInfo.transferContent }}</span>
-              <button @click="copyText(paymentInfo.transferContent)" class="btn-copy" title="Sao chép">
+              <button @click="copyText(paymentInfo.transferContent, 'content')" class="btn-copy" title="Sao chép">
                 {{ copied.content ? '✓' : '📋' }}
               </button>
             </div>
@@ -130,20 +160,28 @@
       <!-- Status Polling Indicator -->
       <div class="polling-indicator">
         <div class="pulse-dot"></div>
-        <span>Đang chờ xác nhận thanh toán... (tự động cập nhật)</span>
+        <span>
+          {{ hasMilestoneSummary
+            ? 'Đang chờ giao dịch và cập nhật theo mốc thanh toán...'
+            : 'Đang chờ xác nhận thanh toán... (tự động cập nhật)' }}
+        </span>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { paymentAPI } from '../../services/api'
 
 const props = defineProps({
   orderId: {
     type: [Number, String],
     required: true
+  },
+  orderType: {
+    type: String,
+    default: 'CUSTOM_MANUFACTURING'
   }
 })
 
@@ -152,17 +190,57 @@ const emit = defineEmits(['payment-confirmed'])
 const POLLING_INTERVAL = 10000 // 10 giây
 
 const paymentInfo = ref(null)
+const milestoneSummary = ref(null)
 const loading = ref(true)
 const error = ref(null)
 const qrError = ref(false)
 const copied = ref({ account: false, amount: false, content: false })
 
-// Computed: số tiền còn lại cho thanh toán đợt 2
-const remainingAmount = computed(() => {
+const milestoneItems = computed(() => {
+  return Array.isArray(milestoneSummary.value?.milestones)
+    ? [...milestoneSummary.value.milestones].sort((a, b) => Number(a.milestoneOrder || 0) - Number(b.milestoneOrder || 0))
+    : []
+})
+
+const hasMilestoneSummary = computed(() => milestoneItems.value.length > 0)
+
+const isReadyMade = computed(() => props.orderType === 'READY_MADE')
+
+const activeMilestone = computed(() => {
+  return milestoneItems.value.find((milestone) => {
+    const status = String(milestone?.status || '')
+    return status === 'ACTIVE' || status === 'OVERDUE' || status === 'PAID_UNVERIFIED'
+  }) || null
+})
+
+const isRemainingPhase = computed(() => {
+  if (activeMilestone.value?.milestoneOrder === 2) return true
+  return paymentInfo.value?.orderStatus === 'AWAITING_REMAINING_PAYMENT'
+})
+
+const currentMilestoneName = computed(() => {
+  if (activeMilestone.value?.milestoneName) {
+    return activeMilestone.value.milestoneName
+  }
+  return isRemainingPhase.value ? 'Thanh toán cuối (Mốc 2)' : 'Đặt cọc (Mốc 1)'
+})
+
+const payableAmount = computed(() => {
+  if (activeMilestone.value?.amount != null) {
+    return Number(activeMilestone.value.amount || 0)
+  }
+
   if (!paymentInfo.value) return 0
   const total = Number(paymentInfo.value.totalPrice || 0)
-  const deposit = Number(paymentInfo.value.depositAmount || 0)
-  return total - deposit
+  const payable = Number(paymentInfo.value.depositAmount || 0)
+  if (isRemainingPhase.value) {
+    return Math.max(0, total - payable)
+  }
+  return payable
+})
+
+const isAwaitingAdminVerification = computed(() => {
+  return String(activeMilestone.value?.status || '') === 'PAID_UNVERIFIED'
 })
 
 let pollingTimer = null
@@ -171,14 +249,24 @@ let pollingTimer = null
 async function fetchPaymentInfo() {
   loading.value = true
   error.value = null
+  qrError.value = false
 
   try {
-    paymentInfo.value = await paymentAPI.getPaymentInfo(props.orderId)
+    const [info, milestoneData] = await Promise.all([
+      paymentAPI.getPaymentInfo(props.orderId),
+      isReadyMade.value
+        ? Promise.resolve(null)
+        : paymentAPI.getMilestones(props.orderId).catch(() => null),
+    ])
 
-    // Stop polling when full payment is confirmed
-    // For 1st payment: DEPOSITED. For 2nd payment: AWAITING_DELIVERY.
-    if (paymentInfo.value.orderStatus === 'DEPOSITED' ||
-        paymentInfo.value.orderStatus === 'AWAITING_DELIVERY') {
+    paymentInfo.value = info
+    milestoneSummary.value = milestoneData && Array.isArray(milestoneData?.milestones)
+      ? milestoneData
+      : null
+
+    // READY_MADE: DEPOSITED = đã thanh toán 100%.
+    // CUSTOM_MANUFACTURING: DEPOSITED = đã cọc, AWAITING_DELIVERY = đã thanh toán đủ.
+    if (['DEPOSITED', 'AWAITING_DELIVERY'].includes(paymentInfo.value.orderStatus)) {
       stopPolling()
       emit('payment-confirmed', paymentInfo.value)
     }
@@ -202,9 +290,7 @@ function formatCurrency(amount) {
 async function copyText(text, field) {
   try {
     await navigator.clipboard.writeText(text)
-    const key = text === paymentInfo.value?.bankAccount ? 'account'
-               : text === String(paymentInfo.value?.depositAmount) ? 'amount'
-               : 'content'
+    const key = field || 'content'
     copied.value[key] = true
     setTimeout(() => { copied.value[key] = false }, 2000)
   } catch {}
@@ -215,6 +301,7 @@ function onQrError() {
 }
 
 function startPolling() {
+  if (pollingTimer) return
   pollingTimer = setInterval(fetchPaymentInfo, POLLING_INTERVAL)
 }
 
@@ -229,6 +316,15 @@ onMounted(() => {
   fetchPaymentInfo()
   startPolling()
 })
+
+watch(
+  () => props.orderId,
+  () => {
+    stopPolling()
+    fetchPaymentInfo()
+    startPolling()
+  }
+)
 
 onUnmounted(() => {
   stopPolling()
@@ -286,6 +382,10 @@ onUnmounted(() => {
   border-radius: 16px;
   border: 1px solid #6ee7b7;
 }
+.pending-verify-state {
+  background: linear-gradient(135deg, #fff7ed, #ffedd5);
+  border-color: #fdba74;
+}
 .success-icon { font-size: 56px; margin-bottom: 12px; }
 .paid-state h3 { color: #065f46; font-size: 1.3rem; margin: 0 0 8px; }
 .paid-amount {
@@ -295,6 +395,11 @@ onUnmounted(() => {
   background: white;
   padding: 12px 20px;
   border-radius: 10px;
+}
+.pending-note {
+  margin: 12px 0 0;
+  color: #9a3412;
+  font-size: 0.88rem;
 }
 
 /* QR Payment */
@@ -312,6 +417,10 @@ onUnmounted(() => {
 }
 .qr-header h3 { margin: 0 0 4px; font-size: 1.1rem; }
 .order-ref { margin: 0; opacity: 0.85; font-size: 0.9rem; }
+.milestone-ref {
+  margin-top: 4px;
+  opacity: 0.9;
+}
 
 /* Amount summary */
 .amount-summary {

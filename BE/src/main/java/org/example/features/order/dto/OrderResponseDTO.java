@@ -33,6 +33,7 @@ public class OrderResponseDTO {
     private String cancelledByRole;
     private Boolean rejectedByAdmin;
     private LocalDate deliveryDate;
+    private LocalDate paymentDeadline;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<OrderItemDTO> items;

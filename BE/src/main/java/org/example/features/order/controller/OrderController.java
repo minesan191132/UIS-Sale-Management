@@ -9,6 +9,7 @@ import org.example.features.complaint.dto.OrderComplaintResponseDTO;
 import org.example.features.complaint.service.OrderComplaintService;
 import org.example.features.order.dto.CancelOrderRequestDTO;
 import org.example.features.order.dto.DelayDeliveryRequestDTO;
+import org.example.features.order.dto.ItemNotesUpdateRequestDTO;
 import org.example.features.order.dto.ItemReviewRequestDTO;
 import org.example.features.order.dto.OrderHistoryEventDTO;
 import org.example.features.order.dto.OrderRevisionSummaryDTO;
@@ -31,6 +32,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -494,6 +496,7 @@ public class OrderController {
     @PostMapping(value = "/{id}/complaint/my", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> upsertMyComplaint(
             @PathVariable Long id,
+            @RequestParam(defaultValue = "MISSING_ITEM") org.example.features.complaint.entity.ComplaintType type,
             @RequestParam String description,
             @RequestParam String missingItems,
             @RequestParam(required = false) List<Long> keepImageIds,
@@ -503,6 +506,7 @@ public class OrderController {
             OrderComplaintResponseDTO complaint = orderComplaintService.upsertMyComplaint(
                     id,
                     userDetails.getUserId(),
+                    type,
                     description,
                     missingItems,
                     keepImageIds,
@@ -669,6 +673,35 @@ public class OrderController {
     }
 
     /**
+     * Customer/Admin: update note on one order item
+     * PUT /api/orders/{orderId}/items/{itemId}/notes
+     */
+    @PutMapping("/{orderId}/items/{itemId}/notes")
+    public ResponseEntity<?> updateOrderItemNotes(
+            @PathVariable Long orderId,
+            @PathVariable Long itemId,
+            @RequestBody(required = false) ItemNotesUpdateRequestDTO request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        try {
+            OrderResponseDTO order = orderService.updateOrderItemNotes(
+                    orderId,
+                    itemId,
+                    request != null ? request.getNotes() : null,
+                    userDetails != null ? userDetails.getUserId() : null,
+                    userDetails != null ? userDetails.getRole() : null);
+            return ResponseEntity.ok(order);
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error updating order item notes", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to update item notes"));
+        }
+    }
+
+    /**
      * Admin: Delay delivery — update delivery_date and notify customer
      * PUT /api/orders/{id}/delay-delivery
      */
@@ -714,6 +747,43 @@ public class OrderController {
             log.error("Error shipping order {}", id, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Failed to ship order"));
+        }
+    }
+
+    /**
+     * Admin: Set delivery date and mark READY_MADE order as ready to deliver
+     * PUT /api/orders/{id}/ready-to-deliver
+     */
+    @PutMapping("/{id}/ready-to-deliver")
+    public ResponseEntity<?> readyToDeliver(
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, String> body,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        try {
+            if (userDetails == null || !"ADMIN".equals(userDetails.getRole())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("error", "Unauthorized"));
+            }
+
+            String dateStr = body != null ? body.get("deliveryDate") : null;
+            if (dateStr == null || dateStr.isBlank()) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "Vui lòng chọn ngày giao hàng"));
+            }
+
+            LocalDate deliveryDate = LocalDate.parse(dateStr);
+            OrderResponseDTO order = orderService.setDeliveryDateAndReadyToDeliver(id, deliveryDate);
+            return ResponseEntity.ok(order);
+        } catch (DateTimeParseException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Định dạng ngày không hợp lệ"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error setting ready-to-deliver for order {}", id, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to update order"));
         }
     }
 

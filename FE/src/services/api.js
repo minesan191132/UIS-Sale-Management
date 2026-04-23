@@ -325,6 +325,14 @@ export const ordersAPI = {
   },
 
   /**
+   * Update note for one order item (customer/admin)
+   */
+  updateItemNotes: async (orderId, itemId, notes) => {
+    const response = await apiClient.put(`/orders/${orderId}/items/${itemId}/notes`, { notes });
+    return response.data;
+  },
+
+  /**
    * Get current user's complaint for one order
    */
   getMyComplaint: async (orderId) => {
@@ -377,6 +385,66 @@ export const paymentAPI = {
    */
   getPaymentInfo: async (orderId) => {
     const response = await apiClient.get(`/payments/orders/${orderId}/qr`);
+    return response.data;
+  },
+
+  /**
+   * Get payment milestones for an order (contract-first flow)
+   */
+  getMilestones: async (orderId) => {
+    const response = await apiClient.get(`/payments/orders/${orderId}/milestones`);
+    return response.data;
+  },
+
+  /**
+   * Get QR for a specific milestone
+   */
+  getMilestoneQr: async (milestoneId) => {
+    const response = await apiClient.get(`/payments/milestones/${milestoneId}/qr`);
+    return response.data;
+  },
+
+  /**
+   * Admin verifies an unverified milestone transfer
+   */
+  verifyMilestone: async (milestoneId) => {
+    const response = await apiClient.post(`/payments/milestones/${milestoneId}/verify`);
+    return response.data;
+  },
+};
+
+// ==================== CONTRACT API ====================
+
+export const contractAPI = {
+  /**
+   * Get latest contract by order
+   */
+  getOrderContract: async (orderId) => {
+    const response = await apiClient.get(`/contracts/orders/${orderId}`);
+    return response.data;
+  },
+
+  /**
+   * Admin updates contract terms before customer confirmation
+   */
+  updateTerms: async (contractId, payload) => {
+    const response = await apiClient.put(`/contracts/${contractId}/terms`, payload);
+    return response.data;
+  },
+
+  /**
+   * Customer confirms contract
+   */
+  confirm: async (contractId) => {
+    const response = await apiClient.post(`/contracts/${contractId}/confirm`);
+    return response.data;
+  },
+
+  /**
+   * Customer rejects contract with reason
+   */
+  reject: async (contractId, reason) => {
+    const response = await apiClient.post(`/contracts/${contractId}/reject`, { reason });
     return response.data;
   },
 };

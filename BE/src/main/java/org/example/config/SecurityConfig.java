@@ -104,6 +104,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/orders/imports/*/cancel").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/api/orders/*/cancel").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/api/orders/*/confirm-received").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/orders/*/items/*/notes").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/orders/*/complaint/my").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/orders/*/complaint/my").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/api/orders/**").hasRole("ADMIN") // Admin order updates

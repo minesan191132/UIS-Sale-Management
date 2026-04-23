@@ -1,550 +1,608 @@
 <template>
-  <div class="container py-5 mt-5 page-container">
-    <div class="d-flex justify-content-between align-items-center mb-4 fade-in">
-      <h2 class="mb-0">
-        <i class="bi bi-list-check me-2 text-primary"></i>Đơn Hàng Của Tôi
-      </h2>
-      <div class="d-flex gap-2">
-        <router-link to="/create-order" class="btn btn-outline-primary shadow-sm hover-elevate">
-          <i class="bi bi-plus-circle me-1"></i>Tạo đơn mới
-        </router-link>
-        <router-link to="/" class="btn btn-primary btn-glow shadow hover-elevate">
-          <i class="bi bi-house-door me-1"></i>Trang chủ
-        </router-link>
+<div class="app-view">
+  <div class="myorders-page">
+    <Navbar />
+    <!-- Hero Header -->
+    <div class="orders-hero">
+      <div class="container">
+        <div class="hero-content">
+          <div>
+            <h1 class="hero-title">Đơn Hàng Của Tôi</h1>
+            <p class="hero-desc">Quản lý và theo dõi tiến độ các đơn hàng gia công của bạn. Hệ thống cập nhật thời gian thực trạng thái sản xuất và báo giá kỹ thuật.</p>
+          </div>
+          <div class="hero-actions">
+            <router-link to="/create-order" class="btn btn-hero-primary">
+              <i class="bi bi-plus-circle me-2"></i>Tạo đơn mới
+            </router-link>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- Main Type Tabs -->
-    <div class="type-tabs-wrap mb-4">
-      <button
-        v-for="typeTab in typeTabs"
-        :key="typeTab.key"
-        class="type-tab"
-        :class="{ active: activeOrderType === typeTab.key }"
-        @click="changeOrderType(typeTab.key)"
-      >
-        <span class="type-tab-icon">{{ typeTab.icon }}</span>
-        {{ typeTab.label }}
-      </button>
-    </div>
+    <div class="container orders-content">
+      <!-- Main Type Tabs -->
+      <div class="type-tabs-wrap mb-4">
+        <button
+          v-for="typeTab in typeTabs"
+          :key="typeTab.key"
+          class="type-tab"
+          :class="{ active: activeOrderType === typeTab.key }"
+          @click="changeOrderType(typeTab.key)"
+        >
+          <span class="type-tab-icon">{{ typeTab.icon }}</span>
+          {{ typeTab.label }}
+        </button>
+      </div>
 
-    <!-- Status Filter Tabs -->
-    <div class="order-tabs-wrap mb-4">
-      <div class="order-tabs">
+      <!-- Status Filter Pills -->
+      <div class="status-filter-wrap mb-4">
         <button
           v-for="statusTab in currentStatusTabs"
           :key="statusTab.key"
-          class="order-tab"
+          class="status-pill"
           :class="{ active: activeStatus === statusTab.key }"
-          @click="changeStatus(statusTab.key)">
+          @click="changeStatus(statusTab.key)"
+        >
           {{ statusTab.label }}
-          <span class="order-tab-count">
-            {{ getStatusCount(statusTab.key) > 99 ? '99+' : getStatusCount(statusTab.key) }}
-          </span>
+          <span class="pill-count">{{ getStatusCount(statusTab.key) > 99 ? '99+' : getStatusCount(statusTab.key) }}</span>
         </button>
       </div>
-    </div>
 
-    <div class="safety-note mb-3">
-      <i class="bi bi-shield-check me-2"></i>
-      Bộ lọc đang xem được tự lưu. Khiếu nại chưa gửi sẽ được lưu nháp để tránh mất dữ liệu.
-    </div>
-
-    <!-- Skeleton Loading -->
-    <div v-if="isLoading" class="row g-3">
-      <div v-for="i in 3" :key="i" class="col-12">
-        <div class="card shadow-sm border-0 skeleton-card">
-          <div class="card-body">
-            <div class="row align-items-center">
-              <div class="col-md-6">
-                <div class="skeleton-text skeleton-title mb-2"></div>
-                <div class="skeleton-text skeleton-line w-50 mb-1"></div>
-                <div class="skeleton-text skeleton-line w-25 mb-2"></div>
-                <div class="skeleton-text skeleton-badge"></div>
-              </div>
-              <div class="col-md-6 text-md-end mt-3 mt-md-0">
-                <div class="skeleton-text skeleton-line w-25 ms-auto mb-1"></div>
-                <div class="skeleton-text skeleton-line w-50 ms-auto mb-3"></div>
-                <div class="skeleton-button ms-auto"></div>
-              </div>
-            </div>
-          </div>
+      <!-- Skeleton Loading -->
+      <div v-if="isLoading" class="orders-table-card">
+        <div class="orders-table-header">
+          <div class="col-header" style="width:24%">MÃ ĐƠN HÀNG</div>
+          <div class="col-header" style="width:16%">TRẠNG THÁI</div>
+          <div class="col-header" style="width:14%">NGÀY ĐẶT</div>
+          <div class="col-header" style="width:16%">NGÀY GIAO</div>
+          <div class="col-header" style="width:18%">GIÁ TRỊ</div>
+          <div class="col-header" style="width:12%">THAO TÁC</div>
+        </div>
+        <div v-for="i in 4" :key="i" class="order-table-row skeleton-row">
+          <div style="width:24%"><div class="sk sk-title"></div><div class="sk sk-sub mt-1"></div></div>
+          <div style="width:16%"><div class="sk sk-badge"></div></div>
+          <div style="width:14%"><div class="sk sk-line"></div></div>
+          <div style="width:16%"><div class="sk sk-line"></div></div>
+          <div style="width:18%"><div class="sk sk-line"></div></div>
+          <div style="width:12%"><div class="sk sk-btn"></div></div>
         </div>
       </div>
-    </div>
 
-    <!-- Empty State -->
-    <div v-else-if="orders.length === 0" class="card shadow-sm border-0">
-      <div class="card-body text-center py-5">
-        <i class="bi bi-inbox fs-1 text-muted mb-3"></i>
-        <h5 class="text-muted mb-3">Bạn chưa có đơn hàng nào</h5>
-        <router-link to="/create-order" class="btn btn-primary">
+      <!-- Empty State -->
+      <div v-else-if="orders.length === 0" class="empty-state-card">
+        <i class="bi bi-inbox empty-icon"></i>
+        <h5 class="empty-title">Bạn chưa có đơn hàng nào</h5>
+        <p class="empty-desc">Tạo đơn hàng gia công đầu tiên của bạn ngay hôm nay.</p>
+        <router-link to="/create-order" class="btn btn-hero-primary">
           <i class="bi bi-plus-circle me-2"></i>Tạo đơn hàng mới
         </router-link>
       </div>
-    </div>
 
-    <!-- Orders List -->
-    <div v-else class="stagger-list">
-      <div class="row g-3">
-        <div v-for="(order, index) in orders" :key="`${order.isTempImport ? 'imp' : 'ord'}-${order.id}`" class="col-12 slide-up" :style="{ animationDelay: `${index * 0.1}s` }">
-          <div class="card shadow-sm border-0 hover-card">
-            <div class="card-body">
-              <div class="row align-items-center">
-                <!-- Order Info -->
-                <div class="col-md-6">
-                  <h5 class="mb-2">
-                    <i class="bi bi-file-earmark-text me-2"></i>
-                    {{ order.orderNumber }}
-                  </h5>
-                  <p class="text-muted mb-1">
-                    <i class="bi bi-calendar me-2"></i>
-                    {{ formatDate(order.createdAt) }}
-                  </p>
-                  <p class="text-muted mb-2">
-                    <i class="bi bi-box me-2"></i>
-                    {{ order.items?.length || 0 }} sản phẩm
-                  </p>
-                  <span :class="getStatusBadgeClass(order.status)">
-                    {{ getStatusText(order.status, order.orderType) }}
-                  </span>
-                  <div v-if="order.status === 'PENDING_APPROVAL'" class="alert alert-warning mt-2 mb-0 py-2 px-3 small pending-approval-banner">
-                    <i class="bi bi-hourglass-split me-1"></i>
-                    Đơn đang chờ được duyệt. Sau khi duyệt, hệ thống sẽ chuyển sang bước báo giá.
-                  </div>
-                  <div
-                    v-else-if="order.status === 'CANCELLED' && isAdminRejectedOrder(order)"
-                    class="alert alert-danger mt-2 mb-0 py-2 px-3 small"
-                  >
-                    <i class="bi bi-shield-x me-1"></i>
-                    Đơn bị admin từ chối.
-                    <span v-if="order.cancelReason">Lý do: {{ order.cancelReason }}</span>
-                  </div>
-                  <div
-                    v-else-if="order.status === 'CANCELLED' && order.cancelReason"
-                    class="alert alert-secondary mt-2 mb-0 py-2 px-3 small"
-                  >
-                    <i class="bi bi-info-circle me-1"></i>
-                    Lý do hủy: {{ order.cancelReason }}
-                  </div>
-                </div>
+      <!-- Orders Table Card -->
+      <div v-else class="orders-table-card fade-in">
+        <div class="orders-table-header">
+          <div class="col-header" style="width:24%">MÃ ĐƠN HÀNG</div>
+          <div class="col-header" style="width:16%">TRẠNG THÁI</div>
+          <div class="col-header" style="width:14%">NGÀY ĐẶT</div>
+          <div class="col-header" style="width:16%">NGÀY GIAO</div>
+          <div class="col-header" style="width:18%">GIÁ TRỊ</div>
+          <div class="col-header" style="width:12%">THAO TÁC</div>
+        </div>
 
-                <!-- Pricing & Actions -->
-                <div class="col-md-6 text-md-end mt-3 mt-md-0">
-                  <!-- Price Info (if quoted) -->
-                  <div v-if="order.totalPrice" class="mb-3">
-                    <p class="mb-1">
-                      <small class="text-muted">Tổng giá trị:</small><br>
-                      <strong class="fs-5 text-primary">{{ formatCurrency(order.totalPrice) }}</strong>
-                    </p>
-                    <!-- READY_MADE: "Đã thanh toán" label -->
-                    <p v-if="order.orderType === 'READY_MADE'" class="mb-0">
-                      <small class="text-muted">Đã thanh toán:</small><br>
-                      <strong class="text-success">{{ formatCurrency(order.depositAmount) }}</strong>
-                    </p>
-                    <!-- CUSTOM_MANUFACTURING: "Cọc trước 60%" or "Còn lại cần thanh toán" -->
-                    <p v-else class="mb-0">
-                      <small class="text-muted">
-                        {{ order.status === 'AWAITING_REMAINING_PAYMENT' ? 'Còn lại cần thanh toán:' : 'Cọc trước 60%:' }}
-                      </small><br>
-                      <strong :class="order.status === 'AWAITING_REMAINING_PAYMENT' ? 'text-danger' : 'text-success'">
-                        {{ order.status === 'AWAITING_REMAINING_PAYMENT' 
-                           ? formatCurrency(Number(order.totalPrice) - Number(order.depositAmount)) 
-                           : formatCurrency(order.depositAmount) }}
-                      </strong>
-                    </p>
-
-                    <!-- Delivery Date Display -->
-                    <p v-if="order.deliveryDate" class="mb-0 mt-2">
-                      <small class="text-muted">Ngày giao dự kiến:</small><br>
-                      <strong :class="isDeliveryDateOverdue(order.deliveryDate) ? 'text-danger' : 'text-info'">
-                        {{ formatDate(order.deliveryDate) }}
-                        <i v-if="isDeliveryDateOverdue(order.deliveryDate)" class="bi bi-exclamation-circle ms-1"></i>
-                      </strong>
-                    </p>
-
-                    <!-- Full Payment Badge (for CUSTOM_MANUFACTURING when deposit >= total) -->
-                    <div v-if="order.orderType === 'CUSTOM_MANUFACTURING' && order.depositAmount && order.totalPrice && order.depositAmount >= order.totalPrice" class="mt-2">
-                      <span class="badge bg-success">
-                        <i class="bi bi-check-circle me-1"></i>Đã thanh toán toàn bộ
-                      </span>
-                    </div>
-                  </div>
-
-                  <!-- Actions -->
-                  <div class="d-flex gap-2 justify-content-md-end flex-wrap mt-2">
-                    <button @click="openDetailModal(order)" class="btn btn-outline-primary btn-sm">
-                      <i class="bi bi-eye me-1"></i>Xem chi tiết
-                    </button>
-
-                    <button
-                      v-if="canCancelOrder(order)"
-                      @click="cancelOrder(order)"
-                      :disabled="isActionLocked(order, 'cancel')"
-                      class="btn btn-outline-danger btn-sm">
-                      <span v-if="isActionLocked(order, 'cancel')" class="spinner-border spinner-border-sm me-1"></span>
-                      <i v-else class="bi bi-x-circle me-1"></i>
-                      {{ isActionLocked(order, 'cancel') ? 'Đang xử lý' : 'Hủy đơn' }}
-                    </button>
-
-                    <!-- Payment Button - READY_MADE (100% payment) -->
-                    <button 
-                      v-if="order.orderType === 'READY_MADE' && (order.status === 'AWAITING_PAYMENT' || order.status === 'DEPOSITED')" 
-                      @click="openPaymentModal(order)" 
-                      class="btn btn-sm"
-                      :class="order.status === 'DEPOSITED' ? 'btn-outline-success' : 'btn-success'"
-                    >
-                      <i class="bi bi-qr-code me-1"></i>
-                      {{ order.status === 'DEPOSITED' ? 'Đã thanh toán ✔' : 'Thanh toán' }}
-                    </button>
-
-                    <!-- Deposit Payment Button - CUSTOM_MANUFACTURING (60% deposit) -->
-                    <button 
-                      v-else-if="order.orderType === 'CUSTOM_MANUFACTURING' && order.status === 'AWAITING_PAYMENT'" 
-                      @click="openPaymentModal(order)" 
-                      class="btn btn-sm btn-success"
-                    >
-                      <i class="bi bi-qr-code me-1"></i>Thanh toán cọc
-                    </button>
-
-                    <!-- Early Payment Button - CUSTOM_MANUFACTURING (remaining amount) -->
-                    <button 
-                      v-else-if="order.orderType === 'CUSTOM_MANUFACTURING' && (order.status === 'PROCESSING' || order.status === 'AWAITING_REMAINING_PAYMENT') && order.depositAmount && order.totalPrice && order.depositAmount < order.totalPrice" 
-                      @click="openRemainingPaymentModal(order)" 
-                      class="btn btn-sm btn-outline-warning"
-                    >
-                      <i class="bi bi-cash-coin me-1"></i>Thanh toán nốt số dư
-                    </button>
-
-                    <!-- Deposit Status - CUSTOM_MANUFACTURING -->
-                    <button 
-                      v-else-if="order.orderType === 'CUSTOM_MANUFACTURING' && order.status === 'DEPOSITED'" 
-                      @click="openPaymentModal(order)" 
-                      class="btn btn-sm btn-outline-success"
-                    >
-                      <i class="bi bi-check-circle me-1"></i>Đã cọc ✔
-                    </button>
-
-                    <button
-                      v-if="order.status === 'SHIPPING'"
-                      @click="confirmReceivedOrder(order)"
-                      :disabled="isActionLocked(order, 'confirm')"
-                      class="btn btn-sm btn-success"
-                    >
-                      <span v-if="isActionLocked(order, 'confirm')" class="spinner-border spinner-border-sm me-1"></span>
-                      <i v-else class="bi bi-check2-circle me-1"></i>
-                      {{ isActionLocked(order, 'confirm') ? 'Đang cập nhật' : 'Đã nhận được hàng' }}
-                    </button>
-
-                    <button
-                      v-if="order.status === 'SHIPPING'"
-                      @click="openComplaintModal(order)"
-                      :disabled="isActionLocked(order, 'complaint')"
-                      class="btn btn-sm btn-outline-danger"
-                    >
-                      <span v-if="isActionLocked(order, 'complaint')" class="spinner-border spinner-border-sm me-1"></span>
-                      <i v-else class="bi bi-exclamation-triangle me-1"></i>
-                      {{ isActionLocked(order, 'complaint') ? 'Đang mở form' : (hasComplaintForOrder(order.id) ? 'Sửa khiếu nại' : 'Khiếu nại thiếu hàng') }}
-                    </button>
-                  </div>
-                </div>
-              </div>
+        <div
+          v-for="(order, index) in orders"
+          :key="`${order.isTempImport ? 'imp' : 'ord'}-${order.id}`"
+          class="order-table-row slide-up"
+          :style="{ animationDelay: `${index * 0.06}s` }"
+        >
+          <!-- Mã đơn hàng -->
+          <div class="row-cell order-number-cell" style="width:24%">
+            <div class="order-number-text">{{ order.orderNumber }}</div>
+            <div class="order-items-count"><i class="bi bi-box me-1"></i>{{ order.items?.length || 0 }} sản phẩm</div>
+            <div v-if="order.status === 'PENDING_APPROVAL'" class="mini-alert mini-alert-warning mt-1">
+              <i class="bi bi-hourglass-split me-1"></i>Chờ duyệt — sẽ báo giá sau
             </div>
+            <div v-else-if="order.status === 'CANCELLED' && isAdminRejectedOrder(order)" class="mini-alert mini-alert-danger mt-1">
+              <i class="bi bi-shield-x me-1"></i>Admin từ chối<span v-if="order.cancelReason"> — {{ order.cancelReason }}</span>
+            </div>
+            <div v-else-if="order.status === 'CANCELLED' && order.cancelReason" class="mini-alert mini-alert-secondary mt-1">
+              <i class="bi bi-info-circle me-1"></i>{{ order.cancelReason }}
+            </div>
+          </div>
+
+          <!-- Trạng thái -->
+          <div class="row-cell status-cell" style="width:16%">
+            <span :class="getStatusBadgeClass(order.status)" class="status-badge-lg">
+              {{ getStatusText(order.status, order.orderType) }}
+            </span>
+          </div>
+
+          <!-- Ngày đặt -->
+          <div class="row-cell date-cell" style="width:14%">
+            <div class="date-primary">{{ formatDateShort(order.createdAt) }}</div>
+            <div class="date-secondary">{{ formatTime(order.createdAt) }}</div>
+          </div>
+
+          <!-- Ngày giao -->
+          <div class="row-cell delivery-cell" style="width:16%">
+            <template v-if="order.deliveryDate">
+              <div class="delivery-primary" :class="isDeliveryDateOverdue(order.deliveryDate) ? 'text-danger' : 'text-info'">
+                <i class="bi bi-truck me-1"></i>{{ formatDateShort(order.deliveryDate) }}
+                <i v-if="isDeliveryDateOverdue(order.deliveryDate)" class="bi bi-exclamation-circle ms-1"></i>
+              </div>
+              <div class="date-secondary">Dự kiến giao</div>
+            </template>
+            <div v-else class="date-secondary">Chưa cập nhật</div>
+          </div>
+
+          <!-- Giá trị -->
+          <div class="row-cell price-cell" style="width:18%">
+            <div v-if="order.totalPrice">
+              <div class="price-total">{{ formatCurrency(order.totalPrice) }}</div>
+              <div class="price-sub mt-1">
+                <span v-if="order.orderType === 'READY_MADE'">
+                  Đã TT: <strong class="text-success">{{ formatCurrency(order.depositAmount) }}</strong>
+                </span>
+                <span v-else-if="order.status === 'AWAITING_REMAINING_PAYMENT'">
+                  Còn lại: <strong class="text-danger">{{ formatCurrency(Number(order.totalPrice) - Number(order.depositAmount)) }}</strong>
+                </span>
+                <span v-else>
+                  Cọc 60%: <strong class="text-success">{{ formatCurrency(order.depositAmount) }}</strong>
+                </span>
+              </div>
+              <span v-if="order.orderType === 'CUSTOM_MANUFACTURING' && order.depositAmount && order.totalPrice && order.depositAmount >= order.totalPrice" class="badge bg-success mt-1" style="font-size:0.7rem">
+                <i class="bi bi-check-circle me-1"></i>Đã TT toàn bộ
+              </span>
+            </div>
+            <span v-else class="text-muted small">Chưa báo giá</span>
+          </div>
+
+          <!-- Thao tác -->
+          <div class="row-cell action-cell" style="width:12%">
+            <button @click="openDetailModal(order)" class="action-link-btn primary-action">
+              <i class="bi bi-eye me-1"></i>Xem chi tiết
+            </button>
+            <button
+              v-if="canCancelOrder(order)"
+              @click="cancelOrder(order)"
+              :disabled="isActionLocked(order, 'cancel')"
+              class="action-link-btn danger-action mt-1">
+              <span v-if="isActionLocked(order, 'cancel')" class="spinner-border spinner-border-sm me-1"></span>
+              <i v-else class="bi bi-x-circle me-1"></i>
+              {{ isActionLocked(order, 'cancel') ? 'Đang xử lý' : 'Hủy đơn' }}
+            </button>
+            <button
+              v-if="order.orderType === 'READY_MADE' && (order.status === 'AWAITING_PAYMENT' || order.status === 'DEPOSITED')"
+              @click="openPaymentModal(order)"
+              class="action-link-btn success-action mt-1">
+              <i class="bi bi-qr-code me-1"></i>
+              {{ order.status === 'DEPOSITED' ? 'Đã TT ✔' : 'Thanh toán' }}
+            </button>
+            <button
+              v-else-if="order.orderType === 'CUSTOM_MANUFACTURING' && order.status === 'AWAITING_CONTRACT'"
+              @click="openContractModal(order)"
+              class="action-link-btn warning-action mt-1">
+              <i class="bi bi-file-earmark-text me-1"></i>Xem hợp đồng
+            </button>
+            <button
+              v-else-if="order.orderType === 'CUSTOM_MANUFACTURING' && (order.status === 'AWAITING_PAYMENT' || order.status === 'AWAITING_REMAINING_PAYMENT')"
+              @click="openPaymentModal(order)"
+              class="action-link-btn success-action mt-1">
+              <i class="bi bi-qr-code me-1"></i>{{ getCustomerPaymentActionLabel(order) }}
+            </button>
+            <button
+              v-else-if="order.orderType === 'CUSTOM_MANUFACTURING' && order.status === 'DEPOSITED'"
+              @click="openPaymentModal(order)"
+              class="action-link-btn success-action mt-1">
+              <i class="bi bi-check-circle me-1"></i>Đã cọc ✔
+            </button>
+            <button
+              v-if="order.status === 'SHIPPING'"
+              @click="confirmReceivedOrder(order)"
+              :disabled="isActionLocked(order, 'confirm')"
+              class="action-link-btn success-action mt-1">
+              <span v-if="isActionLocked(order, 'confirm')" class="spinner-border spinner-border-sm me-1"></span>
+              <i v-else class="bi bi-check2-circle me-1"></i>
+              {{ isActionLocked(order, 'confirm') ? 'Đang cập nhật' : 'Đã nhận hàng' }}
+            </button>
+            <button
+              v-if="order.status === 'SHIPPING' || order.status === 'COMPLETED'"
+              @click="openComplaintModal(order)"
+              :disabled="isActionLocked(order, 'complaint')"
+              class="action-link-btn danger-action mt-1">
+              <span v-if="isActionLocked(order, 'complaint')" class="spinner-border spinner-border-sm me-1"></span>
+              <i v-else class="bi bi-exclamation-triangle me-1"></i>
+              {{ isActionLocked(order, 'complaint') ? 'Đang mở' : (hasComplaintForOrder(order.id) ? 'Xem khiếu nại' : 'Khiếu nại') }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Pagination -->
+        <div v-if="totalPages > 1" class="table-pagination">
+          <span class="pagination-info">
+            Hiển thị trang {{ currentPage + 1 }} / {{ totalPages }}
+          </span>
+          <div class="pagination-controls">
+            <button class="page-btn" :disabled="currentPage === 0 || isLoading" @click="loadOrders(currentPage - 1)">
+              <i class="bi bi-chevron-left"></i>
+            </button>
+            <button
+              v-for="page in visiblePages"
+              :key="page"
+              class="page-btn"
+              :class="{ active: page - 1 === currentPage, 'ellipsis-btn': page === '...' }"
+              :disabled="page === '...' || isLoading"
+              @click="page !== '...' && loadOrders(page - 1)"
+            >{{ page }}</button>
+            <button class="page-btn" :disabled="currentPage >= totalPages - 1 || isLoading" @click="loadOrders(currentPage + 1)">
+              <i class="bi bi-chevron-right"></i>
+            </button>
           </div>
         </div>
       </div>
-
-      <!-- Pagination -->
-      <nav v-if="totalPages > 1" class="mt-4">
-        <ul class="pagination justify-content-center">
-          <li class="page-item" :class="{ disabled: currentPage === 0 }">
-            <button class="page-link" :disabled="currentPage === 0 || isLoading" @click="loadOrders(currentPage - 1)">Trước</button>
-          </li>
-          <li 
-            v-for="page in totalPages" 
-            :key="page" 
-            class="page-item" 
-            :class="{ active: page - 1 === currentPage }">
-            <button class="page-link" :disabled="isLoading" @click="loadOrders(page - 1)">{{ page }}</button>
-          </li>
-          <li class="page-item" :class="{ disabled: currentPage >= totalPages - 1 }">
-            <button class="page-link" :disabled="currentPage >= totalPages - 1 || isLoading" @click="loadOrders(currentPage + 1)">Sau</button>
-          </li>
-        </ul>
-      </nav>
     </div>
+  </div>
 
-    <!-- Detail Modal - Teleported to body to fix backdrop z-index -->
-    <Teleport to="body">
-    <div class="modal fade" id="detailModal" tabindex="-1" ref="detailModalRef">
-      <div class="modal-dialog modal-xl modal-dialog-scrollable">
-        <div class="modal-content" v-if="selectedOrder">
-          <div class="modal-header">
-            <h5 class="modal-title">
-              <i class="bi bi-file-earmark-text me-2"></i>
-              Chi tiết đơn hàng — {{ selectedOrder.orderNumber }}
-            </h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-          </div>
-          <div class="modal-body">
-            <!-- Order Info -->
-            <div class="row mb-3 pb-3 border-bottom">
+  <!-- Detail Modal -->
+  <Teleport to="body">
+  <div class="modal fade" id="detailModal" tabindex="-1" ref="detailModalRef">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content" v-if="selectedOrder">
+        <div class="modal-header">
+          <h5 class="modal-title">
+            <i class="bi bi-file-earmark-text me-2"></i>
+            Chi tiết đơn hàng — {{ selectedOrder.orderNumber }}
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="order-summary-card mb-3">
+            <div class="row g-3">
               <div class="col-md-4">
-                <p class="mb-1"><strong>Trạng thái:</strong> 
-                  <span :class="getStatusBadgeClass(selectedOrder.status)">{{ getStatusText(selectedOrder.status) }}</span>
+                <p class="mb-1"><strong>Trạng thái:</strong>
+                  <span :class="getStatusBadgeClass(selectedOrder.status)">{{ getStatusText(selectedOrder.status, selectedOrder.orderType) }}</span>
                 </p>
                 <p class="mb-1"><strong>Ngày tạo:</strong> {{ formatDate(selectedOrder.createdAt) }}</p>
+                <p class="mb-0"><strong>Ngày giao:</strong>
+                  <span v-if="selectedOrder.deliveryDate" :class="isDeliveryDateOverdue(selectedOrder.deliveryDate) ? 'text-danger fw-semibold' : 'text-info fw-semibold'">
+                    {{ formatDateShort(selectedOrder.deliveryDate) }}
+                    <i v-if="isDeliveryDateOverdue(selectedOrder.deliveryDate)" class="bi bi-exclamation-circle ms-1"></i>
+                  </span>
+                  <span v-else class="text-muted">Chưa cập nhật</span>
+                </p>
               </div>
               <div class="col-md-4">
                 <p class="mb-1" v-if="selectedOrder.totalPrice">
-                  <strong>Tổng giá trị:</strong> 
+                  <strong>Tổng giá trị:</strong>
                   <span class="text-primary fw-bold">{{ formatCurrency(selectedOrder.totalPrice) }}</span>
                 </p>
-                <p class="mb-1" v-if="selectedOrder.depositAmount">
+                <p class="mb-0" v-if="selectedOrder.depositAmount">
                   <strong>{{ selectedOrder.status === 'AWAITING_REMAINING_PAYMENT' ? 'Còn lại cần TT:' : 'Cọc trước:' }}</strong>
                   <span :class="selectedOrder.status === 'AWAITING_REMAINING_PAYMENT' ? 'text-danger fw-bold' : 'text-success fw-bold'">
-                    {{ selectedOrder.status === 'AWAITING_REMAINING_PAYMENT' 
-                       ? formatCurrency(Number(selectedOrder.totalPrice) - Number(selectedOrder.depositAmount)) 
+                    {{ selectedOrder.status === 'AWAITING_REMAINING_PAYMENT'
+                       ? formatCurrency(Number(selectedOrder.totalPrice) - Number(selectedOrder.depositAmount))
                        : formatCurrency(selectedOrder.depositAmount) }}
                   </span>
                 </p>
               </div>
               <div class="col-md-4">
-                <p class="mb-1"><strong>Số sản phẩm:</strong> {{ selectedOrder.items?.length || 0 }}</p>
-              </div>
-            </div>
-
-            <div v-if="selectedOrder.status === 'PENDING_APPROVAL'" class="alert alert-warning py-2 px-3 small mb-3 pending-approval-banner">
-              <i class="bi bi-hourglass-split me-1"></i>
-              Đơn đang chờ admin duyệt. Bạn có thể theo dõi trạng thái tại đây.
-            </div>
-            <div
-              v-if="selectedOrder.status === 'CANCELLED' && isAdminRejectedOrder(selectedOrder)"
-              class="alert alert-danger py-2 px-3 small mb-3"
-            >
-              <i class="bi bi-shield-x me-1"></i>
-              Đơn bị admin từ chối.
-              <span v-if="selectedOrder.cancelReason">Lý do: {{ selectedOrder.cancelReason }}</span>
-            </div>
-            <div
-              v-else-if="selectedOrder.status === 'CANCELLED' && selectedOrder.cancelReason"
-              class="alert alert-secondary py-2 px-3 small mb-3"
-            >
-              <i class="bi bi-info-circle me-1"></i>
-              Lý do hủy: {{ selectedOrder.cancelReason }}
-            </div>
-
-            <div class="mb-3">
-              <h6 class="mb-2">Lịch sử đơn hàng</h6>
-              <div v-if="isLoadingOrderHistory" class="small text-muted">
-                <span class="spinner-border spinner-border-sm me-2"></span>
-                Đang tải lịch sử đơn hàng...
-              </div>
-              <div v-else-if="orderHistoryEvents.length === 0" class="small text-muted border rounded py-2 px-3 bg-light">
-                Chưa có bản ghi lịch sử cho đơn hàng này.
-              </div>
-              <div v-else class="order-history-list">
-                <div
-                  v-for="event in orderHistoryEvents"
-                  :key="`history-${event.id}`"
-                  class="order-history-item"
-                >
-                  <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
-                    <div class="fw-semibold small">{{ getHistoryEventTitle(event) }}</div>
-                    <small class="text-muted">{{ formatDate(event.createdAt) }}</small>
-                  </div>
-                  <div class="small text-muted">
-                    Người thao tác: {{ getHistoryActorText(event) }}
-                    <span v-if="event.revisionNo"> • Revision dữ liệu #{{ event.revisionNo }}</span>
-                    <span v-if="getCancelSequence(event) !== null"> • Lần hủy #{{ getCancelSequence(event) }}</span>
-                  </div>
-                  <div v-if="event.note" class="small mt-1">{{ getHistoryNoteText(event) }}</div>
-                </div>
-              </div>
-              <div v-if="orderRevisionSummaries.length > 0" class="small text-muted mt-2">
-                Tổng số lần cập nhật dữ liệu: {{ orderRevisionSummaries.length }} revision.
-              </div>
-              <div class="small text-muted mt-1">
-                Tổng số lần hủy: {{ totalCancelAttempts }}.
-              </div>
-            </div>
-
-            <!-- Items Table - scrollable, same format as admin -->
-            <h6 class="mb-3 mt-2">Danh sách vật tư ({{ selectedOrder.items?.length || 0 }} items)</h6>
-            <div class="table-responsive" style="max-height: 450px; overflow-y: auto;">
-              <table class="table table-bordered table-sm table-hover align-middle mb-0 animated-table uniform-table" style="font-size: 0.85rem; table-layout: fixed; width: 100%;">
-                <thead class="table-light" style="position: sticky; top: 0; z-index: 1;">
-                  <tr>
-                    <th class="text-center cell-uniform" style="width: 4%">STT</th>
-                    <th class="cell-uniform" style="width: 14%">VNN_NO</th>
-                    <th class="cell-uniform" style="width: 10%">Item Code<br><small class="text-muted fw-normal">品目コード</small></th>
-                    <th class="cell-uniform" style="width: 10%">Drawing No.<br><small class="text-muted fw-normal">図番</small></th>
-                    <th class="cell-uniform" style="width: 18%">Parts Name<br><small class="text-muted fw-normal">品名</small></th>
-                    <th class="cell-uniform" style="width: 14%">Spec<br><small class="text-muted fw-normal">型式</small></th>
-                    <th class="cell-uniform" style="width: 8%">Material<br><small class="text-muted fw-normal">材質</small></th>
-                    <th class="text-center cell-uniform" style="width: 5%">QTY</th>
-                    <th class="text-end cell-uniform" style="width: 9%">Đơn giá<br><small class="text-muted fw-normal">VNĐ</small></th>
-                    <th class="text-end cell-uniform" style="width: 9%">Thành tiền<br><small class="text-muted fw-normal">VNĐ</small></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="(item, index) in selectedOrder.items" :key="item.id">
-                    <td class="text-center cell-uniform">{{ index + 1 }}</td>
-                    <td class="cell-uniform cell-truncate">{{ item.unit || '—' }}</td>
-                    <td class="cell-uniform cell-truncate">{{ item.itemCode || '—' }}</td>
-                    <td class="cell-uniform cell-truncate">{{ item.drawingNumber || '—' }}</td>
-                    <td class="cell-uniform cell-truncate">{{ item.itemName || '—' }}</td>
-                    <td class="cell-uniform cell-truncate">{{ item.specification || '—' }}</td>
-                    <td class="cell-uniform cell-truncate">{{ item.material || '—' }}</td>
-                    <td class="text-center fw-bold cell-uniform">{{ item.quantity }}</td>
-                    <td class="text-end cell-uniform">
-                      <span v-if="item.unitPrice">{{ formatNumber(item.unitPrice) }}</span>
-                      <span v-else class="text-muted">—</span>
-                    </td>
-                    <td class="text-end cell-uniform">
-                      <span v-if="item.totalItemPrice" class="fw-bold">{{ formatNumber(item.totalItemPrice) }}</span>
-                      <span v-else class="text-muted">—</span>
-                    </td>
-                  </tr>
-                </tbody>
-                <tfoot v-if="selectedOrder.totalPrice">
-                  <tr class="table-light">
-                    <td colspan="9" class="text-end fw-bold py-2">Tổng giá trị đơn hàng:</td>
-                    <td class="text-end fw-bold py-2 text-primary fs-6">{{ formatNumber(selectedOrder.totalPrice) }}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-
-            <!-- Review Status Summary (if items have been reviewed) -->
-            <div v-if="hasReviewedItems" class="mt-3">
-              <h6 class="mb-2">Trạng thái review</h6>
-              <div class="d-flex gap-2 flex-wrap">
-                <span class="badge bg-success">Đã duyệt: {{ reviewCounts.approved }}</span>
-                <span v-if="reviewCounts.rejected > 0" class="badge bg-danger">Từ chối: {{ reviewCounts.rejected }}</span>
-                <span v-if="reviewCounts.discussion > 0" class="badge bg-warning text-dark">Cần trao đổi: {{ reviewCounts.discussion }}</span>
-                <span v-if="reviewCounts.pending > 0" class="badge bg-secondary">Chờ review: {{ reviewCounts.pending }}</span>
-              </div>
-              <!-- Rejected/Discussion notes visible to customer -->
-              <div v-for="item in selectedOrder.items" :key="'note-' + item.id" class="mt-1">
-                <div v-if="item.adminNote && (item.reviewStatus === 'REJECTED' || item.reviewStatus === 'NEED_DISCUSSION')" 
-                  class="alert py-1 px-2 mb-1"
-                  :class="item.reviewStatus === 'REJECTED' ? 'alert-danger' : 'alert-warning'"
-                  style="font-size: 0.8rem">
-                  <strong>{{ item.itemName }}:</strong> {{ item.adminNote }}
-                </div>
+                <p class="mb-0"><strong>Số sản phẩm:</strong> {{ selectedOrder.items?.length || 0 }}</p>
               </div>
             </div>
           </div>
 
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
-            <button
-              v-if="canCancelOrder(selectedOrder)"
-              @click="cancelOrder(selectedOrder)"
-              :disabled="isActionLocked(selectedOrder, 'cancel')"
-              class="btn btn-outline-danger">
-              <span v-if="isActionLocked(selectedOrder, 'cancel')" class="spinner-border spinner-border-sm me-1"></span>
-              <i v-else class="bi bi-x-circle me-1"></i>
-              {{ isActionLocked(selectedOrder, 'cancel') ? 'Đang xử lý' : 'Hủy đơn hàng' }}
+          <div v-if="selectedOrder.status === 'PENDING_APPROVAL'" class="alert alert-warning py-2 px-3 small mb-3 pending-approval-banner alert-fit-content">
+            <i class="bi bi-hourglass-split me-1"></i>Đơn đang chờ admin duyệt.
+          </div>
+          <div v-if="selectedOrder.orderType === 'CUSTOM_MANUFACTURING' && selectedOrder.status === 'AWAITING_CONTRACT'" class="alert alert-info py-2 px-3 small mb-3 alert-fit-content">
+            <i class="bi bi-file-earmark-text me-1"></i>Báo giá đã được gửi. Vui lòng xem và xác nhận hợp đồng để kích hoạt thanh toán mốc 1.
+          </div>
+
+          <div v-if="selectedOrder.orderType === 'CUSTOM_MANUFACTURING' && selectedOrderMilestones.length" class="contract-overview-wrap mb-3">
+            <div class="contract-overview-card">
+              <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                <h6 class="m-0 fw-bold text-dark">Tiến độ hợp đồng & mốc thanh toán</h6>
+                <span v-if="selectedOrderContract" class="badge rounded-pill" :class="getContractStatusClass(selectedOrderContract.status)">
+                  Hợp đồng: {{ getContractStatusText(selectedOrderContract.status) }}
+                </span>
+              </div>
+
+              <div class="milestone-mini-list">
+                <div v-for="milestone in selectedOrderMilestones" :key="`milestone-mini-${milestone.id}`" class="milestone-mini-item">
+                  <div class="d-flex justify-content-between align-items-center gap-2">
+                    <strong class="small">Mốc {{ milestone.milestoneOrder }} - {{ milestone.milestoneName }}</strong>
+                    <span class="badge" :class="getMilestoneBadgeClass(milestone.status)">{{ getMilestoneStatusText(milestone.status) }}</span>
+                  </div>
+                  <div class="small text-muted mt-1">
+                    {{ formatCurrency(milestone.amount) }}
+                    <span v-if="milestone.dueDate" class="ms-2">Hạn: {{ formatDateShort(milestone.dueDate) }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                v-if="selectedOrder.status === 'AWAITING_CONTRACT'"
+                class="btn btn-sm btn-outline-warning mt-3"
+                @click="openContractModal(selectedOrder)">
+                <i class="bi bi-file-earmark-text me-1"></i>Mở hợp đồng để xác nhận
+              </button>
+            </div>
+          </div>
+
+          <div class="modal-section-tabs mb-3" role="tablist">
+            <button type="button" role="tab" class="modal-tab-btn" :class="{ 'modal-tab-active': activeCustomerDetailTab === 'history' }" @click="activeCustomerDetailTab = 'history'">
+              <i class="bi bi-clock-history me-1"></i>Lịch sử đơn hàng
+              <span class="badge rounded-pill text-bg-light ms-2">{{ sortedOrderHistoryEvents.length }}</span>
             </button>
-            <button 
-              v-if="selectedOrder.status === 'AWAITING_PAYMENT' || selectedOrder.status === 'DEPOSITED'" 
-              @click="openPaymentModal(selectedOrder); bsModal?.hide()" 
-              class="btn"
-              :class="selectedOrder.status === 'DEPOSITED' ? 'btn-outline-success' : 'btn-success'"
-            >
-              <i class="bi bi-qr-code me-1"></i>
-              {{ selectedOrder.status === 'DEPOSITED' ? 'Xem trạng thái thanh toán' : 'Thanh toán cọc 60%' }}
+            <button type="button" role="tab" class="modal-tab-btn" :class="{ 'modal-tab-active': activeCustomerDetailTab === 'materials' }" @click="activeCustomerDetailTab = 'materials'">
+              <i class="bi bi-grid-1x2 me-1"></i>Chi tiết vật tư & Báo giá
+              <span class="badge rounded-pill text-bg-light ms-2">{{ selectedOrder.items?.length || 0 }}</span>
             </button>
+          </div>
+
+          <transition name="modal-tab-fade" mode="out-in">
+            <div v-if="activeCustomerDetailTab === 'history'" id="customer-history-panel" key="customer-history" class="tab-panel tab-panel-history" role="tabpanel">
+              <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                <h6 class="fw-bold m-0">Nhật ký xử lý đơn hàng</h6>
+                <div class="small text-muted d-flex flex-wrap gap-3">
+                  <span>Tổng revision: {{ orderRevisionSummaries.length }}</span>
+                  <span>Tổng số lần hủy: {{ totalCancelAttempts }}</span>
+                </div>
+              </div>
+              <div v-if="isLoadingOrderHistory" class="history-empty-state">
+                <span class="spinner-border spinner-border-sm me-2"></span>Đang tải lịch sử...
+              </div>
+              <div v-else-if="sortedOrderHistoryEvents.length === 0" class="history-empty-state">
+                Chưa có bản ghi lịch sử cho đơn hàng này.
+              </div>
+              <div v-else class="order-history-list history-timeline">
+                <div v-for="event in sortedOrderHistoryEvents" :key="`history-${event.id}`" class="order-history-item">
+                  <div class="history-bullet"></div>
+                  <div class="history-content">
+                    <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
+                      <div class="fw-semibold small">{{ getHistoryEventTitle(event) }}</div>
+                      <small class="text-muted">{{ formatDate(event.createdAt) }}</small>
+                    </div>
+                    <div class="small text-muted">
+                      Người thao tác: {{ getHistoryActorText(event) }}
+                      <span v-if="event.revisionNo"> • Revision #{{ event.revisionNo }}</span>
+                      <span v-if="getCancelSequence(event) !== null"> • Lần hủy #{{ getCancelSequence(event) }}</span>
+                    </div>
+                    <div v-if="event.note" class="small mt-1 fw-medium">{{ getHistoryNoteText(event) }}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div v-else id="customer-materials-panel" key="customer-materials" class="tab-panel tab-panel-materials" role="tabpanel">
+              <div class="d-flex justify-content-between align-items-end mb-3">
+                <div>
+                  <p class="small text-muted fw-medium mb-1"><i class="bi bi-arrows-move me-1"></i>Cuộn ngang để xem đầy đủ các cột dữ liệu.</p>
+                  <p class="mb-0 text-muted small fw-bold text-uppercase">Tiến trình review: <span class="badge bg-warning text-dark ms-1">{{ getReviewProgress(selectedOrder) }}</span></p>
+                </div>
+                <div v-if="selectedOrder?.status !== 'PENDING_APPROVAL'" class="btn-group bg-white border p-1 rounded-pill shadow-sm">
+                  <button class="btn btn-sm rounded-pill fw-bold" :class="materialsDensity === 'comfortable' ? 'btn-navy' : 'btn-light text-muted'" @click="materialsDensity = 'comfortable'">Rộng rãi</button>
+                  <button class="btn btn-sm rounded-pill fw-bold" :class="materialsDensity === 'compact' ? 'btn-navy' : 'btn-light text-muted'" @click="materialsDensity = 'compact'">Thu gọn</button>
+                </div>
+              </div>
+
+              <div class="card border-0 shadow-sm rounded-4 overflow-hidden bg-white">
+                <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                  <table class="table table-bordered align-middle mb-0 review-table" :class="materialsDensity === 'compact' ? 'table-sm review-table-compact' : 'review-table-comfortable'">
+                    <thead class="table-light sticky-top" style="z-index: 1;">
+                      <tr class="text-center small text-muted text-uppercase fw-bold">
+                        <th style="width: 50px;">STT</th>
+                        <th style="min-width: 120px;">VNN_NO</th>
+                        <th style="min-width: 95px;">Item Code</th>
+                        <th style="min-width: 105px;">Bản vẽ</th>
+                        <th style="min-width: 180px;">Tên linh kiện</th>
+                        <th style="min-width: 140px;">Spec</th>
+                        <th style="min-width: 95px;">Vật liệu</th>
+                        <th style="width: 65px;">SL</th>
+                        <th style="min-width: 105px;">Ngày xuất</th>
+                        <th style="min-width: 95px;">Review</th>
+                        <th class="text-end" style="min-width: 130px;">Đơn giá</th>
+                        <th class="text-end" style="min-width: 130px;">Thành tiền</th>
+                      </tr>
+                    </thead>
+                    <tbody class="text-center bg-white">
+                      <tr v-for="(item, index) in selectedOrder.items" :key="item.id" :class="getItemRowClass(item)">
+                        <td class="fw-bold text-muted">{{ index + 1 }}</td>
+                        <td class="small">{{ item.unit || '—' }}</td>
+                        <td class="small text-secondary fw-bold">{{ item.itemCode || '—' }}</td>
+                        <td class="font-monospace text-primary fw-bold small">{{ item.drawingNumber || '—' }}</td>
+                        <td class="text-start fw-bold text-dark">
+                          <div class="d-flex align-items-center justify-content-between gap-2">
+                            <span class="cell-truncate flex-grow-1">{{ item.itemName || '—' }}</span>
+                            <button type="button" class="btn btn-outline-secondary btn-sm item-note-btn" :disabled="selectedOrder.isTempImport" @click="openCustomerItemNoteModal(item)">
+                              <i class="bi bi-chat-left-text"></i>
+                            </button>
+                          </div>
+                        </td>
+                        <td class="text-start small text-secondary">{{ item.specification || '—' }}</td>
+                        <td class="small">{{ item.material || '—' }}</td>
+                        <td><span class="badge bg-light text-dark border px-2 py-1">{{ item.quantity }}</span></td>
+                        <td>
+                          <span v-if="item.deliveryDate" class="badge bg-info-subtle text-info border border-info border-opacity-25">{{ formatDateShort(item.deliveryDate) }}</span>
+                          <span v-else class="text-muted">—</span>
+                        </td>
+                        <td>
+                          <span class="badge rounded-pill" :class="getReviewBadgeClass(item.reviewStatus)" style="font-size: 0.7rem">{{ getReviewStatusText(item.reviewStatus) }}</span>
+                        </td>
+                        <td class="text-end fw-semibold">
+                          <span v-if="item.unitPrice">{{ formatNumber(item.unitPrice) }}</span>
+                          <span v-else class="text-muted">—</span>
+                        </td>
+                        <td class="text-end fw-semibold">
+                          <span v-if="item.totalItemPrice" class="fw-bold">{{ formatNumber(item.totalItemPrice) }}</span>
+                          <span v-else class="text-muted">—</span>
+                        </td>
+                      </tr>
+                    </tbody>
+                    <tfoot v-if="selectedOrder.totalPrice">
+                      <tr class="table-light">
+                        <td colspan="11" class="text-end fw-bold py-2">Tổng giá trị đơn hàng:</td>
+                        <td class="text-end fw-bold py-2 text-primary fs-6">{{ formatNumber(selectedOrder.totalPrice) }}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+              <div v-if="hasReviewedItems" class="mt-3">
+                <h6 class="mb-2">Trạng thái review</h6>
+                <div class="d-flex gap-2 flex-wrap">
+                  <span class="badge bg-success">Đã duyệt: {{ reviewCounts.approved }}</span>
+                  <span v-if="reviewCounts.rejected > 0" class="badge bg-danger">Từ chối: {{ reviewCounts.rejected }}</span>
+                  <span v-if="reviewCounts.discussion > 0" class="badge bg-warning text-dark">Cần trao đổi: {{ reviewCounts.discussion }}</span>
+                  <span v-if="reviewCounts.pending > 0" class="badge bg-secondary">Chờ review: {{ reviewCounts.pending }}</span>
+                </div>
+                <div class="d-flex flex-wrap gap-2 mt-2">
+                  <button v-for="item in selectedOrder.items" :key="'note-' + item.id" v-show="item.adminNote && (item.reviewStatus === 'REJECTED' || item.reviewStatus === 'NEED_DISCUSSION')" type="button" class="btn btn-outline-warning btn-sm note-quick-btn" @click="openCustomerItemNoteModal(item)">
+                    <i class="bi bi-chat-left-text me-1"></i>{{ item.itemName || 'Sản phẩm' }}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </transition>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+          <button v-if="canCancelOrder(selectedOrder)" @click="cancelOrder(selectedOrder)" :disabled="isActionLocked(selectedOrder, 'cancel')" class="btn btn-outline-danger">
+            <span v-if="isActionLocked(selectedOrder, 'cancel')" class="spinner-border spinner-border-sm me-1"></span>
+            <i v-else class="bi bi-x-circle me-1"></i>
+            {{ isActionLocked(selectedOrder, 'cancel') ? 'Đang xử lý' : 'Hủy đơn hàng' }}
+          </button>
+          <button
+            v-if="selectedOrder.orderType === 'CUSTOM_MANUFACTURING' && selectedOrder.status === 'AWAITING_CONTRACT'"
+            @click="openContractModal(selectedOrder); bsModal?.hide()"
+            class="btn btn-warning text-dark">
+            <i class="bi bi-file-earmark-text me-1"></i>Xem hợp đồng
+          </button>
+          <button
+            v-else-if="selectedOrder.orderType === 'READY_MADE' && (selectedOrder.status === 'AWAITING_PAYMENT' || selectedOrder.status === 'DEPOSITED')"
+            @click="openPaymentModal(selectedOrder); bsModal?.hide()"
+            class="btn"
+            :class="selectedOrder.status === 'DEPOSITED' ? 'btn-outline-success' : 'btn-success'">
+            <i class="bi bi-qr-code me-1"></i>
+            {{ selectedOrder.status === 'DEPOSITED' ? 'Xem trạng thái thanh toán' : 'Thanh toán' }}
+          </button>
+          <button
+            v-else-if="selectedOrder.orderType === 'CUSTOM_MANUFACTURING' && (selectedOrder.status === 'AWAITING_PAYMENT' || selectedOrder.status === 'AWAITING_REMAINING_PAYMENT' || selectedOrder.status === 'DEPOSITED')"
+            @click="openPaymentModal(selectedOrder); bsModal?.hide()"
+            class="btn"
+            :class="selectedOrder.status === 'DEPOSITED' ? 'btn-outline-success' : 'btn-success'">
+            <i class="bi bi-qr-code me-1"></i>
+            {{ getCustomerPaymentActionLabel(selectedOrder) }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  </Teleport>
+
+  <!-- Payment QR Modal -->
+  <Teleport to="body">
+    <div class="modal fade" id="paymentQrModal" tabindex="-1" ref="paymentModalRef">
+      <div class="modal-dialog modal-dialog-centered" style="max-width: 520px;">
+        <div class="modal-content border-0 shadow-lg">
+          <div class="modal-header bg-primary text-white">
+            <h5 class="modal-title"><i class="bi bi-wallet2 me-2"></i>Thanh toán đơn hàng</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body p-0" v-if="selectedPaymentOrderId">
+            <PaymentQR
+              :order-id="selectedPaymentOrderId"
+              :order-type="activeOrderType"
+              @payment-confirmed="onPaymentConfirmed"
+            />
           </div>
         </div>
       </div>
     </div>
-    </Teleport>
+  </Teleport>
 
-    <!-- ===== Payment QR Modal ===== -->
-    <Teleport to="body">
-      <div class="modal fade" id="paymentQrModal" tabindex="-1" ref="paymentModalRef">
-        <div class="modal-dialog modal-dialog-centered" style="max-width: 520px;">
-          <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-primary text-white">
-              <h5 class="modal-title">
-                <i class="bi bi-wallet2 me-2"></i>Thanh toán đặt cọc
-              </h5>
-              <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body p-0" v-if="selectedPaymentOrderId">
-              <PaymentQR
-                :order-id="selectedPaymentOrderId"
-                @payment-confirmed="onPaymentConfirmed"
-              />
-            </div>
+  <!-- Contract Modal -->
+  <Teleport to="body">
+    <div class="modal fade" id="contractModal" tabindex="-1" ref="contractModalRef">
+      <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg">
+          <div class="modal-header bg-warning-subtle">
+            <h5 class="modal-title">
+              <i class="bi bi-file-earmark-text me-2"></i>
+              Hợp đồng đơn {{ selectedContractOrder?.orderNumber }}
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
-        </div>
-      </div>
-    </Teleport>
 
-    <!-- ===== Complaint Modal ===== -->
-    <Teleport to="body">
-      <div class="modal fade" id="complaintModal" tabindex="-1" ref="complaintModalRef">
-        <div class="modal-dialog modal-lg modal-dialog-scrollable">
-          <div class="modal-content border-0 shadow-lg" v-if="complaintOrder">
-            <div class="modal-header bg-danger text-white">
-              <h5 class="modal-title">
-                <i class="bi bi-exclamation-octagon me-2"></i>
-                {{ hasComplaintForOrder(complaintOrder.id) ? 'Sửa khiếu nại thiếu hàng' : 'Khiếu nại thiếu hàng' }}
-              </h5>
-              <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          <div class="modal-body">
+            <div v-if="contractLoading" class="text-center py-4">
+              <span class="spinner-border spinner-border-sm me-2"></span>Đang tải hợp đồng...
             </div>
 
-            <div class="modal-body">
-              <div class="alert alert-warning py-2 small mb-3">
-                <i class="bi bi-info-circle me-1"></i>
-                Bạn chỉ có thể gửi khiếu nại khi đơn đang ở trạng thái ĐANG GIAO.
+            <template v-else-if="selectedContract">
+              <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+                <div>
+                  <div class="small text-muted">Số hợp đồng</div>
+                  <strong>{{ selectedContract.contractNumber || '—' }}</strong>
+                </div>
+                <span class="badge rounded-pill" :class="getContractStatusClass(selectedContract.status)">
+                  {{ getContractStatusText(selectedContract.status) }}
+                </span>
               </div>
 
-              <div v-if="complaintDraftRestoredAt" class="alert alert-info py-2 small mb-3">
-                <i class="bi bi-clock-history me-1"></i>
-                Đã khôi phục bản nháp lưu lúc {{ formatDate(complaintDraftRestoredAt) }}.
+              <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                  <div class="border rounded p-3 h-100">
+                    <div class="small text-muted fw-semibold mb-2">Bên cung cấp</div>
+                    <div class="small"><strong>{{ selectedContract.supplierInfo?.companyName || '—' }}</strong></div>
+                    <div class="small">MST: {{ selectedContract.supplierInfo?.taxCode || '—' }}</div>
+                    <div class="small">Địa chỉ: {{ selectedContract.supplierInfo?.address || '—' }}</div>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="border rounded p-3 h-100">
+                    <div class="small text-muted fw-semibold mb-2">Bên mua</div>
+                    <div class="small"><strong>{{ selectedContract.buyerInfo?.companyName || '—' }}</strong></div>
+                    <div class="small">MST: {{ selectedContract.buyerInfo?.taxCode || '—' }}</div>
+                    <div class="small">Địa chỉ: {{ selectedContract.buyerInfo?.address || '—' }}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                  <div class="border rounded p-3 h-100 bg-light-subtle">
+                    <div class="small text-muted fw-semibold mb-2">Ngày đặt hàng</div>
+                    <div class="small fw-semibold text-dark">{{ selectedContract.orderInfo?.orderDate ? formatDateShort(selectedContract.orderInfo.orderDate) : '—' }}</div>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="border rounded p-3 h-100 bg-light-subtle">
+                    <div class="small text-muted fw-semibold mb-2">Ngày nhận hàng dự kiến</div>
+                    <div class="small fw-semibold text-dark">{{ selectedContract.orderInfo?.deliveryDate ? formatDateShort(selectedContract.orderInfo.deliveryDate) : '—' }}</div>
+                  </div>
+                </div>
               </div>
 
               <div class="mb-3">
-                <label class="form-label fw-semibold">Mô tả khiếu nại</label>
-                <textarea
-                  v-model="complaintDescription"
-                  class="form-control"
-                  rows="3"
-                  placeholder="Ví dụ: Thiếu 2 sản phẩm mã XYZ trong kiện hàng..."
-                ></textarea>
-              </div>
-
-              <div class="mb-3">
-                <label class="form-label fw-semibold">Chi tiết số lượng thiếu theo từng sản phẩm</label>
-                <div class="table-responsive border rounded">
-                  <table class="table table-sm mb-0 align-middle">
+                <div class="small text-muted fw-semibold mb-2">Mốc thanh toán</div>
+                <div class="border rounded overflow-hidden">
+                  <table class="table table-sm mb-0">
                     <thead class="table-light">
                       <tr>
-                        <th>Sản phẩm</th>
-                        <th class="text-center" style="width: 120px;">Đặt</th>
-                        <th style="width: 180px;">Thiếu</th>
+                        <th>Mốc</th>
+                        <th class="text-end">Tỉ lệ</th>
+                        <th class="text-end">Số tiền</th>
+                        <th class="text-center">Trạng thái</th>
                       </tr>
                     </thead>
                     <tbody>
-                      <tr v-for="item in complaintOrder.items || []" :key="`complaint-item-${item.id}`">
-                        <td>
-                          <div class="fw-semibold">{{ item.itemName || item.itemCode || 'Sản phẩm' }}</div>
-                          <small class="text-muted">{{ item.itemCode || '---' }}</small>
-                        </td>
-                        <td class="text-center">{{ item.quantity || 0 }}</td>
-                        <td>
-                          <input
-                            v-model.number="complaintMissingByItem[item.id]"
-                            type="number"
-                            min="0"
-                            :max="item.quantity || 0"
-                            class="form-control form-control-sm"
-                          />
+                      <tr v-for="milestone in selectedContract.milestones || []" :key="`contract-ms-${milestone.milestoneOrder}`">
+                        <td>{{ milestone.milestoneName }}</td>
+                        <td class="text-end">{{ milestone.percentage }}%</td>
+                        <td class="text-end fw-semibold">{{ formatCurrency(milestone.amount) }}</td>
+                        <td class="text-center">
+                          <span class="badge" :class="getMilestoneBadgeClass(milestone.status)">{{ getMilestoneStatusText(milestone.status) }}</span>
                         </td>
                       </tr>
                     </tbody>
@@ -553,77 +611,194 @@
               </div>
 
               <div class="mb-3">
-                <label class="form-label fw-semibold">Ảnh minh chứng</label>
+                <div class="small text-muted fw-semibold mb-2">Điều khoản chất lượng</div>
+                <ul class="small mb-0 ps-3">
+                  <li v-for="(term, idx) in selectedContract.qualityTerms || []" :key="`quality-term-${idx}`">{{ term }}</li>
+                </ul>
+              </div>
 
-                <div v-if="complaintExistingImages.length > 0" class="mb-2">
-                  <div class="small fw-semibold mb-1">Ảnh đã lưu</div>
-                  <div class="d-flex flex-wrap gap-2">
-                    <div
-                      v-for="img in complaintExistingImages"
-                      :key="`existing-img-${img.id}`"
-                      class="complaint-image-tag"
-                      :class="{ removed: complaintRemovedImageIds.includes(img.id) }"
-                    >
-                      <span>{{ img.originalFilename || `Ảnh #${img.id}` }}</span>
-                      <button
-                        type="button"
-                        class="btn btn-sm btn-link text-danger p-0"
-                        @click="toggleKeepExistingComplaintImage(img.id)"
-                      >
-                        {{ complaintRemovedImageIds.includes(img.id) ? 'Giữ lại' : 'Bỏ ảnh' }}
-                      </button>
-                    </div>
+              <div class="mb-1">
+                <div class="small text-muted fw-semibold mb-2">Điều khoản hủy</div>
+                <ul class="small mb-0 ps-3">
+                  <li v-for="(term, idx) in selectedContract.cancelTerms || []" :key="`cancel-term-${idx}`">{{ term }}</li>
+                </ul>
+              </div>
+
+              <div v-if="selectedContract.extraNotes" class="alert alert-light border mt-3 mb-0 small">
+                <strong>Ghi chú bổ sung:</strong> {{ selectedContract.extraNotes }}
+              </div>
+            </template>
+
+            <div v-else class="alert alert-danger mb-0">Không tìm thấy thông tin hợp đồng.</div>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+            <button
+              v-if="selectedContract?.status === 'PENDING_CONFIRMATION'"
+              type="button"
+              class="btn btn-outline-danger"
+              :disabled="contractSubmitting"
+              @click="rejectSelectedContract">
+              <span v-if="contractSubmitting" class="spinner-border spinner-border-sm me-1"></span>
+              <i v-else class="bi bi-x-circle me-1"></i>Từ chối hợp đồng
+            </button>
+            <button
+              v-if="selectedContract?.status === 'PENDING_CONFIRMATION'"
+              type="button"
+              class="btn btn-success"
+              :disabled="contractSubmitting"
+              @click="confirmSelectedContract">
+              <span v-if="contractSubmitting" class="spinner-border spinner-border-sm me-1"></span>
+              <i v-else class="bi bi-check2-circle me-1"></i>Xác nhận hợp đồng
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </Teleport>
+
+  <!-- Complaint Modal -->
+  <Teleport to="body">
+    <div class="modal fade" id="complaintModal" tabindex="-1" ref="complaintModalRef">
+      <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg" v-if="complaintOrder">
+          <div class="modal-header bg-danger text-white">
+            <h5 class="modal-title">
+              <i class="bi bi-exclamation-triangle"></i>
+              {{ hasComplaintForOrder(complaintOrder.id) ? 'Chi tiết Khiếu nại Đơn hàng' : 'Khiếu nại Đơn hàng' }}
+            </h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body p-4 bg-light">
+            <div class="alert alert-warning py-2 small mb-3">
+              <i class="bi bi-info-circle me-1"></i>Bạn chỉ có thể giải quyết khiếu nại ở trạng thái ĐANG GIAO hoặc HOÀN THÀNH.
+            </div>
+            
+            <!-- Trạng thái & Phản hồi của Admin (Làm nổi bật) -->
+            <div v-if="complaintAdminNote || (complaintStatus && complaintStatus !== 'OPEN')" class="alert mb-4 shadow-sm border" :class="{ 'alert-info border-info': complaintStatus === 'IN_REVIEW', 'alert-success border-success': complaintStatus === 'RESOLVED', 'alert-danger border-danger': complaintStatus === 'REJECTED', 'alert-secondary': complaintStatus === 'OPEN' }">
+              <h5 class="alert-heading fw-bold mb-2">
+                <i class="bi bi-info-circle-fill me-2"></i>Trạng thái: {{ complaintStatus }}
+              </h5>
+              <div v-if="complaintAdminNote" class="mt-3">
+                <p class="mb-2 fw-bold text-dark"><i class="bi bi-chat-square-quote me-1"></i>Phản hồi từ Ban Quản Trị:</p>
+                <div class="p-3 bg-white rounded text-dark border shadow-sm" style="white-space: pre-wrap; font-size: 0.95rem">{{ complaintAdminNote }}</div>
+              </div>
+            </div>
+
+            <div class="card shadow-sm border-0 mb-4">
+              <div class="card-body">
+                <h6 class="card-title fw-bold text-dark mb-3">Thông tin khiếu nại</h6>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label fw-semibold small text-muted">Loại khiếu nại</label>
+                    <select v-model="complaintType" class="form-select form-select-sm" :disabled="complaintStatus === 'IN_REVIEW'">
+                      <option value="MISSING_ITEM">Thiếu hàng</option>
+                      <option value="DEFECTIVE_ITEM">Hàng lỗi / Hỏng hóc</option>
+                      <option value="OTHER">Lý do khác</option>
+                    </select>
                   </div>
-                </div>
-
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  class="form-control"
-                  @change="onComplaintImagesSelected"
-                />
-                <small class="text-muted">Tối đa 5 ảnh, mỗi ảnh tối đa 5MB.</small>
-
-                <div v-if="complaintNewImages.length > 0" class="mt-2">
-                  <div class="small fw-semibold mb-1">Ảnh mới sẽ tải lên</div>
-                  <div class="d-flex flex-wrap gap-2">
-                    <div
-                      v-for="(file, idx) in complaintNewImages"
-                      :key="`new-img-${idx}`"
-                      class="complaint-image-tag"
-                    >
-                      <span>{{ file.name }}</span>
-                      <button
-                        type="button"
-                        class="btn btn-sm btn-link text-danger p-0"
-                        @click="removeNewComplaintImage(idx)"
-                      >
-                        Xóa
-                      </button>
-                    </div>
+                  <div class="col-12">
+                    <label class="form-label fw-semibold small text-muted">Mô tả khiếu nại</label>
+                    <textarea v-model="complaintDescription" class="form-control form-control-sm" rows="3" placeholder="Nhập mô tả cụ thể..." :disabled="complaintStatus === 'IN_REVIEW'"></textarea>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
-              <button
-                type="button"
-                class="btn btn-danger"
-                :disabled="isSavingComplaint"
-                @click="submitComplaint"
-              >
-                <span v-if="isSavingComplaint" class="spinner-border spinner-border-sm me-2"></span>
-                {{ hasComplaintForOrder(complaintOrder.id) ? 'Cập nhật khiếu nại' : 'Gửi khiếu nại' }}
-              </button>
+            <div class="card shadow-sm border-0 mb-4">
+              <div class="card-body p-0">
+                <div class="table-responsive">
+                  <table class="table table-bordered table-striped table-hover mb-0 align-middle" style="font-size: 0.85rem">
+                    <thead class="table-light">
+                      <tr>
+                        <th>Sản phẩm</th>
+                        <th class="text-center" style="width: 70px;">Đặt</th>
+                        <th style="width: 100px;">SL Thiếu</th>
+                        <th style="width: 100px;">SL Lỗi</th>
+                        <th>Ghi chú lỗi</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="item in complaintOrder.items || []" :key="`complaint-item-${item.id}`">
+                        <td>
+                          <div class="fw-semibold text-dark">{{ item.itemName || 'Sản phẩm' }}</div>
+                          <small class="text-muted font-monospace">{{ item.itemCode }}</small>
+                        </td>
+                        <td class="text-center fw-bold">{{ item.quantity || 0 }}</td>
+                        <td>
+                          <input v-model.number="complaintMissingByItem[item.id]" type="number" min="0" :max="item.quantity || 0" class="form-control form-control-sm" :disabled="complaintStatus === 'IN_REVIEW' || complaintType === 'DEFECTIVE_ITEM'" />
+                        </td>
+                        <td>
+                          <input v-model.number="complaintDefectiveByItem[item.id]" type="number" min="0" :max="item.quantity || 0" class="form-control form-control-sm" :disabled="complaintStatus === 'IN_REVIEW' || complaintType === 'MISSING_ITEM'" />
+                        </td>
+                        <td>
+                          <input v-model="complaintReasonByItem[item.id]" type="text" class="form-control form-control-sm" placeholder="Ghi chú thêm..." :disabled="complaintStatus === 'IN_REVIEW'" />
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
+
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Ảnh minh chứng</label>
+              <div v-if="complaintExistingImages.length > 0" class="mb-2">
+                <div class="small fw-semibold mb-1">Ảnh đã lưu</div>
+                <div class="d-flex flex-wrap gap-2">
+                  <div v-for="img in complaintExistingImages" :key="`existing-img-${img.id}`" class="complaint-image-tag" :class="{ removed: complaintRemovedImageIds.includes(img.id) }">
+                    <span>{{ img.originalFilename || `Ảnh #${img.id}` }}</span>
+                    <button type="button" class="btn btn-sm btn-link text-danger p-0" @click="toggleKeepExistingComplaintImage(img.id)">
+                      {{ complaintRemovedImageIds.includes(img.id) ? 'Giữ lại' : 'Bỏ ảnh' }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <input type="file" accept="image/*" multiple class="form-control" @change="onComplaintImagesSelected" />
+              <small class="text-muted">Tối đa 5 ảnh, mỗi ảnh tối đa 5MB.</small>
+              <div v-if="complaintNewImages.length > 0" class="mt-2">
+                <div class="small fw-semibold mb-1">Ảnh mới sẽ tải lên</div>
+                <div class="d-flex flex-wrap gap-2">
+                  <div v-for="(file, idx) in complaintNewImages" :key="`new-img-${idx}`" class="complaint-image-tag">
+                    <span>{{ file.name }}</span>
+                    <button type="button" class="btn btn-sm btn-link text-danger p-0" @click="removeNewComplaintImage(idx)">Xóa</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- History section -->
+            <div v-if="complaintHistory && complaintHistory.length > 0" class="card shadow-sm border-0 mt-4 mb-3">
+              <div class="card-header bg-white fw-bold"><i class="bi bi-clock-history me-2"></i>Lịch sử khiếu nại</div>
+              <div class="card-body p-0">
+                <div class="list-group list-group-flush" style="max-height: 250px; overflow-y: auto;">
+                  <div v-for="hi in complaintHistory" :key="hi.id" class="list-group-item">
+                    <div class="d-flex w-100 justify-content-between">
+                      <h6 class="mb-1 small fw-bold text-dark">{{ hi.actionType }} - <span class="badge" :class="hi.newStatus === 'OPEN' ? 'bg-secondary' : 'bg-success'">{{ hi.newStatus || 'UNKNOWN' }}</span></h6>
+                      <small class="text-muted">{{ formatDate(hi.createdAt) }}</small>
+                    </div>
+                    <p class="mb-1 small text-muted">Bởi: <span class="fw-medium text-dark">{{ hi.actionByUserName || 'Khách hàng' }}</span></p>
+                    <small>Ghi chú: <span class="text-secondary">{{ hi.note || 'Không có' }}</span></small>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+            <button type="button" class="btn btn-danger" :disabled="isSavingComplaint || complaintStatus === 'IN_REVIEW'" @click="submitComplaint" v-if="complaintStatus !== 'IN_REVIEW'">
+              <span v-if="isSavingComplaint" class="spinner-border spinner-border-sm me-2"></span>
+              {{ hasComplaintForOrder(complaintOrder.id) ? 'Cập nhật khiếu nại' : 'Gửi khiếu nại' }}
+            </button>
           </div>
         </div>
       </div>
-    </Teleport>
+    </div>
+  </Teleport>
 
+    <Footer />
   </div>
 </template>
 
@@ -631,10 +806,12 @@
 import { ref, computed, onMounted, nextTick, watch, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Swal from 'sweetalert2'
-import apiClient, { ordersAPI } from '../../services/api'
+import apiClient, { ordersAPI, paymentAPI, contractAPI } from '../../services/api'
 import { Modal } from 'bootstrap'
 import PaymentQR from './PaymentQR.vue'
-import { getOrderStatusLabel } from '../../constants/orderStatus'
+import { getOrderStatusLabel, getReviewStatusLabel } from '../../constants/orderStatus'
+import Navbar from '../base/Navbar.vue'
+import Footer from '../base/Footer.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -650,6 +827,7 @@ const totalPages = ref(0)
 const selectedOrder = ref(null)
 const detailModalRef = ref(null)
 const paymentModalRef = ref(null)
+const contractModalRef = ref(null)
 const complaintModalRef = ref(null)
 const selectedPaymentOrderId = ref(null)
 const activeOrderType = ref('CUSTOM_MANUFACTURING')
@@ -659,8 +837,14 @@ const getDefaultStatusForType = (type) =>
 const activeStatus = ref(getDefaultStatusForType(activeOrderType.value))
 const statusCounts = ref({})
 const complaintOrder = ref(null)
+const complaintType = ref('MISSING_ITEM')
 const complaintDescription = ref('')
+const complaintStatus = ref('')
+const complaintAdminNote = ref('')
+const complaintHistory = ref([])
 const complaintMissingByItem = ref({})
+const complaintDefectiveByItem = ref({})
+const complaintReasonByItem = ref({})
 const complaintExistingImages = ref([])
 const complaintRemovedImageIds = ref([])
 const complaintNewImages = ref([])
@@ -673,8 +857,17 @@ const bypassComplaintHideGuard = ref(false)
 const orderHistoryEvents = ref([])
 const orderRevisionSummaries = ref([])
 const isLoadingOrderHistory = ref(false)
+const selectedOrderMilestones = ref([])
+const selectedOrderContract = ref(null)
+const selectedContractOrder = ref(null)
+const selectedContract = ref(null)
+const contractLoading = ref(false)
+const contractSubmitting = ref(false)
+const activeCustomerDetailTab = ref('materials')
+const materialsDensity = ref('comfortable')
 let bsModal = null
 let bsPaymentModal = null
+let bsContractModal = null
 let bsComplaintModal = null
 let complaintModalHideHandler = null
 let complaintModalHiddenHandler = null
@@ -689,6 +882,7 @@ const typeTabs = [
 const manufacturingStatusTabs = [
   { key: 'PENDING_APPROVAL', label: 'Chờ duyệt đơn' },
   { key: 'PENDING_QUOTE', label: 'Chờ báo giá' },
+  { key: 'AWAITING_CONTRACT', label: 'Chờ xác nhận hợp đồng' },
   { key: 'AWAITING_PAYMENT', label: 'Chờ thanh toán' },
   { key: 'DEPOSITED', label: 'Đã cọc' },
   { key: 'PROCESSING', label: 'Đang gia công' },
@@ -702,6 +896,8 @@ const manufacturingStatusTabs = [
 
 const productStatusTabs = [
   { key: 'AWAITING_PAYMENT', label: 'Chờ thanh toán' },
+  { key: 'DEPOSITED', label: 'Đã thanh toán' },
+  { key: 'PROCESSING', label: 'Đang chuẩn bị' },
   { key: 'AWAITING_DELIVERY', label: 'Chờ giao hàng' },
   { key: 'SHIPPING', label: 'Đang giao' },
   { key: 'COMPLETED', label: 'Đã nhận hàng' },
@@ -736,6 +932,13 @@ const parsePositiveInt = (value, fallback = 0) => {
   return Math.max(0, Math.trunc(num))
 }
 
+const getQueryValue = (value) => {
+  if (Array.isArray(value)) {
+    return value.length > 0 ? value[0] : undefined
+  }
+  return value
+}
+
 const makeOrderActionKey = (order, actionName) => {
   const scope = order?.isTempImport ? 'import' : 'order'
   return `${scope}:${order?.id || 'unknown'}:${actionName}`
@@ -760,6 +963,25 @@ const setActionLocked = (order, actionName, isLocked) => {
   const next = { ...actionLoadingByOrderId.value }
   delete next[key]
   actionLoadingByOrderId.value = next
+}
+
+const showStatusToast = (title, text = '') => {
+  return Swal.fire({
+    toast: true,
+    position: 'top-end',
+    icon: 'success',
+    title,
+    text,
+    showConfirmButton: false,
+    timer: 2400,
+    timerProgressBar: true,
+    scrollbarPadding: false,
+    customClass: {
+      popup: 'status-toast-popup',
+      title: 'status-toast-title',
+      htmlContainer: 'status-toast-text',
+    },
+  })
 }
 
 const persistViewState = (overrides = {}) => {
@@ -1046,7 +1268,7 @@ const clearOrderIdQuery = async () => {
 }
 
 const openOrderFromQueryIfPresent = async () => {
-  const orderId = Number(route.query?.orderId || 0)
+  const orderId = Number(getQueryValue(route.query?.orderId) || 0)
   if (!Number.isFinite(orderId) || orderId <= 0) return
 
   try {
@@ -1073,6 +1295,20 @@ const openOrderFromQueryIfPresent = async () => {
   }
 }
 
+const autoOpenPaymentForNewOrder = async (orderId) => {
+  try {
+    showStatusToast('Đặt hàng thành công!', 'Vui lòng thanh toán để hoàn tất đơn hàng.')
+    selectedPaymentOrderId.value = orderId
+    await nextTick()
+    if (!bsPaymentModal && paymentModalRef.value) {
+      bsPaymentModal = new Modal(paymentModalRef.value, { focus: false })
+    }
+    bsPaymentModal?.show()
+  } catch (error) {
+    console.warn('Failed to auto-open payment modal:', error)
+  }
+}
+
 const handleBeforeUnload = (event) => {
   if (!hasComplaintUnsavedChanges.value) return
   event.preventDefault()
@@ -1083,11 +1319,34 @@ onMounted(async () => {
   restoreViewState()
   window.addEventListener('beforeunload', handleBeforeUnload)
 
+  const newOrderId = getQueryValue(route.query?.newOrderId)
+  const queryOrderType = getQueryValue(route.query?.orderType)
+  if (newOrderId && queryOrderType === 'READY_MADE') {
+    activeOrderType.value = 'READY_MADE'
+    activeStatus.value = 'AWAITING_PAYMENT'
+    currentPage.value = 0
+    persistViewState({ orderType: 'READY_MADE', status: 'AWAITING_PAYMENT', page: 0 })
+  }
+
   await Promise.all([
     loadOrders(currentPage.value),
     loadStatusCounts(activeOrderType.value),
   ])
-  await openOrderFromQueryIfPresent()
+
+  if (newOrderId) {
+    const id = Number(newOrderId)
+    if (Number.isFinite(id) && id > 0) {
+      await autoOpenPaymentForNewOrder(id)
+    }
+
+    const nextQuery = { ...route.query }
+    delete nextQuery.newOrderId
+    delete nextQuery.orderType
+    delete nextQuery.orderId
+    await router.replace({ path: route.path, query: nextQuery })
+  } else {
+    await openOrderFromQueryIfPresent()
+  }
 })
 
 onBeforeUnmount(() => {
@@ -1259,15 +1518,43 @@ const loadOrders = async (page = 0) => {
   }
 }
 
+const loadOrderPaymentArtifacts = async (order) => {
+  if (!order?.id || order?.isTempImport || order?.orderType !== 'CUSTOM_MANUFACTURING') {
+    selectedOrderMilestones.value = []
+    selectedOrderContract.value = null
+    return
+  }
+
+  const [milestonesResult, contractResult] = await Promise.allSettled([
+    paymentAPI.getMilestones(order.id),
+    contractAPI.getOrderContract(order.id),
+  ])
+
+  if (milestonesResult.status === 'fulfilled' && Array.isArray(milestonesResult.value?.milestones)) {
+    selectedOrderMilestones.value = [...milestonesResult.value.milestones]
+      .sort((a, b) => Number(a.milestoneOrder || 0) - Number(b.milestoneOrder || 0))
+  } else {
+    selectedOrderMilestones.value = []
+  }
+
+  if (contractResult.status === 'fulfilled') {
+    selectedOrderContract.value = contractResult.value
+  } else {
+    selectedOrderContract.value = null
+  }
+}
+
 const openDetailModal = async (order) => {
   try {
     const detailUrl = order?.isTempImport ? `/orders/imports/${order.id}` : `/orders/${order.id}`
     const response = await apiClient.get(detailUrl)
     selectedOrder.value = { ...response.data, isTempImport: !!order?.isTempImport }
+    activeCustomerDetailTab.value = 'materials'
+    await loadOrderPaymentArtifacts(selectedOrder.value)
     await nextTick()
 
     if (!bsModal && detailModalRef.value) {
-      bsModal = new Modal(detailModalRef.value)
+      bsModal = new Modal(detailModalRef.value, { focus: false })
     }
     bsModal?.show()
     loadOrderHistory(selectedOrder.value)
@@ -1408,6 +1695,17 @@ const totalCancelAttempts = computed(() => {
   return (orderHistoryEvents.value || []).filter((event) => isCancelEventType(event?.eventType)).length
 })
 
+const sortedOrderHistoryEvents = computed(() => {
+  const source = Array.isArray(orderHistoryEvents.value) ? [...orderHistoryEvents.value] : []
+  source.sort((a, b) => {
+    const ta = a?.createdAt ? new Date(a.createdAt).getTime() : 0
+    const tb = b?.createdAt ? new Date(b.createdAt).getTime() : 0
+    if (ta !== tb) return tb - ta
+    return Number(b?.id || 0) - Number(a?.id || 0)
+  })
+  return source
+})
+
 const hasReviewedItems = computed(() => {
   if (!selectedOrder.value?.items) return false
   return selectedOrder.value.items.some(i => i.reviewStatus && i.reviewStatus !== 'PENDING_REVIEW')
@@ -1424,13 +1722,290 @@ const reviewCounts = computed(() => {
   }
 })
 
+const getReviewStatusText = (status) => {
+  return getReviewStatusLabel(status)
+}
+
+const getReviewBadgeClass = (status) => {
+  const map = {
+    PENDING_REVIEW: 'bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25',
+    APPROVED: 'bg-success bg-opacity-10 text-success border border-success border-opacity-25',
+    REJECTED: 'bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25',
+    NEED_DISCUSSION: 'bg-warning bg-opacity-10 text-warning border border-warning border-opacity-50',
+  }
+  return map[status] || 'bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25'
+}
+
+const getItemRowClass = (item) => {
+  const map = {
+    APPROVED: '',
+    REJECTED: 'bg-danger bg-opacity-10',
+    NEED_DISCUSSION: 'bg-warning bg-opacity-10',
+  }
+  const baseClass = map[item?.reviewStatus] || ''
+  return hasAnyItemNote(item) ? `${baseClass} row-has-note` : baseClass
+}
+
+const hasCustomerItemNote = (item) => {
+  const note = item?.notes ? String(item.notes).trim() : ''
+  return !!note
+}
+
+const hasAdminItemNote = (item) => {
+  const note = item?.adminNote ? String(item.adminNote).trim() : ''
+  return !!note
+}
+
+const hasAnyItemNote = (item) => {
+  return hasCustomerItemNote(item) || hasAdminItemNote(item)
+}
+
+const preserveItemOrder = (previousItems = [], incomingItems = []) => {
+  if (!Array.isArray(incomingItems)) return []
+  if (!Array.isArray(previousItems) || previousItems.length === 0) return incomingItems
+
+  const indexById = new Map()
+  previousItems.forEach((item, index) => {
+    if (item?.id != null) indexById.set(item.id, index)
+  })
+
+  return [...incomingItems].sort((a, b) => {
+    const indexA = indexById.has(a?.id) ? indexById.get(a.id) : Number.MAX_SAFE_INTEGER
+    const indexB = indexById.has(b?.id) ? indexById.get(b.id) : Number.MAX_SAFE_INTEGER
+    if (indexA !== indexB) return indexA - indexB
+    return Number(a?.id || 0) - Number(b?.id || 0)
+  })
+}
+
+const getReviewProgress = (order) => {
+  if (!order?.items?.length) return '0/0'
+  const reviewed = order.items.filter((item) => item.reviewStatus && item.reviewStatus !== 'PENDING_REVIEW').length
+  return `${reviewed}/${order.items.length}`
+}
+
+const escapeHtml = (value) => {
+  if (value == null) return ''
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+const syncOrderAfterItemNoteUpdate = (updatedOrder) => {
+  if (!updatedOrder?.id || !selectedOrder.value?.id) return
+
+  const currentOrderId = selectedOrder.value.id
+  const wasTempImport = !!selectedOrder.value.isTempImport
+  const previousItems = selectedOrder.value.items || []
+
+  const normalizedUpdatedOrder = {
+    ...updatedOrder,
+    items: preserveItemOrder(previousItems, updatedOrder.items || []),
+    isTempImport: wasTempImport,
+  }
+
+  selectedOrder.value = normalizedUpdatedOrder
+
+  const orderIndex = orders.value.findIndex((order) => {
+    return order.id === currentOrderId && !!order.isTempImport === wasTempImport
+  })
+
+  if (orderIndex !== -1) {
+    orders.value[orderIndex] = {
+      ...orders.value[orderIndex],
+      ...normalizedUpdatedOrder,
+    }
+  }
+}
+
+const openCustomerItemNoteModal = async (item) => {
+  if (!selectedOrder.value?.id || !item?.id) return
+
+  if (selectedOrder.value.isTempImport) {
+    await Swal.fire('Chưa hỗ trợ', 'Đơn import chờ duyệt chưa thể cập nhật ghi chú theo sản phẩm.', 'info')
+    return
+  }
+
+  const orderId = selectedOrder.value.id
+  const adminNote = item?.adminNote ? String(item.adminNote).trim() : ''
+  const currentCustomerNote = item?.notes ? String(item.notes).trim() : ''
+  const itemName = item?.itemName ? String(item.itemName).trim() : 'Sản phẩm'
+
+  const adminNoteBlock = adminNote
+    ? `<div class="alert alert-warning text-start py-2 px-3 mb-3"><div class="fw-semibold mb-1">Ghi chú từ admin</div><div style="white-space: pre-wrap; word-break: break-word;">${escapeHtml(adminNote)}</div></div>`
+    : '<div class="text-muted small text-start mb-3">Chưa có ghi chú từ admin cho sản phẩm này.</div>'
+
+  const result = await Swal.fire({
+    title: `Ghi chú - ${itemName}`,
+    html: `
+      ${adminNoteBlock}
+      <label for="customer-item-note-input" class="form-label fw-semibold text-start w-100 mb-1">Ghi chú của bạn</label>
+      <textarea id="customer-item-note-input" class="swal2-textarea" style="display:block;width:100%;min-height:130px;margin:0;" maxlength="2000" placeholder="Nhập ghi chú cho sản phẩm này...">${escapeHtml(currentCustomerNote)}</textarea>
+    `,
+    focusConfirm: false,
+    showCancelButton: true,
+    confirmButtonText: 'Lưu ghi chú',
+    cancelButtonText: 'Đóng',
+    confirmButtonColor: '#0d6efd',
+    preConfirm: () => {
+      const input = document.getElementById('customer-item-note-input')
+      if (!input) return ''
+      const nextValue = String(input.value || '')
+      if (nextValue.trim().length > 2000) {
+        Swal.showValidationMessage('Ghi chú không được vượt quá 2000 ký tự')
+        return false
+      }
+      return nextValue
+    },
+  })
+
+  if (!result.isConfirmed) return
+
+  const nextCustomerNote = String(result.value || '').trim()
+  if (nextCustomerNote === currentCustomerNote) return
+
+  try {
+    const updatedOrder = await ordersAPI.updateItemNotes(orderId, item.id, nextCustomerNote || null)
+    syncOrderAfterItemNoteUpdate(updatedOrder)
+    await Swal.fire({
+      icon: 'success',
+      title: 'Đã lưu ghi chú',
+      timer: 1600,
+      showConfirmButton: false,
+    })
+  } catch (error) {
+    const msg = error.response?.data?.error || 'Không thể lưu ghi chú sản phẩm'
+    await Swal.fire('Lỗi', msg, 'error')
+  }
+}
+
 const openPaymentModal = async (order) => {
   selectedPaymentOrderId.value = order.id
   await nextTick()
   if (!bsPaymentModal && paymentModalRef.value) {
-    bsPaymentModal = new Modal(paymentModalRef.value)
+    bsPaymentModal = new Modal(paymentModalRef.value, { focus: false })
   }
   bsPaymentModal?.show()
+}
+
+const openContractModal = async (order) => {
+  if (!order?.id || order?.isTempImport) {
+    return
+  }
+
+  selectedContractOrder.value = order
+  contractLoading.value = true
+  selectedContract.value = null
+
+  try {
+    const contract = await contractAPI.getOrderContract(order.id)
+    selectedContract.value = contract
+    selectedOrderContract.value = contract
+
+    if (Array.isArray(contract?.milestones)) {
+      selectedOrderMilestones.value = [...contract.milestones]
+        .sort((a, b) => Number(a.milestoneOrder || 0) - Number(b.milestoneOrder || 0))
+    }
+
+    await nextTick()
+    if (!bsContractModal && contractModalRef.value) {
+      bsContractModal = new Modal(contractModalRef.value, { focus: false })
+    }
+    bsContractModal?.show()
+  } catch (error) {
+    const msg = error.response?.data?.error || 'Không thể tải hợp đồng của đơn hàng'
+    Swal.fire('Lỗi', msg, 'error')
+  } finally {
+    contractLoading.value = false
+  }
+}
+
+const confirmSelectedContract = async () => {
+  if (!selectedContract.value?.id || contractSubmitting.value) return
+
+  const result = await Swal.fire({
+    title: 'Xác nhận hợp đồng?',
+    text: 'Sau khi xác nhận, hệ thống sẽ mở mốc thanh toán đầu tiên (60%).',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonColor: '#198754',
+    cancelButtonColor: '#64748b',
+    confirmButtonText: 'Xác nhận hợp đồng',
+    cancelButtonText: 'Đóng',
+  })
+  if (!result.isConfirmed) return
+
+  contractSubmitting.value = true
+  try {
+    await contractAPI.confirm(selectedContract.value.id)
+    bsContractModal?.hide()
+
+    await Promise.all([
+      loadOrders(currentPage.value),
+      loadStatusCounts(activeOrderType.value),
+    ])
+
+    if (selectedOrder.value?.id === selectedContractOrder.value?.id) {
+      const detailResponse = await apiClient.get(`/orders/${selectedOrder.value.id}`)
+      selectedOrder.value = { ...detailResponse.data, isTempImport: !!selectedOrder.value?.isTempImport }
+      await loadOrderPaymentArtifacts(selectedOrder.value)
+    }
+
+    await showStatusToast('Đã xác nhận hợp đồng', 'Bạn có thể tiến hành thanh toán mốc đầu tiên.')
+  } catch (error) {
+    const msg = error.response?.data?.error || 'Không thể xác nhận hợp đồng'
+    Swal.fire('Lỗi', msg, 'error')
+  } finally {
+    contractSubmitting.value = false
+  }
+}
+
+const rejectSelectedContract = async () => {
+  if (!selectedContract.value?.id || contractSubmitting.value) return
+
+  const result = await Swal.fire({
+    title: 'Từ chối hợp đồng?',
+    input: 'textarea',
+    inputLabel: 'Lý do từ chối',
+    inputPlaceholder: 'Nhập lý do để admin cập nhật lại điều khoản...',
+    inputValidator: (value) => {
+      if (!value || !value.trim()) return 'Vui lòng nhập lý do từ chối'
+      return null
+    },
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#dc2626',
+    cancelButtonColor: '#64748b',
+    confirmButtonText: 'Từ chối hợp đồng',
+    cancelButtonText: 'Hủy',
+  })
+  if (!result.isConfirmed) return
+
+  contractSubmitting.value = true
+  try {
+    await contractAPI.reject(selectedContract.value.id, String(result.value || '').trim())
+    bsContractModal?.hide()
+
+    await Promise.all([
+      loadOrders(currentPage.value),
+      loadStatusCounts(activeOrderType.value),
+    ])
+
+    if (selectedOrder.value?.id === selectedContractOrder.value?.id) {
+      const detailResponse = await apiClient.get(`/orders/${selectedOrder.value.id}`)
+      selectedOrder.value = { ...detailResponse.data, isTempImport: !!selectedOrder.value?.isTempImport }
+      await loadOrderPaymentArtifacts(selectedOrder.value)
+    }
+
+    await showStatusToast('Đã từ chối hợp đồng', 'Đơn hàng đã quay lại trạng thái chờ báo giá.')
+  } catch (error) {
+    const msg = error.response?.data?.error || 'Không thể từ chối hợp đồng'
+    Swal.fire('Lỗi', msg, 'error')
+  } finally {
+    contractSubmitting.value = false
+  }
 }
 
 const onPaymentConfirmed = (paymentInfo) => {
@@ -1439,19 +2014,17 @@ const onPaymentConfirmed = (paymentInfo) => {
     loadOrders(currentPage.value),
     loadStatusCounts(activeOrderType.value),
   ])
-  Swal.fire({
-    icon: 'success',
-    title: 'Đã nhận tiền cọc!',
-    text: `Đơn hàng ${paymentInfo.orderNumber} đã được xác nhận đặt cọc thành công.`,
-    timer: 3000,
-    showConfirmButton: false
-  })
+  const successMessage = paymentInfo.orderStatus === 'AWAITING_DELIVERY'
+    ? `Đơn hàng ${paymentInfo.orderNumber} đã được xác nhận thanh toán đầy đủ.`
+    : `Đơn hàng ${paymentInfo.orderNumber} đã được cập nhật trạng thái thanh toán.`
+  showStatusToast('Đã cập nhật thanh toán', successMessage)
 }
 
 const canCancelOrder = (order) => {
   if (!order) return false
   return order.status === 'PENDING_APPROVAL'
     || order.status === 'PENDING_QUOTE'
+    || order.status === 'AWAITING_CONTRACT'
     || order.status === 'AWAITING_PAYMENT'
 }
 
@@ -1482,13 +2055,7 @@ const confirmReceivedOrder = async (order) => {
       loadOrders(currentPage.value),
       loadStatusCounts(activeOrderType.value),
     ])
-    await Swal.fire({
-      icon: 'success',
-      title: 'Đã xác nhận nhận hàng',
-      text: `Đơn ${order.orderNumber} đã được chuyển sang hoàn thành.`,
-      timer: 2200,
-      showConfirmButton: false,
-    })
+    await showStatusToast('Đã xác nhận nhận hàng', `Đơn ${order.orderNumber} đã được chuyển sang hoàn thành.`)
   } catch (error) {
     const msg = error.response?.data?.error || 'Không thể xác nhận nhận hàng'
     Swal.fire('Lỗi', msg, 'error')
@@ -1500,8 +2067,8 @@ const confirmReceivedOrder = async (order) => {
 const openComplaintModal = async (order) => {
   if (!order?.id || isActionLocked(order, 'complaint')) return
 
-  if (order.status !== 'SHIPPING') {
-    await Swal.fire('Không hợp lệ', 'Chỉ có thể khiếu nại khi đơn đang giao hàng.', 'warning')
+  if (order.status !== 'SHIPPING' && order.status !== 'COMPLETED') {
+    await Swal.fire('Không hợp lệ', 'Chỉ có thể khiếu nại khi đơn đang giao hoặc đã hoàn thành.', 'warning')
     return
   }
 
@@ -1521,64 +2088,41 @@ const openComplaintModal = async (order) => {
     }
 
     complaintDescription.value = existingComplaint?.description || ''
+    complaintType.value = existingComplaint?.type || 'MISSING_ITEM'
+    complaintStatus.value = existingComplaint?.status || 'OPEN'
+    complaintAdminNote.value = existingComplaint?.adminNote || ''
+    complaintHistory.value = existingComplaint?.history || []
+
     complaintExistingImages.value = Array.isArray(existingComplaint?.images) ? existingComplaint.images : []
     complaintRemovedImageIds.value = []
     complaintNewImages.value = []
 
     const missingMap = {}
+    const defectiveMap = {}
+    const reasonMap = {}
     ;(complaintOrder.value?.items || []).forEach((item) => {
       missingMap[item.id] = 0
+      defectiveMap[item.id] = 0
+      reasonMap[item.id] = ''
     })
     ;(existingComplaint?.missingItems || []).forEach((item) => {
       if (item?.orderItemId != null) {
         missingMap[item.orderItemId] = Number(item.missingQuantity || 0)
+        defectiveMap[item.orderItemId] = Number(item.defectiveQuantity || 0)
+        reasonMap[item.orderItemId] = item.reasonNote || ''
       }
     })
     complaintMissingByItem.value = missingMap
+    complaintDefectiveByItem.value = defectiveMap
+    complaintReasonByItem.value = reasonMap
 
-    const draft = loadComplaintDraft(order.id)
-    if (draft) {
-      const restorePrompt = await Swal.fire({
-        title: 'Khôi phục bản nháp khiếu nại?',
-        text: `Đã tìm thấy bản nháp lưu lúc ${formatDate(draft.savedAt)}.`,
-        icon: 'question',
-        showDenyButton: true,
-        showCancelButton: true,
-        confirmButtonText: 'Khôi phục',
-        denyButtonText: 'Xóa nháp',
-        cancelButtonText: 'Bỏ qua',
-        confirmButtonColor: '#0d6efd',
-        denyButtonColor: '#dc2626',
-        cancelButtonColor: '#64748b',
-      })
-
-      if (restorePrompt.isConfirmed) {
-        complaintDescription.value = draft.description || ''
-
-        const normalizedDraftMissing = normalizeComplaintMissingMap(complaintOrder.value, draft.missingByItem)
-        const restoredMissingMap = {}
-        ;(complaintOrder.value?.items || []).forEach((item) => {
-          restoredMissingMap[item.id] = Number(normalizedDraftMissing[item.id] || 0)
-        })
-        complaintMissingByItem.value = restoredMissingMap
-
-        const existingImageIds = new Set((complaintExistingImages.value || []).map((img) => Number(img.id)))
-        complaintRemovedImageIds.value = (draft.removedImageIds || [])
-          .map((id) => Number(id))
-          .filter((id) => existingImageIds.has(id))
-          .sort((a, b) => a - b)
-
-        complaintDraftRestoredAt.value = draft.savedAt || Date.now()
-      } else if (restorePrompt.isDenied) {
-        clearComplaintDraft(order.id)
-      }
-    }
+    const isComplaintReadOnly = existingComplaint?.status === 'IN_REVIEW'
 
     setComplaintInitialState()
 
     await nextTick()
     if (!bsComplaintModal && complaintModalRef.value) {
-      bsComplaintModal = new Modal(complaintModalRef.value)
+      bsComplaintModal = new Modal(complaintModalRef.value, { focus: false })
     }
 
     attachComplaintModalGuards()
@@ -1602,7 +2146,6 @@ const toggleKeepExistingComplaintImage = (imageId) => {
 
 const removeNewComplaintImage = (index) => {
   complaintNewImages.value = complaintNewImages.value.filter((_, idx) => idx !== index)
-  scheduleComplaintDraftSave()
 }
 
 const onComplaintImagesSelected = (event) => {
@@ -1623,7 +2166,6 @@ const onComplaintImagesSelected = (event) => {
 
   const accepted = files.slice(0, availableSlots)
   complaintNewImages.value = [...complaintNewImages.value, ...accepted]
-  scheduleComplaintDraftSave()
 
   if (accepted.length < files.length) {
     Swal.fire('Giới hạn ảnh', `Chỉ nhận thêm ${availableSlots} ảnh.`, 'info')
@@ -1642,14 +2184,30 @@ const submitComplaint = async () => {
   }
 
   const missingItems = (complaintOrder.value.items || [])
-    .map((item) => ({
-      orderItemId: item.id,
-      missingQuantity: Number(complaintMissingByItem.value[item.id] || 0),
-    }))
-    .filter((item) => item.missingQuantity > 0)
+    .map((item) => {
+      const missingRaw = Number(complaintMissingByItem.value[item.id] || 0)
+      const defectiveRaw = Number(complaintDefectiveByItem.value[item.id] || 0)
+      
+      const missingQty = complaintType.value === 'DEFECTIVE_ITEM' ? 0 : missingRaw
+      const defectiveQty = complaintType.value === 'MISSING_ITEM' ? 0 : defectiveRaw
+
+      return {
+        orderItemId: item.id,
+        missingQuantity: missingQty,
+        defectiveQuantity: defectiveQty,
+        reasonNote: complaintReasonByItem.value[item.id] || ''
+      }
+    })
+    .filter((item) => item.missingQuantity !== 0 || item.defectiveQuantity !== 0)
+
+  const hasNegative = missingItems.some((item) => item.missingQuantity < 0 || item.defectiveQuantity < 0)
+  if (hasNegative) {
+    Swal.fire('Dữ liệu không hợp lệ', 'Số lượng lỗi hoặc thiếu không được là số âm.', 'warning')
+    return
+  }
 
   if (missingItems.length === 0) {
-    Swal.fire('Thiếu dữ liệu', 'Vui lòng nhập số lượng thiếu cho ít nhất 1 sản phẩm.', 'warning')
+    Swal.fire('Thiếu dữ liệu', 'Vui lòng nhập số lượng lỗi/thiếu cho ít nhất 1 sản phẩm.', 'warning')
     return
   }
 
@@ -1663,6 +2221,7 @@ const submitComplaint = async () => {
   }
 
   const formData = new FormData()
+  formData.append('type', complaintType.value)
   formData.append('description', normalizedDescription)
   formData.append('missingItems', JSON.stringify(missingItems))
   keepImageIds.forEach((id) => formData.append('keepImageIds', String(id)))
@@ -1678,7 +2237,6 @@ const submitComplaint = async () => {
       [complaintOrder.value.id]: true,
     }
 
-    clearComplaintDraft(complaintOrder.value.id)
     bypassComplaintHideGuard.value = true
     bsComplaintModal?.hide()
     await Promise.all([
@@ -1768,13 +2326,7 @@ const cancelOrder = async (order) => {
       bsModal?.hide()
     }
 
-    Swal.fire({
-      icon: 'success',
-      title: 'Đã hủy đơn hàng',
-      text: `Đơn ${order.orderNumber} đã được hủy.`,
-      timer: 2200,
-      showConfirmButton: false,
-    })
+    showStatusToast('Đã hủy đơn hàng', `Đơn ${order.orderNumber} đã được hủy.`)
   } catch (error) {
     const msg = error.response?.data?.error || 'Không thể hủy đơn hàng'
     Swal.fire('Lỗi', msg, 'error')
@@ -1788,6 +2340,18 @@ const showPaymentQR = (order) => {
   openPaymentModal(order)
 }
 
+const getCustomerPaymentActionLabel = (order) => {
+  if (!order) return 'Thanh toán'
+  if (order.orderType !== 'CUSTOM_MANUFACTURING') {
+    return order.status === 'DEPOSITED' ? 'Đã TT ✔' : 'Thanh toán'
+  }
+
+  if (order.status === 'AWAITING_REMAINING_PAYMENT') return 'TT mốc 2 (40%)'
+  if (order.status === 'AWAITING_PAYMENT') return 'TT mốc 1 (60%)'
+  if (order.status === 'DEPOSITED') return 'Đã cọc ✔'
+  return 'Xem thanh toán'
+}
+
 const readyMadeStatusLabelOverrides = {
   DEPOSITED: 'Đã thanh toán ✔',
   PROCESSING: 'Đang chuẩn bị',
@@ -1795,6 +2359,7 @@ const readyMadeStatusLabelOverrides = {
 }
 
 const customStatusLabelOverrides = {
+  AWAITING_CONTRACT: 'Chờ xác nhận hợp đồng',
   DEPOSITED: 'Đã cọc ✔',
 }
 
@@ -1808,18 +2373,65 @@ const getStatusText = (status, orderType) => {
 
 const getStatusBadgeClass = (status) => {
   const classMap = {
-    PENDING_APPROVAL: 'badge bg-warning text-dark',
-    PENDING_QUOTE: 'badge bg-warning text-dark',
-    AWAITING_PAYMENT: 'badge bg-info text-dark',
-    DEPOSITED: 'badge bg-success',
-    PROCESSING: 'badge bg-primary',
-    AWAITING_REMAINING_PAYMENT: 'badge bg-warning',
-    AWAITING_DELIVERY: 'badge bg-info',
-    SHIPPING: 'badge bg-primary',
-    COMPLETED: 'badge bg-success',
-    CANCELLED: 'badge bg-danger'
+    PENDING_APPROVAL: 'badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-50',
+    PENDING_QUOTE: 'badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-50',
+    AWAITING_CONTRACT: 'badge bg-info bg-opacity-10 text-info border border-info border-opacity-25',
+    AWAITING_PAYMENT: 'badge bg-info bg-opacity-10 text-info border border-info border-opacity-25',
+    DEPOSITED: 'badge bg-success bg-opacity-10 text-success border border-success border-opacity-25',
+    PROCESSING: 'badge bg-navy text-white border border-navy',
+    AWAITING_REMAINING_PAYMENT: 'badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-50',
+    AWAITING_DELIVERY: 'badge bg-info bg-opacity-10 text-info border border-info border-opacity-25',
+    SHIPPING: 'badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25',
+    COMPLETED: 'badge bg-success bg-opacity-10 text-success border border-success border-opacity-25',
+    CANCELLED: 'badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25'
   }
-  return classMap[status] || 'badge bg-secondary'
+  return classMap[status] || 'badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25'
+}
+
+const getContractStatusText = (status) => {
+  const map = {
+    DRAFT: 'Bản nháp',
+    PENDING_CONFIRMATION: 'Chờ xác nhận',
+    CONFIRMED: 'Đã xác nhận',
+    REJECTED: 'Đã từ chối',
+    CANCELLED: 'Đã hủy',
+  }
+  return map[String(status || '').toUpperCase()] || 'Không xác định'
+}
+
+const getContractStatusClass = (status) => {
+  const map = {
+    DRAFT: 'text-bg-secondary',
+    PENDING_CONFIRMATION: 'text-bg-warning',
+    CONFIRMED: 'text-bg-success',
+    REJECTED: 'text-bg-danger',
+    CANCELLED: 'text-bg-dark',
+  }
+  return map[String(status || '').toUpperCase()] || 'text-bg-secondary'
+}
+
+const getMilestoneStatusText = (status) => {
+  const map = {
+    PENDING: 'Chưa kích hoạt',
+    ACTIVE: 'Đang chờ thanh toán',
+    PAID_UNVERIFIED: 'Đã chuyển khoản - chờ duyệt',
+    PAID: 'Đã thanh toán',
+    OVERDUE: 'Quá hạn',
+    CANCELLED: 'Đã hủy',
+  }
+  return map[String(status || '').toUpperCase()] || String(status || 'Không rõ')
+}
+
+const getMilestoneBadgeClass = (status) => {
+  const map = {
+    PENDING: 'text-bg-secondary',
+    ACTIVE: 'text-bg-info',
+    PAID_UNVERIFIED: 'text-bg-warning',
+    PAID: 'text-bg-success',
+    OVERDUE: 'text-bg-danger',
+    CANCELLED: 'text-bg-dark',
+  }
+  return map[String(status || '').toUpperCase()] || 'text-bg-secondary'
 }
 
 const formatDate = (dateStr) => {
@@ -1862,11 +2474,42 @@ const openRemainingPaymentModal = (order) => {
   selectedOrder.value = order
   nextTick().then(() => {
     if (!bsPaymentModal && paymentModalRef.value) {
-      bsPaymentModal = new Modal(paymentModalRef.value)
+      bsPaymentModal = new Modal(paymentModalRef.value, { focus: false })
     }
     bsPaymentModal?.show()
   })
 }
+
+// ── Pagination helper ──
+const visiblePages = computed(() => {
+  const total = totalPages.value
+  const current = currentPage.value + 1
+  const pages = []
+  if (total <= 7) {
+    for (let i = 1; i <= total; i++) pages.push(i)
+  } else {
+    pages.push(1)
+    if (current > 3) pages.push('...')
+    for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) pages.push(i)
+    if (current < total - 2) pages.push('...')
+    pages.push(total)
+  }
+  return pages
+})
+
+// ── Date helpers ──
+const formatDateShort = (dateStr) => {
+  if (!dateStr) return '-'
+  const date = new Date(dateStr)
+  return date.toLocaleDateString('vi-VN', { year: 'numeric', month: '2-digit', day: '2-digit' })
+}
+
+const formatTime = (dateStr) => {
+  if (!dateStr) return ''
+  const date = new Date(dateStr)
+  return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+}
+
 </script>
 
 <style scoped>
@@ -1964,8 +2607,83 @@ const openRemainingPaymentModal = (order) => {
   background-color: rgba(13, 110, 253, 0.03);
 }
 
+.text-navy { color: #0b2e59 !important; }
+.bg-navy { background-color: #0b2e59 !important; }
+.border-navy { border-color: #0b2e59 !important; }
+
 .modal-xl {
-  max-width: 1100px;
+  max-width: 96vw;
+}
+
+.modal {
+  overflow-y: scroll;
+}
+
+.btn-navy {
+  background-color: #0b2e59;
+  color: #fff;
+  border: none;
+}
+
+.btn-navy:hover {
+  background-color: #173b6c;
+  color: #fff;
+}
+
+.review-table th,
+.review-table td {
+  vertical-align: middle;
+}
+
+.review-table thead th {
+  white-space: nowrap;
+  font-size: 0.78rem;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.review-table tbody td {
+  font-size: 0.84rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.review-table tbody tr.row-has-note > td {
+  background-image: linear-gradient(0deg, rgba(245, 158, 11, 0.12), rgba(245, 158, 11, 0.12));
+  border-top-color: rgba(245, 158, 11, 0.45);
+  border-bottom-color: rgba(245, 158, 11, 0.45);
+}
+
+.review-table tbody tr.row-has-note > td:first-child {
+  box-shadow: inset 4px 0 0 #f59e0b;
+}
+
+.review-table-comfortable td {
+  padding: 0.75rem 0.5rem;
+}
+
+.review-table-compact td {
+  padding: 0.4rem 0.35rem;
+}
+
+.review-table-compact tbody td {
+  font-size: 0.78rem;
+}
+
+:deep(.status-toast-popup) {
+  border-radius: 12px;
+  border: 1px solid #cfe8d8;
+  background: linear-gradient(135deg, #f7fffa 0%, #ecfff4 100%);
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.14);
+  min-width: 320px;
+}
+
+:deep(.status-toast-title) {
+  font-weight: 700;
+  color: #14532d;
+}
+
+:deep(.status-toast-text) {
+  color: #166534;
+  font-size: 0.85rem;
 }
 
 /* Skeleton Loading Animation */
@@ -2024,6 +2742,100 @@ const openRemainingPaymentModal = (order) => {
 .cell-truncate:hover {
   white-space: normal;
   word-break: break-word;
+}
+
+.item-note-btn {
+  white-space: nowrap;
+}
+
+.note-quick-btn {
+  max-width: 100%;
+}
+
+.order-summary-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.9rem 1rem;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.contract-overview-wrap {
+  display: flex;
+  justify-content: center;
+}
+
+.contract-overview-card {
+  width: min(100%, 980px);
+  border: 1px solid #f8d7a4;
+  background: linear-gradient(180deg, #fffdf7 0%, #fff7e6 100%);
+  border-radius: 12px;
+  padding: 0.85rem;
+}
+
+.milestone-mini-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0.55rem;
+}
+
+.milestone-mini-item {
+  border: 1px solid #f1dfb7;
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 0.55rem 0.65rem;
+}
+
+.modal-section-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.modal-tab-btn {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  border-radius: 999px;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.86rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.modal-tab-btn:hover {
+  border-color: #93c5fd;
+  color: #1d4ed8;
+  background: #eff6ff;
+}
+
+.modal-tab-active {
+  border-color: #2563eb;
+  color: #1e3a8a;
+  background: #dbeafe;
+  box-shadow: inset 0 0 0 1px #93c5fd;
+}
+
+.tab-panel {
+  border-radius: 12px;
+  border: 1px solid #dbe3ef;
+  padding: 0.85rem;
+}
+
+.tab-panel-history {
+  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+}
+
+.tab-panel-materials {
+  background: #ffffff;
+}
+
+.history-empty-state {
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  padding: 0.65rem 0.8rem;
+  color: #64748b;
+  background: #f8fafc;
+  font-size: 0.86rem;
 }
 
 /* ── Type Tabs ── */
@@ -2147,7 +2959,7 @@ const openRemainingPaymentModal = (order) => {
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   background: #fff;
-  max-height: 220px;
+  max-height: 340px;
   overflow-y: auto;
 }
 
@@ -2159,4 +2971,466 @@ const openRemainingPaymentModal = (order) => {
 .order-history-item:last-child {
   border-bottom: none;
 }
+
+.history-timeline .order-history-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.history-bullet {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #2563eb;
+  margin-top: 7px;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
+  flex-shrink: 0;
+}
+
+.history-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.modal-tab-fade-enter-active,
+.modal-tab-fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.modal-tab-fade-enter-from,
+.modal-tab-fade-leave-to {
+  opacity: 0;
+}
+
+/* ===== NEW TABLE DESIGN STYLES ===== */
+
+/* Page Layout */
+.myorders-page {
+  min-height: 100vh;
+  background: #f0f4f8;
+}
+
+/* Hero Section */
+.orders-hero {
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+  padding: 3rem 0 2.5rem;
+  border-bottom: 4px solid #f59e0b;
+}
+
+.hero-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.hero-title {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0 0 0.5rem 0;
+  letter-spacing: -0.5px;
+}
+
+.hero-desc {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.95rem;
+  max-width: 600px;
+  margin: 0;
+  line-height: 1.6;
+}
+
+.hero-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.btn-hero-primary {
+  background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%);
+  color: #0f172a;
+  font-weight: 700;
+  padding: 0.6rem 1.4rem;
+  border-radius: 8px;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.35);
+  transition: all 0.25s ease;
+}
+
+.btn-hero-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(245, 158, 11, 0.5);
+  color: #0f172a;
+}
+
+/* Content Area */
+.orders-content {
+  padding-top: 2rem;
+  padding-bottom: 3rem;
+}
+
+/* Status Filter Pills */
+.status-filter-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 15px;
+  border: 1.5px solid #cbd5e1;
+  background: #ffffff;
+  color: #475569;
+  font-size: 0.88rem;
+  font-weight: 500;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+.status-pill:hover {
+  border-color: #3b82f6;
+  color: #3b82f6;
+  background: #eff6ff;
+}
+
+.status-pill.active {
+  background: #1e3a8a;
+  color: white;
+  border-color: #1e3a8a;
+  box-shadow: 0 2px 8px rgba(30, 58, 138, 0.3);
+}
+
+.pill-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.12);
+  color: currentColor;
+}
+
+.status-pill.active .pill-count {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Orders Table Card */
+.orders-table-card {
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+}
+
+.orders-table-header {
+  display: flex;
+  align-items: center;
+  background: #f8fafc;
+  border-bottom: 2px solid #e2e8f0;
+  padding: 0;
+}
+
+.col-header {
+  padding: 14px 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #64748b;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Order Table Rows */
+.order-table-row {
+  display: flex;
+  align-items: flex-start;
+  border-bottom: 1px solid #f1f5f9;
+  transition: background 0.2s ease;
+  padding: 0;
+}
+
+.order-table-row:last-child {
+  border-bottom: none;
+}
+
+.order-table-row:hover {
+  background: #f8faff;
+}
+
+.row-cell {
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* Number Cell */
+.order-number-text {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1e3a8a;
+  letter-spacing: 0.3px;
+}
+
+.order-items-count {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin-top: 3px;
+}
+
+/* Mini alerts inside table rows */
+.mini-alert {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  width: fit-content;
+  max-width: 100%;
+  font-size: 0.75rem;
+  padding: 3px 8px;
+  border-radius: 6px;
+  line-height: 1.4;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.mini-alert-warning {
+  background: rgba(245, 158, 11, 0.12);
+  color: #92400e;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.mini-alert-danger {
+  background: rgba(239, 68, 68, 0.1);
+  color: #991b1b;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.mini-alert-secondary {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+/* Status badge in table */
+.status-badge-lg {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: flex-start;
+  width: fit-content;
+  max-width: 100%;
+  padding: 5px 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border-radius: 6px;
+  letter-spacing: 0.3px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.status-cell {
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+/* Date Cell */
+.date-primary {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.date-secondary {
+  font-size: 0.78rem;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+.delivery-cell {
+  align-items: flex-start;
+}
+
+.delivery-primary {
+  font-size: 0.78rem;
+  line-height: 1.3;
+  font-weight: 500;
+}
+
+/* Price Cell */
+.price-total {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1e3a8a;
+}
+
+.price-sub {
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+/* Action Cell */
+.action-cell {
+  align-items: flex-start;
+}
+
+.action-link-btn {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  line-height: 1.4;
+}
+
+.primary-action { color: #2563eb; }
+.primary-action:hover { color: #1e40af; }
+.danger-action { color: #dc2626; }
+.danger-action:hover { color: #991b1b; }
+.success-action { color: #16a34a; }
+.success-action:hover { color: #14532d; }
+.warning-action { color: #d97706; }
+.warning-action:hover { color: #92400e; }
+
+.action-link-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Skeleton loading for table */
+.skeleton-row .sk {
+  background: #e2e8f0;
+  border-radius: 6px;
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton-row .sk::after {
+  content: "";
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.6) 50%, transparent 100%);
+  animation: shimmer 1.5s infinite;
+}
+
+.sk-title { height: 18px; width: 80%; }
+.sk-sub { height: 12px; width: 50%; }
+.sk-badge { height: 24px; width: 80px; border-radius: 6px; }
+.sk-line { height: 14px; width: 70%; }
+.sk-btn { height: 20px; width: 90px; }
+
+/* Empty State Card */
+.empty-state-card {
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+  border: 1px solid #e2e8f0;
+  padding: 4rem 2rem;
+  text-align: center;
+}
+
+.empty-icon {
+  font-size: 3.5rem;
+  color: #cbd5e1;
+  display: block;
+  margin-bottom: 1rem;
+}
+
+.empty-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 0.5rem;
+}
+
+.empty-desc {
+  color: #94a3b8;
+  font-size: 0.9rem;
+  margin-bottom: 1.5rem;
+}
+
+/* Pagination */
+.table-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-top: 1px solid #f1f5f9;
+  background: #f8fafc;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pagination-info {
+  font-size: 0.84rem;
+  color: #64748b;
+}
+
+.pagination-controls {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.page-btn {
+  min-width: 36px;
+  height: 36px;
+  padding: 0 8px;
+  border: 1.5px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+  font-size: 0.88rem;
+  font-weight: 500;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.page-btn:hover:not(:disabled) {
+  border-color: #3b82f6;
+  color: #3b82f6;
+  background: #eff6ff;
+}
+
+.page-btn.active {
+  background: #1e3a8a;
+  border-color: #1e3a8a;
+  color: white;
+  box-shadow: 0 2px 8px rgba(30, 58, 138, 0.3);
+}
+
+.page-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ellipsis-btn {
+  border: none;
+  background: transparent;
+  cursor: default;
+}
+
 </style>
