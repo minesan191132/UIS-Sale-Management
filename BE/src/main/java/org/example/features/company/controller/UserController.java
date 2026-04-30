@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.example.features.company.entity.User;
 import org.example.features.company.entity.UserRole;
 import org.example.features.company.repository.UserRepository;
+import org.example.features.user.service.UserService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,6 +22,7 @@ import java.util.stream.Collectors;
 public class UserController {
 
     private final UserRepository userRepository;
+    private final UserService userService;
 
     /**
      * GET /api/admin/users?search=...&role=...&companySearch=...&page=0&size=20
@@ -133,6 +135,22 @@ public class UserController {
         }).orElse(ResponseEntity.notFound().build());
     }
 
+    /**
+     * DELETE /api/admin/users/{id}
+     * Soft delete user (set isActive = false)
+     */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteUser(@PathVariable Long id) {
+        try {
+            userService.deleteUser(id);
+            return ResponseEntity.ok(Map.of("message", "Người dùng đã được xóa thành công"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     private static Map<String, Object> toMap(User u) {
         Map<String, Object> map = new java.util.LinkedHashMap<>();
         map.put("id", u.getId() != null ? u.getId() : 0L);
@@ -147,6 +165,12 @@ public class UserController {
                 : "");
         map.put("companyTaxCode", u.getCompany() != null && u.getCompany().getTaxCode() != null
                 ? u.getCompany().getTaxCode()
+                : "");
+        map.put("companyEmail", u.getCompany() != null && u.getCompany().getEmail() != null
+                ? u.getCompany().getEmail()
+                : "");
+        map.put("companyPhone", u.getCompany() != null && u.getCompany().getPhone() != null
+                ? u.getCompany().getPhone()
                 : "");
         map.put("createdAt", u.getCreatedAt() != null ? u.getCreatedAt().toString() : "");
         return map;

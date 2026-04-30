@@ -96,7 +96,7 @@
               <div class="profile-layout">
                 <form class="profile-form" @submit.prevent="saveProfile">
                   <div class="form-row">
-                    <label class="form-label">Tên đăng nhập</label>
+                    <label class="form-label">Email cá nhân </label>
                     <div class="form-input-wrap">
                       <input type="text" class="form-input form-input--readonly" :value="currentUser?.email || ''" readonly />
                     </div>
@@ -108,15 +108,21 @@
                     </div>
                   </div>
                   <div class="form-row">
-                    <label class="form-label">Email</label>
+                    <label class="form-label">Email Công Ty</label>
                     <div class="form-input-wrap">
-                      <input type="email" class="form-input" v-model="form.email" placeholder="Nhập email của bạn" />
+                      <input type="email" class="form-input" v-model="form.companyEmail" placeholder="Nhập email công ty" />
                     </div>
                   </div>
                   <div class="form-row">
-                    <label class="form-label">Số điện thoại</label>
+                    <label class="form-label">Số điện thoại cá nhân</label>
                     <div class="form-input-wrap">
-                      <input type="tel" class="form-input" v-model="form.phone" placeholder="Nhập số điện thoại" />
+                      <input type="tel" class="form-input" v-model="form.phone" placeholder="Nhập số điện thoại cá nhân" />
+                    </div>
+                  </div>
+                  <div class="form-row">
+                    <label class="form-label">Số điện thoại công ty</label>
+                    <div class="form-input-wrap">
+                      <input type="tel" class="form-input" v-model="form.companyPhone" placeholder="Nhập số điện thoại công ty" />
                     </div>
                   </div>
                   <div class="form-row form-actions">
@@ -136,11 +142,6 @@
                 <div class="avatar-section">
                   <img :src="avatarSrc" alt="Avatar" class="avatar-large" />
                   <p class="avatar-name">{{ currentUser?.fullName || '' }}</p>
-                  <button type="button" class="avatar-upload-btn" @click="$refs.avatarInput.click()">
-                    Chọn Ảnh
-                  </button>
-                  <input ref="avatarInput" type="file" accept="image/*" style="display:none" @change="onAvatarChange" />
-                  <p class="avatar-hint">Dung lượng tối đa 1 MB<br>Định dạng: JPEG, PNG</p>
                 </div>
               </div>
             </section>
@@ -194,7 +195,7 @@ const isAccountSection = computed(() =>
   ['profile', 'address', 'password'].includes(activeSection.value)
 )
 
-const avatarSrc = ref('https://ui-avatars.com/api/?name=User&background=1e3a8a&color=fff&size=150')
+const avatarSrc = computed(() => `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.value?.fullName || 'User')}&background=1e3a8a&color=fff&size=150`)
 
 const form = ref({
   fullName: '',
@@ -204,6 +205,8 @@ const form = ref({
   dobDay: '',
   dobMonth: '',
   dobYear: '',
+  companyEmail: '',
+  companyPhone: '',
 })
 
 const normalizeProfileState = (state) => {
@@ -216,6 +219,8 @@ const normalizeProfileState = (state) => {
     dobDay: String(source.dobDay || ''),
     dobMonth: String(source.dobMonth || ''),
     dobYear: String(source.dobYear || ''),
+    companyEmail: String(source.companyEmail || ''),
+    companyPhone: String(source.companyPhone || ''),
   }
 }
 
@@ -229,6 +234,8 @@ const getComparableProfileState = (state) => {
     dobDay: normalized.dobDay.trim(),
     dobMonth: normalized.dobMonth.trim(),
     dobYear: normalized.dobYear.trim(),
+    companyEmail: normalized.companyEmail.trim(),
+    companyPhone: normalized.companyPhone.trim(),
   }
 }
 
@@ -409,6 +416,8 @@ const loadUserProfile = async () => {
     form.value.dobDay = profile.dobDay || ''
     form.value.dobMonth = profile.dobMonth || ''
     form.value.dobYear = profile.dobYear || ''
+    form.value.companyEmail = profile.companyEmail || ''
+    form.value.companyPhone = profile.companyPhone || ''
   } catch {
     console.warn('Could not load full profile from API, using stored data.')
   }
@@ -469,6 +478,8 @@ const saveProfile = async () => {
       dobDay: form.value.dobDay || null,
       dobMonth: form.value.dobMonth || null,
       dobYear: form.value.dobYear || null,
+      companyEmail: form.value.companyEmail,
+      companyPhone: form.value.companyPhone,
     })
 
     // Sync stored user with updated values

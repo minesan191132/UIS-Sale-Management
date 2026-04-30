@@ -14,4 +14,6 @@ public class UserProfileDTO {
     private Integer dobDay;
     private Integer dobMonth;
     private Integer dobYear;
+    private String companyEmail;
+    private String companyPhone;
 }

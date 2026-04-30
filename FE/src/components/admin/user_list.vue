@@ -99,9 +99,15 @@
               
               <td class="py-3">
                 <div class="company-name fw-bold text-dark mb-1" :title="user.companyName">{{ user.companyName || '—' }}</div>
-                <span v-if="user.companyTaxCode" class="badge bg-light text-secondary border px-2 py-1 fw-medium" style="font-size: 0.7rem;">
+                <span v-if="user.companyTaxCode" class="badge bg-light text-secondary border px-2 py-1 fw-medium me-2" style="font-size: 0.7rem;">
                   MST: {{ user.companyTaxCode }}
                 </span>
+                <div class="small text-muted mt-2">
+                  <i class="bi bi-envelope me-1"></i> {{ user.companyEmail || '—' }}
+                </div>
+                <div class="small text-muted">
+                  <i class="bi bi-telephone me-1"></i> {{ user.companyPhone || '—' }}
+                </div>
               </td>
               
               <td class="py-3 text-center">
@@ -137,6 +143,10 @@
                   
                   <button class="btn btn-action-circle bg-light text-primary border" @click="openEdit(user)" title="Xem & Chỉnh sửa">
                     <i class="bi bi-pencil-fill"></i>
+                  </button>
+
+                  <button class="btn btn-action-circle bg-light text-danger border" @click="handleDeleteUser(user)" title="Xóa tài khoản">
+                    <i class="bi bi-trash-fill"></i>
                   </button>
                 </div>
               </td>
@@ -352,6 +362,41 @@ const handleToggleActive = async (user) => {
     });
   } catch {
     Swal.fire('Lỗi hệ thống', 'Không thể thay đổi trạng thái tài khoản lúc này.', 'error');
+  }
+};
+
+const handleDeleteUser = async (user) => {
+  const result = await Swal.fire({
+    title: 'Xoá tài khoản người dùng?',
+    html: `Bạn có chắc chắn muốn xoá tài khoản <br><b class="text-danger">${user.email}</b>?<br><small class="text-muted">Hành động này không thể hoàn tác.</small>`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#dc2626',
+    cancelButtonColor: '#64748b',
+    confirmButtonText: 'Xoá tài khoản',
+    cancelButtonText: 'Huỷ bỏ',
+    customClass: {
+      popup: 'rounded-4 shadow-lg border-0'
+    }
+  });
+
+  if (!result.isConfirmed) return;
+
+  try {
+    await usersAPI.deleteUser(user.id);
+    users.value = users.value.filter(u => u.id !== user.id);
+    totalElements.value--;
+    
+    Swal.fire({
+      toast: true,
+      position: 'top-end',
+      icon: 'success',
+      title: 'Đã xoá tài khoản thành công!',
+      showConfirmButton: false,
+      timer: 3000
+    });
+  } catch (err) {
+    Swal.fire('Lỗi hệ thống', err.response?.data?.error || 'Không thể xoá tài khoản lúc này.', 'error');
   }
 };
 

@@ -63,12 +63,33 @@ public class UserService {
             }
         }
 
+        // Update company info if provided
+        if (user.getCompany() != null) {
+            if (dto.getCompanyEmail() != null && !dto.getCompanyEmail().isBlank()) {
+                user.getCompany().setEmail(dto.getCompanyEmail().trim());
+            }
+            if (dto.getCompanyPhone() != null && !dto.getCompanyPhone().isBlank()) {
+                user.getCompany().setPhone(dto.getCompanyPhone().trim());
+            }
+        }
+
         userRepository.save(user);
         log.info("Profile updated for userId: {}", userId);
         return toProfileResponse(user);
     }
 
     // ──────── Password ────────
+
+    /**
+     * Soft delete user (set isActive to false)
+     */
+    @Transactional
+    public void deleteUser(Long userId) {
+        User user = findUserById(userId);
+        user.setIsActive(false);
+        userRepository.save(user);
+        log.info("User {} soft deleted", userId);
+    }
 
     /**
      * Change user password

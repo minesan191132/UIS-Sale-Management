@@ -72,7 +72,7 @@
             >
               <span class="user-name d-none d-md-inline">{{ user.fullName }}</span>
               <div class="avatar-wrap">
-                <img src="https://github.com/mdo.png" alt="Avatar" width="32" height="32" class="rounded-circle" />
+                <img :src="`https://ui-avatars.com/api/?name=${encodeURIComponent(user.fullName || 'User')}&background=1e3a8a&color=fff&size=150`" alt="Avatar" width="32" height="32" class="rounded-circle" />
               </div>
             </button>
 
