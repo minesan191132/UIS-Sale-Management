@@ -1,4 +1,4 @@
--- Add new columns for order_complaints
+V36__enhance_order_complaints.sql-- Add new columns for order_complaints
 ALTER TABLE order_complaints ADD COLUMN complaint_type VARCHAR(50) NOT NULL DEFAULT 'MISSING_ITEM';
 ALTER TABLE order_complaints ADD COLUMN admin_note TEXT;
 

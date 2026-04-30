@@ -211,6 +211,7 @@ const hydrateCheckoutForm = async () => {
       form.orderEmail = basicUser.email || '';
     }
     try {
+      // 1. Lấy thông tin Profile mới nhất (Số 0888888888 sẽ nằm ở đây)
       const fullProfile = await userAPI.getProfile();
       form.name = fullProfile.fullName || form.name;
       form.phone = fullProfile.phone || '';
@@ -218,16 +219,20 @@ const hydrateCheckoutForm = async () => {
       form.taxId = fullProfile.taxCode || fullProfile.taxId || '';
       form.invoiceEmail = fullProfile.companyEmail || form.orderEmail;
 
-      // --- LẤY ĐỊA CHỈ MẶC ĐỊNH ---
+      // 2. LẤY ĐỊA CHỈ MẶC ĐỊNH
       const addresses = await userAPI.getAddresses();
       if (addresses && addresses.length > 0) {
-        // Ưu tiên tìm địa chỉ có isDefault = true, nếu không có thì lấy đại cái đầu tiên
         const defaultAddr = addresses.find(a => a.isDefault) || addresses[0];
         
-        // Ghi đè Tên, SĐT và Địa chỉ theo Sổ địa chỉ
-        form.name = defaultAddr.fullName;
-        form.phone = defaultAddr.phone;
+        // Chỉ lấy chuỗi địa chỉ giao hàng
         form.address = `${defaultAddr.detail}, ${defaultAddr.ward}, ${defaultAddr.district}, ${defaultAddr.province}`;
+        
+        // Vẫn cho phép lấy Tên từ sổ địa chỉ (vì có thể khách mua tặng người khác)
+        form.name = defaultAddr.fullName || form.name;
+
+        // VŨ KHÍ BÍ MẬT: Ưu tiên Số điện thoại từ Profile. 
+        // Chỉ dùng số trong Sổ địa chỉ NẾU Profile bị trống.
+        form.phone = fullProfile.phone || defaultAddr.phone || form.phone;
       }
 
     } catch (error) {
