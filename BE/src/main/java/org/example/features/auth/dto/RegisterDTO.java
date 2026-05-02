@@ -14,10 +14,12 @@ import lombok.Data;
 public class RegisterDTO {
 
     // ==================== USER CREDENTIALS ====================
-
     @NotBlank(message = "Email không được để trống")
-    @Email(message = "Email phải đúng định dạng")
-    private String email; // Can be personal or company email
+    @Pattern(
+            regexp = "^[a-zA-Z0-9._%+-]+@(gmail\\.com|yahoo\\.com|hotmail\\.com|outlook\\.com)$",
+            message = "Email không hợp lệ! Chỉ chấp nhận các đuôi: @gmail.com, @yahoo.com, @hotmail.com, @outlook.com"
+    )
+    private String email;
 
     @NotBlank(message = "Mật khẩu không được để trống")
     @Pattern(

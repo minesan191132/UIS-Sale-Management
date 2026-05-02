@@ -75,11 +75,27 @@ public class AuthService {
     @Transactional
     public String register(RegisterDTO dto) {
         if (userRepository.existsByEmail(dto.getEmail())) {
-            throw new IllegalArgumentException("Email already registered: " + dto.getEmail());
+            throw new IllegalArgumentException("Email đã được sử dụng bởi tài khoản khác: " + dto.getEmail());
+        }
+
+        if (userRepository.existsByPhone(dto.getPhone())) {
+            throw new IllegalArgumentException("Số điện thoại này đã được sử dụng bởi tài khoản khác");
         }
 
         log.info("Fetching company info for tax code: {}", dto.getTaxCode());
-        CompanyInfoDTO companyInfo = vietQRService.getCompanyByTaxCode(dto.getTaxCode());
+        CompanyInfoDTO fetchedCompanyInfo;
+        try {
+            fetchedCompanyInfo = vietQRService.getCompanyByTaxCode(dto.getTaxCode());
+        } catch (Exception e) {
+            log.warn("Lỗi kết nối VietQR cho MST {}: {}. Vẫn tiếp tục tạo tài khoản với dữ liệu mặc định.", dto.getTaxCode(), e.getMessage());
+            // Cứu cánh: Tạo một object giả để tránh bị lỗi NullPointerException ở các bước sau
+            fetchedCompanyInfo = new CompanyInfoDTO();
+            fetchedCompanyInfo.setCompanyName("Công ty (MST: " + dto.getTaxCode() + ")");
+            fetchedCompanyInfo.setAddress("Chưa rõ");
+            fetchedCompanyInfo.setRepresentative("Chưa rõ");
+        }
+
+        final CompanyInfoDTO companyInfo = fetchedCompanyInfo;
 
         Company company = companyRepository.findByTaxCode(dto.getTaxCode())
                 .orElseGet(() -> {
