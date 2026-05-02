@@ -499,6 +499,8 @@ const saveProfile = async () => {
 
     Swal.fire({ icon: 'success', title: 'Thành công!', text: 'Hồ sơ đã được cập nhật.', timer: 1500, showConfirmButton: false })
   } catch (err) {
+    const errorMessage = err.response?.data?.message || err.response?.data?.error || 'Không thể cập nhật hồ sơ. Vui lòng kiểm tra lại thông tin.';
+    
     Swal.fire({ icon: 'error', title: 'Lỗi', text: err.response?.data?.error || 'Không thể cập nhật hồ sơ.' })
   } finally {
     isLoading.value = false

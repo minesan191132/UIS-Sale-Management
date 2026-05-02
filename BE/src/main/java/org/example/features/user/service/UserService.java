@@ -63,6 +63,18 @@ public class UserService {
             }
         }
 
+        if (dto.getPhone() != null && !dto.getPhone().isBlank()) {
+            String newPhone = dto.getPhone().trim();
+            // Chỉ kiểm tra nếu user thực sự đổi sang số khác
+            if (!newPhone.equals(user.getPhone())) {
+                boolean phoneTaken = userRepository.existsByPhone(newPhone);
+                if (phoneTaken) {
+                    throw new IllegalArgumentException("Số điện thoại này đã được sử dụng bởi tài khoản khác");
+                }
+                user.setPhone(newPhone);
+            }
+        }
+
         // Update company info if provided
         if (user.getCompany() != null) {
             if (dto.getCompanyEmail() != null && !dto.getCompanyEmail().isBlank()) {

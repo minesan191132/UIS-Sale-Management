@@ -130,31 +130,84 @@ const form = reactive({
 const isLoading = ref(false);
 const errors = ref({});
 
+// --- CÁC BIỂU THỨC CHÍNH QUY (REGEX) ---
+// Regex cho Email cá nhân: Chỉ chấp nhận 4 đuôi phổ biến (Giống hệt Backend)
+const emailRegex = /^[a-zA-Z0-9._%+-]+@(gmail\.com|yahoo\.com|hotmail\.com|outlook\.com)$/;
+// Regex cho SĐT: Bắt đầu bằng số 0, đúng 10 chữ số
+const phoneRegex = /^0[0-9]{9}$/;
+// Regex cho Email công ty (Vì là đuôi tên miền riêng nên dùng chuẩn email quốc tế cơ bản)
+const companyEmailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 const handleRegister = async () => {
   errors.value = {};
   let hasError = false;
 
-  if (!form.fullName) { errors.value.fullName = 'Vui lòng nhập họ và tên'; hasError = true; }
-  if (!form.email) { errors.value.email = 'Vui lòng nhập email'; hasError = true; }
-  if (!form.phone) {
-    errors.value.phone = 'Vui lòng nhập số điện thoại cá nhân'; hasError = true;
-  } else if (!/^0[0-9]{9}$/.test(form.phone)) {
-    errors.value.phone = 'Số điện thoại phải bắt đầu bằng 0 và có đúng 10 chữ số'; hasError = true;
+  // 1. Validate Họ và Tên
+  if (!form.fullName.trim()) { 
+    errors.value.fullName = 'Vui lòng nhập họ và tên'; 
+    hasError = true; 
   }
-  if (!form.taxCode) { errors.value.taxCode = 'Vui lòng nhập mã số thuế'; hasError = true; }
-  if (!form.companyPhone) { errors.value.companyPhone = 'Vui lòng nhập số điện thoại'; hasError = true; }
+
+  // 2. Validate Email cá nhân (Đồng bộ Backend)
+  if (!form.email.trim()) { 
+    errors.value.email = 'Vui lòng nhập email'; 
+    hasError = true; 
+  } else if (!emailRegex.test(form.email.trim())) {
+    errors.value.email = 'Email không đúng định dạng'; 
+    hasError = true;
+  }
+
+  // 3. Validate SĐT cá nhân
+  if (!form.phone.trim()) {
+    errors.value.phone = 'Vui lòng nhập số điện thoại cá nhân'; 
+    hasError = true;
+  } else if (!phoneRegex.test(form.phone.trim())) {
+    errors.value.phone = 'Số điện thoại phải bắt đầu bằng 0 và có đúng 10 chữ số'; 
+    hasError = true;
+  }
+
+  // 4. Validate Mã số thuế
+  if (!form.taxCode.trim()) { 
+    errors.value.taxCode = 'Vui lòng nhập mã số thuế'; 
+    hasError = true; 
+  }
+
+  // 5. Validate SĐT công ty
+  if (!form.companyPhone.trim()) { 
+    errors.value.companyPhone = 'Vui lòng nhập số điện thoại công ty'; 
+    hasError = true; 
+  } else if (!phoneRegex.test(form.companyPhone.trim())) {
+    errors.value.companyPhone = 'SĐT công ty phải bắt đầu bằng 0 và có đúng 10 chữ số'; 
+    hasError = true;
+  }
+
+  // 6. Validate Email công ty (Tùy chọn: Nhập thì mới check)
+  if (form.companyEmail && form.companyEmail.trim() !== '') {
+    if (!companyEmailRegex.test(form.companyEmail.trim())) {
+      errors.value.companyEmail = 'Email công ty không đúng định dạng';
+      hasError = true;
+    }
+  }
+
   if (!form.password) { errors.value.password = 'Vui lòng nhập mật khẩu'; hasError = true; }
+
   if (!form.confirmPassword) {
     errors.value.confirmPassword = 'Vui lòng nhập lại mật khẩu'; hasError = true;
   } else if (form.password !== form.confirmPassword) {
     errors.value.confirmPassword = 'Mật khẩu nhập lại không khớp'; hasError = true;
   }
 
+  // NẾU CÓ LỖI -> DỪNG LẠI NGAY LẬP TỨC
   if (hasError) {
-    Swal.fire({ icon: 'error', title: 'Dữ liệu không hợp lệ', text: 'Vui lòng kiểm tra lại thông tin' });
+    Swal.fire({ 
+      icon: 'error', 
+      title: 'Dữ liệu không hợp lệ', 
+      text: 'Vui lòng kiểm tra lại các thông tin trên form.' 
+    });
     return;
   }
 
+  // NẾU PASS HẾT -> GỌI API
   isLoading.value = true;
   try {
     const registerData = {
