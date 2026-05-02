@@ -278,6 +278,14 @@ export const usersAPI = {
     const response = await apiClient.put(`/admin/users/${userId}/toggle-active`);
     return response.data;
   },
+
+  /**
+   * Delete user (soft delete)
+   */
+  deleteUser: async (userId) => {
+    const response = await apiClient.delete(`/admin/users/${userId}`);
+    return response.data;
+  },
 };
 
 // ==================== CONTACT API ====================
