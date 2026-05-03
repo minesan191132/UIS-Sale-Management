@@ -30,13 +30,6 @@
               </div>
               <div class="user-meta">
                 <span class="username">{{ currentUser?.fullName || 'Người dùng' }}</span>
-                <button class="edit-profile-btn" @click="switchSection('profile')">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                  </svg>
-                  Sửa Hồ Sơ
-                </button>
               </div>
             </div>
 
@@ -94,52 +87,38 @@
               <div class="section-divider"></div>
 
               <div class="profile-layout">
-                <form class="profile-form" @submit.prevent="saveProfile">
+                <div class="profile-form profile-view">
                   <div class="form-row">
-                    <label class="form-label">Email cá nhân </label>
+                    <label class="form-label">Email cá nhân</label>
                     <div class="form-input-wrap">
-                      <input type="text" class="form-input form-input--readonly" :value="currentUser?.email || ''" readonly />
+                      <div class="form-value">{{ currentUser?.email || '' }}</div>
                     </div>
                   </div>
                   <div class="form-row">
-                    <label class="form-label">Họ và tên<span class="text-danger">*</span></label>
+                    <label class="form-label">Họ và tên</label>
                     <div class="form-input-wrap">
-                      <input type="text" class="form-input" :class="{ 'is-invalid': errors.fullName }" v-model="form.fullName" placeholder="Nhập tên của bạn" />
-                      <div v-if="errors.fullName" class="error-message">{{ errors.fullName }}</div>
+                      <div class="form-value">{{ currentUser?.fullName || '' }}</div>
                     </div>
                   </div>
                   <div class="form-row">
                     <label class="form-label">Email Công Ty</label>
                     <div class="form-input-wrap">
-                      <input type="email" class="form-input" :class="{ 'is-invalid': errors.companyEmail }" v-model="form.companyEmail" placeholder="Nhập email công ty" />
-                      <div v-if="errors.companyEmail" class="error-message">{{ errors.companyEmail }}</div>
+                      <div class="form-value">{{ currentUser?.companyEmail || '---' }}</div>
                     </div>
                   </div>
                   <div class="form-row">
-                    <label class="form-label">Số điện thoại cá nhân<span class="text-danger">*</span></label>
+                    <label class="form-label">Số điện thoại cá nhân</label>
                     <div class="form-input-wrap">
-                      <input type="tel" class="form-input" :class="{ 'is-invalid': errors.phone }" v-model="form.phone" placeholder="Nhập số điện thoại cá nhân" />
-                      <div v-if="errors.phone" class="error-message">{{ errors.phone }}</div>
+                      <div class="form-value">{{ currentUser?.phone || '---' }}</div>
                     </div>
                   </div>
                   <div class="form-row">
                     <label class="form-label">Số điện thoại công ty</label>
                     <div class="form-input-wrap">
-                      <input type="tel" class="form-input" v-model="form.companyPhone" placeholder="Nhập số điện thoại công ty" />
+                      <div class="form-value">{{ currentUser?.companyPhone || '---' }}</div>
                     </div>
                   </div>
-                  <div class="form-row form-actions">
-                    <label class="form-label"></label>
-                    <div class="form-input-wrap">
-                      <button type="submit" class="btn-save" :disabled="isLoading">
-                        {{ isLoading ? 'Đang lưu...' : 'Lưu' }}
-                      </button>
-                      <p v-if="hasProfileUnsavedChanges && !isLoading" class="profile-draft-hint mb-0">
-                        <i class="bi bi-save2 me-1"></i>Thay đổi chưa lưu đang được giữ ở bản nháp.
-                      </p>
-                    </div>
-                  </div>
-                </form>
+                </div>
 
                 <!-- Avatar Panel -->
                 <div class="avatar-section">
@@ -1120,5 +1099,25 @@ onBeforeUnmount(() => {
     width: 110px;
     font-size: 12.5px;
   }
+}
+
+/* ── Profile View (Read-Only) ── */
+.profile-view {
+  pointer-events: none;
+}
+
+.profile-view .form-value {
+  padding: 8px 12px;
+  background: #f8fafc;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+}
+
+.profile-view .form-value:empty::after {
+  content: '---';
+  color: #cbd5e1;
 }
 </style>
