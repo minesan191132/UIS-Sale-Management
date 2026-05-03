@@ -203,10 +203,10 @@
                 </div>
 
                 <div class="mb-4">
-                  <label class="form-label fw-bold text-dark small">Số điện thoại liên hệ <span class="text-primary">*</span></label>
+                  <label class="form-label fw-bold text-secondary small">Số điện thoại liên hệ <i class="bi bi-lock-fill text-muted ms-1" title="Không thể sửa"></i></label>
                   <div class="input-group">
-                    <span class="input-group-text bg-white border-end-0 text-primary px-3"><i class="bi bi-telephone"></i></span>
-                    <input v-model="editForm.phone" type="tel" class="form-control custom-input border-start-0 ps-0 fw-bold" placeholder="Nhập số điện thoại mới..." />
+                    <span class="input-group-text bg-light border-end-0 text-muted px-3"><i class="bi bi-telephone"></i></span>
+                    <input :value="editUser.phone || '—'" type="tel" class="form-control custom-input bg-light border-start-0 ps-0 text-muted fw-medium" readonly disabled />
                   </div>
                 </div>
               </div>
@@ -253,10 +253,6 @@
 
         <div class="px-5 py-4 border-top bg-white d-flex justify-content-end gap-3 rounded-bottom-4">
           <button class="btn btn-light border rounded-pill px-5 py-2 fw-bold" @click="editUser = null">Đóng</button>
-          <button class="btn btn-gradient-primary rounded-pill px-5 py-2 fw-bold shadow-sm" :disabled="saving" @click="saveUser">
-            <span v-if="saving" class="spinner-border spinner-border-sm me-2"></span>
-            {{ saving ? 'Đang xử lý...' : 'Lưu Thay Đổi' }}
-          </button>
         </div>
       </div>
     </div>
