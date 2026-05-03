@@ -102,21 +102,24 @@
                     </div>
                   </div>
                   <div class="form-row">
-                    <label class="form-label">Họ và tên</label>
+                    <label class="form-label">Họ và tên<span class="text-danger">*</span></label>
                     <div class="form-input-wrap">
-                      <input type="text" class="form-input" v-model="form.fullName" placeholder="Nhập tên của bạn" />
+                      <input type="text" class="form-input" :class="{ 'is-invalid': errors.fullName }" v-model="form.fullName" placeholder="Nhập tên của bạn" />
+                      <div v-if="errors.fullName" class="error-message">{{ errors.fullName }}</div>
                     </div>
                   </div>
                   <div class="form-row">
                     <label class="form-label">Email Công Ty</label>
                     <div class="form-input-wrap">
-                      <input type="email" class="form-input" v-model="form.companyEmail" placeholder="Nhập email công ty" />
+                      <input type="email" class="form-input" :class="{ 'is-invalid': errors.companyEmail }" v-model="form.companyEmail" placeholder="Nhập email công ty" />
+                      <div v-if="errors.companyEmail" class="error-message">{{ errors.companyEmail }}</div>
                     </div>
                   </div>
                   <div class="form-row">
-                    <label class="form-label">Số điện thoại cá nhân</label>
+                    <label class="form-label">Số điện thoại cá nhân<span class="text-danger">*</span></label>
                     <div class="form-input-wrap">
-                      <input type="tel" class="form-input" v-model="form.phone" placeholder="Nhập số điện thoại cá nhân" />
+                      <input type="tel" class="form-input" :class="{ 'is-invalid': errors.phone }" v-model="form.phone" placeholder="Nhập số điện thoại cá nhân" />
+                      <div v-if="errors.phone" class="error-message">{{ errors.phone }}</div>
                     </div>
                   </div>
                   <div class="form-row">
@@ -208,6 +211,36 @@ const form = ref({
   companyEmail: '',
   companyPhone: '',
 })
+
+const errors = ref({})
+
+const validateForm = () => {
+  errors.value = {}
+  
+  if (!form.value.fullName || form.value.fullName.trim() === '') {
+    errors.value.fullName = 'Họ và tên không được để trống'
+  }
+  
+  if (!form.value.phone || form.value.phone.trim() === '') {
+    errors.value.phone = 'Số điện thoại cá nhân không được để trống'
+  }
+  
+  if (form.value.companyEmail && form.value.companyEmail.trim() !== '') {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(form.value.companyEmail)) {
+      errors.value.companyEmail = 'Email công ty không hợp lệ'
+    }
+  }
+  
+  if (form.value.phone && form.value.phone.trim() !== '') {
+    const phoneRegex = /^[0-9\s+()-]*$/
+    if (!phoneRegex.test(form.value.phone)) {
+      errors.value.phone = 'Số điện thoại không hợp lệ'
+    }
+  }
+  
+  return Object.keys(errors.value).length === 0
+}
 
 const normalizeProfileState = (state) => {
   const source = state || {}
@@ -467,6 +500,16 @@ onBeforeRouteLeave(async () => {
 
 const saveProfile = async () => {
   if (isLoading.value) return
+  
+  if (!validateForm()) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Lỗi validation',
+      html: Object.values(errors.value).map(err => `<div>${err}</div>`).join(''),
+      confirmButtonText: 'OK'
+    })
+    return
+  }
 
   isLoading.value = true
   try {
@@ -1011,6 +1054,28 @@ onBeforeUnmount(() => {
   opacity: 0;
   transform: translateY(18px);
   animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ── Form Validation ── */
+.form-input.is-invalid {
+  border-color: #dc2626 !important;
+  background-color: rgba(220, 38, 38, 0.03);
+}
+
+.error-message {
+  width: 100%;
+  font-size: 12px;
+  color: #dc2626;
+  font-weight: 500;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.error-message::before {
+  content: '⚠';
+  font-size: 13px;
 }
 
 @keyframes fadeIn {

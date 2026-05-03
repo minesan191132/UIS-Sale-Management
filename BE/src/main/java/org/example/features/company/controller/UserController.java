@@ -35,7 +35,10 @@ public class UserController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
 
-        List<User> all = userRepository.findAll();
+        List<User> all = userRepository.findAll()
+                .stream()
+                .filter(u -> u.getIsActive() != null && u.getIsActive())
+                .collect(Collectors.toList());
 
         // Filter by role
         if (!role.equalsIgnoreCase("all")) {
