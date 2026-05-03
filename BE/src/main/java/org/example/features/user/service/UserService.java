@@ -93,14 +93,15 @@ public class UserService {
     // ──────── Password ────────
 
     /**
-     * Soft delete user (set isActive to false)
+     * Hard delete user (remove from database)
      */
     @Transactional
     public void deleteUser(Long userId) {
-        User user = findUserById(userId);
-        user.setIsActive(false);
-        userRepository.save(user);
-        log.info("User {} soft deleted", userId);
+        if (!userRepository.existsById(userId)) {
+            throw new IllegalArgumentException("User not found with id: " + userId);
+        }
+        userRepository.deleteById(userId);
+        log.info("User {} hard deleted", userId);
     }
 
     /**

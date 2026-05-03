@@ -50,6 +50,7 @@ public class DataInitializer implements ApplicationRunner {
 
     private void seedUsers(Company company) {
         List<SeedUser> seeds = List.of(
+                new SeedUser("hoanganh070607@gmail.com", "Hoàng Anh", "Hoanganh12345@", UserRole.CUSTOMER),
                 new SeedUser("phuc1@gmail.com", "Nguyễn Văn Phúc", "phuc2313", UserRole.ADMIN),
                 new SeedUser("admin@gmail.com", "Quản trị viên", "admin123", UserRole.ADMIN),
                 new SeedUser("user01@gmail.com", "Trần Văn Nam", "user1234", UserRole.CUSTOMER),

@@ -16,6 +16,7 @@
               <input
                 :type="showCurrentPw ? 'text' : 'password'"
                 class="form-input"
+                :class="{ 'is-invalid': errors.currentPassword }"
                 v-model="passwordForm.currentPassword"
                 placeholder="Nhập mật khẩu hiện tại"
               />
@@ -24,6 +25,7 @@
                 <svg v-else xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
               </button>
             </div>
+            <div v-if="errors.currentPassword" class="error-message">{{ errors.currentPassword }}</div>
           </div>
         </div>
 
@@ -34,6 +36,7 @@
               <input
                 :type="showNewPw ? 'text' : 'password'"
                 class="form-input"
+                :class="{ 'is-invalid': errors.newPassword }"
                 v-model="passwordForm.newPassword"
                 placeholder="Tối thiểu 6 ký tự"
               />
@@ -42,6 +45,7 @@
                 <svg v-else xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
               </button>
             </div>
+            <div v-if="errors.newPassword" class="error-message">{{ errors.newPassword }}</div>
           </div>
         </div>
 
@@ -52,6 +56,7 @@
               <input
                 :type="showConfirmPw ? 'text' : 'password'"
                 class="form-input"
+                :class="{ 'is-invalid': errors.confirmPassword }"
                 v-model="passwordForm.confirmPassword"
                 placeholder="Nhập lại mật khẩu mới"
               />
@@ -60,6 +65,7 @@
                 <svg v-else xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
               </button>
             </div>
+            <div v-if="errors.confirmPassword" class="error-message">{{ errors.confirmPassword }}</div>
           </div>
         </div>
 
@@ -84,10 +90,9 @@
         </div>
         <p class="tips-title">Mật khẩu mạnh nên có:</p>
         <ul class="tips-list">
-          <li>Ít nhất 8 ký tự</li>
-          <li>Chữ hoa và chữ thường</li>
-          <li>Ít nhất một chữ số</li>
-          <li>Ký tự đặc biệt (!@#$...)</li>
+          <li>Ít nhất 6 ký tự</li>
+          <li>Ít nhất 1 chữ cái viết hoa (A-Z)</li>
+          <li>Ít nhất 1 ký tự đặc biệt (!@#$%^&*...)</li>
         </ul>
       </div>
     </div>
@@ -104,16 +109,37 @@ const showCurrentPw = ref(false)
 const showNewPw = ref(false)
 const showConfirmPw = ref(false)
 const isChangingPw = ref(false)
+const errors = ref({})
+
+const validatePasswords = () => {
+  errors.value = {}
+  
+  if (!passwordForm.value.currentPassword || passwordForm.value.currentPassword.trim() === '') {
+    errors.value.currentPassword = 'Mật khẩu hiện tại không được để trống'
+  }
+  
+  if (!passwordForm.value.newPassword || passwordForm.value.newPassword.trim() === '') {
+    errors.value.newPassword = 'Mật khẩu mới không được để trống'
+  } else if (passwordForm.value.newPassword.length < 6) {
+    errors.value.newPassword = 'Mật khẩu mới phải có ít nhất 6 ký tự'
+  } else if (!/[A-Z]/.test(passwordForm.value.newPassword)) {
+    errors.value.newPassword = 'Mật khẩu mới phải có ít nhất 1 chữ cái viết hoa'
+  } else if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(passwordForm.value.newPassword)) {
+    errors.value.newPassword = 'Mật khẩu mới phải có ít nhất 1 ký tự đặc biệt (!@#$%^&*...)'
+  }
+  
+  if (!passwordForm.value.confirmPassword || passwordForm.value.confirmPassword.trim() === '') {
+    errors.value.confirmPassword = 'Vui lòng xác nhận mật khẩu'
+  } else if (passwordForm.value.newPassword !== passwordForm.value.confirmPassword) {
+    errors.value.confirmPassword = 'Mật khẩu xác nhận không khớp với mật khẩu mới'
+  }
+  
+  return Object.keys(errors.value).length === 0
+}
 
 const handleChangePassword = async () => {
-  if (!passwordForm.value.currentPassword) {
-    return Swal.fire({ icon: 'warning', title: 'Thiếu thông tin', text: 'Vui lòng nhập mật khẩu hiện tại.' })
-  }
-  if (passwordForm.value.newPassword.length < 6) {
-    return Swal.fire({ icon: 'warning', title: 'Mật khẩu quá ngắn', text: 'Mật khẩu mới phải có ít nhất 6 ký tự.' })
-  }
-  if (passwordForm.value.newPassword !== passwordForm.value.confirmPassword) {
-    return Swal.fire({ icon: 'warning', title: 'Không khớp', text: 'Mật khẩu mới và xác nhận không khớp.' })
+  if (!validatePasswords()) {
+    return
   }
 
   isChangingPw.value = true
@@ -126,8 +152,14 @@ const handleChangePassword = async () => {
     Swal.fire({ icon: 'success', title: 'Thành công!', text: 'Mật khẩu đã được đổi thành công.', timer: 1500, showConfirmButton: false })
     passwordForm.value = { currentPassword: '', newPassword: '', confirmPassword: '' }
     showCurrentPw.value = showNewPw.value = showConfirmPw.value = false
+    errors.value = {}
   } catch (err) {
-    Swal.fire({ icon: 'error', title: 'Lỗi', text: err.response?.data?.error || 'Không thể đổi mật khẩu. Vui lòng thử lại.' })
+    const errorMsg = err.response?.data?.message || err.response?.data?.error
+    if (errorMsg && errorMsg.toLowerCase().includes('current') && errorMsg.toLowerCase().includes('password')) {
+      errors.value.currentPassword = 'Mật khẩu hiện tại không chính xác'
+    } else {
+      Swal.fire({ icon: 'error', title: 'Lỗi', text: errorMsg || 'Không thể đổi mật khẩu. Vui lòng thử lại.' })
+    }
   } finally {
     isChangingPw.value = false
   }
@@ -264,6 +296,24 @@ const handleChangePassword = async () => {
 .btn-save:active:not(:disabled) { transform: scale(0.97); }
 
 .btn-save:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.form-input.is-invalid {
+  border-color: #ef4444;
+  background-color: #fef2f2;
+}
+
+.form-input.is-invalid:focus {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.error-message {
+  color: #dc2626;
+  font-size: 13px;
+  margin-top: 4px;
+  display: block;
+  width: 100%;
+}
 
 /* Tips panel – mirrors avatar-section */
 .pw-tips {

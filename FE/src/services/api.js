@@ -42,7 +42,8 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     const isLoginRequest = error.config && error.config.url && error.config.url.includes('/auth/login');
-    if ((error.response?.status === 401 || error.response?.status === 403) && !isLoginRequest) {
+    const isPasswordChangeRequest = error.config && error.config.url && error.config.url.includes('/change-password');
+    if ((error.response?.status === 401 || error.response?.status === 403) && !isLoginRequest && !isPasswordChangeRequest) {
       localStorage.removeItem('authToken');
       localStorage.removeItem('user');
       sessionStorage.removeItem('authToken');
