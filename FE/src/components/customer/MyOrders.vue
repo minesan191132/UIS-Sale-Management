@@ -812,6 +812,7 @@ import PaymentQR from './PaymentQR.vue'
 import { getOrderStatusLabel, getReviewStatusLabel } from '../../constants/orderStatus'
 import Navbar from '../base/Navbar.vue'
 import Footer from '../base/Footer.vue'
+import { useSseOrderUpdates } from '../../services/useSseOrderUpdates'
 
 const route = useRoute()
 const router = useRouter()
@@ -1314,6 +1315,12 @@ const handleBeforeUnload = (event) => {
   event.preventDefault()
   event.returnValue = ''
 }
+
+// ── Real-time SSE: auto-refresh when backend pushes ORDER_UPDATED ──
+const { connected: sseConnected } = useSseOrderUpdates(() => {
+  loadOrders(currentPage.value)
+  loadStatusCounts(activeOrderType.value)
+})
 
 onMounted(async () => {
   restoreViewState()

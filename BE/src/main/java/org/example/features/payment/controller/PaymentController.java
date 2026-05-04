@@ -31,6 +31,7 @@ public class PaymentController {
 
     private final PaymentService paymentService;
     private final PaymentMilestoneService paymentMilestoneService;
+    private final org.example.features.realtime.service.SseService sseService;
 
     @Value("${sepay.webhook.token:}")
     private String webhookToken;
@@ -199,6 +200,7 @@ public class PaymentController {
             MilestoneVerifyResponseDTO result = paymentMilestoneService.verifyMilestone(
                     milestoneId,
                     userDetails.getUserId());
+            try { sseService.sendEvent("ORDER_UPDATED", milestoneId); } catch (Exception ignored) {}
             return ResponseEntity.ok(result);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));

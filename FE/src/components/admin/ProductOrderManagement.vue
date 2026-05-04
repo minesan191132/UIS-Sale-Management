@@ -352,6 +352,7 @@ import Swal from 'sweetalert2'
 import apiClient from '../../services/api'
 import { Modal } from 'bootstrap'
 import { getOrderStatusLabel } from '../../constants/orderStatus'
+import { useSseOrderUpdates } from '../../services/useSseOrderUpdates'
 
 // KEEPS ALL YOUR ORIGINAL SCRIPT LOGIC EXACTLY INTACT
 const orders = ref([])
@@ -380,6 +381,11 @@ const catalogSummary = computed(() => {
     if (order.status === 'SHIPPING') base.shipping += 1
   }
   return base
+})
+
+// ── Real-time SSE: auto-refresh when backend pushes ORDER_UPDATED ──
+const { connected: sseConnected } = useSseOrderUpdates(() => {
+  loadOrders(currentPage.value)
 })
 
 onMounted(() => loadOrders())

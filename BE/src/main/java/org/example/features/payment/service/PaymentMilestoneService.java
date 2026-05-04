@@ -37,6 +37,10 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
+import org.example.features.realtime.service.SseService;
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PaymentMilestoneService {
@@ -51,6 +55,7 @@ public class PaymentMilestoneService {
     private final PaymentRepository paymentRepository;
     private final UserNotificationService userNotificationService;
     private final OrderAuditService orderAuditService;
+    private final SseService sseService;
 
     @Value("${sepay.bank.account}")
     private String bankAccount;
@@ -180,11 +185,20 @@ public class PaymentMilestoneService {
         milestone.setPaidAmount(webhook.getTransferAmount());
         paymentMilestoneRepository.save(milestone);
 
-        notifyAdminsForVerification(milestone);
+        try {
+            // Auto-verify instead of waiting for admin
+            verifyMilestone(milestone.getId(), null);
+        } catch (Exception e) {
+            log.error("Failed to auto-verify milestone {}", milestone.getId(), e);
+            notifyAdminsForVerification(milestone);
+        }
+
+        // Send realtime event so frontend can refresh
+        sseService.sendEvent("ORDER_UPDATED", orderId);
 
         return new MilestoneWebhookResult(
-                "PENDING_VERIFICATION",
-                "Payment recorded, waiting for admin verification",
+                "SUCCESS",
+                "Payment recorded and auto-verified",
                 milestone.getId(),
                 orderId,
                 webhook.getTransferAmount());
