@@ -31,6 +31,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import org.example.features.realtime.service.SseService;
+
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -50,6 +52,12 @@ public class OrderController {
     private final OrderService orderService;
     private final OrderComplaintService orderComplaintService;
     private final EmailService emailService;
+    private final SseService sseService;
+
+    private void broadcastOrderUpdate(Object orderId) {
+        try { sseService.sendEvent("ORDER_UPDATED", orderId); }
+        catch (Exception e) { log.debug("SSE broadcast failed", e); }
+    }
 
     /**
      * Customer: Create order directly from shopping cart
@@ -61,6 +69,7 @@ public class OrderController {
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         try {
             OrderResponseDTO order = orderService.createOrderFromCart(request, userDetails.getUserId());
+            broadcastOrderUpdate(order.getId());
             return ResponseEntity.status(HttpStatus.CREATED).body(order);
         } catch (IllegalArgumentException e) {
             log.warn("Cart order validation error: {}", e.getMessage());
@@ -224,6 +233,7 @@ public class OrderController {
             }
 
             OrderResponseDTO order = orderService.approveImportBatch(id);
+            broadcastOrderUpdate(order.getId());
             return ResponseEntity.ok(order);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
@@ -428,6 +438,7 @@ public class OrderController {
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         try {
             OrderResponseDTO order = orderService.cancelOrder(id, userDetails.getUserId(), request != null ? request.getReason() : null);
+            broadcastOrderUpdate(id);
             return ResponseEntity.ok(order);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
@@ -452,6 +463,7 @@ public class OrderController {
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         try {
             OrderResponseDTO order = orderService.confirmReceivedByCustomer(id, userDetails.getUserId());
+            broadcastOrderUpdate(id);
             return ResponseEntity.ok(order);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
@@ -592,6 +604,7 @@ public class OrderController {
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         try {
             OrderResponseDTO order = orderService.setQuote(id, quoteRequest);
+            broadcastOrderUpdate(id);
             return ResponseEntity.ok(order);
         } catch (IllegalArgumentException | IllegalStateException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -610,6 +623,7 @@ public class OrderController {
     public ResponseEntity<?> confirmPayment(@PathVariable Long id) {
         try {
             OrderResponseDTO order = orderService.confirmPayment(id);
+            broadcastOrderUpdate(id);
             return ResponseEntity.ok(order);
         } catch (IllegalArgumentException | IllegalStateException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -637,6 +651,7 @@ public class OrderController {
                     request != null ? request.getReason() : null,
                     userDetails != null ? userDetails.getUserId() : null,
                     userDetails != null ? userDetails.getRole() : null);
+            broadcastOrderUpdate(id);
             return ResponseEntity.ok(order);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -738,6 +753,7 @@ public class OrderController {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Unauthorized"));
             }
             OrderResponseDTO order = orderService.shipOrder(id);
+            broadcastOrderUpdate(id);
             return ResponseEntity.ok(order);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
@@ -773,6 +789,7 @@ public class OrderController {
 
             LocalDate deliveryDate = LocalDate.parse(dateStr);
             OrderResponseDTO order = orderService.setDeliveryDateAndReadyToDeliver(id, deliveryDate);
+            broadcastOrderUpdate(id);
             return ResponseEntity.ok(order);
         } catch (DateTimeParseException e) {
             return ResponseEntity.badRequest().body(Map.of("error", "Định dạng ngày không hợp lệ"));
@@ -800,6 +817,7 @@ public class OrderController {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Unauthorized"));
             }
             OrderResponseDTO order = orderService.completeOrder(id);
+            broadcastOrderUpdate(id);
             return ResponseEntity.ok(order);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
@@ -825,6 +843,7 @@ public class OrderController {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Unauthorized"));
             }
             OrderResponseDTO order = orderService.finishProcessing(id);
+            broadcastOrderUpdate(id);
             return ResponseEntity.ok(order);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));

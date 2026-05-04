@@ -44,6 +44,7 @@ public class PaymentService {
     private final OrderRepository orderRepository;
     private final PaymentMilestoneService paymentMilestoneService;
     private final UserNotificationService userNotificationService;
+    private final org.example.features.realtime.service.SseService sseService;
 
     @Value("${sepay.bank.account}")
     private String bankAccount;
@@ -279,6 +280,7 @@ public class PaymentService {
         }
 
         orderRepository.save(order);
+        sseService.sendEvent("ORDER_UPDATED", order.getId());
         return WebhookResult.success(order.getOrderNumber(), order.getId(), webhook.getTransferAmount());
     }
 

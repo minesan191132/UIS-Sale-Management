@@ -83,6 +83,7 @@ public class SecurityConfig {
                             "/uploads/**",
                                 "/api/payments/sepay/webhook", // SePay gọi từ server ngoài, không có JWT
                                 "/api/payments/dev/**",       // Dev simulation endpoints
+                                "/api/sse/**",                // SSE endpoint
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
                                 "/actuator/health",

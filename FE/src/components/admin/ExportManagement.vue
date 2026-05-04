@@ -520,6 +520,7 @@ import Swal from 'sweetalert2';
 import apiClient, { paymentAPI, contractAPI } from '../../services/api';
 import { Modal } from 'bootstrap';
 import { getOrderStatusLabel, getReviewStatusLabel } from '../../constants/orderStatus';
+import { useSseOrderUpdates } from '../../services/useSseOrderUpdates';
 
 // KEEPS ALL YOUR ORIGINAL SCRIPT LOGIC EXACTLY INTACT
 const router = useRouter();
@@ -551,6 +552,11 @@ const selectedItemIds = ref([]);
 const orderMilestonesMap = ref({});
 const verifyingMilestoneOrderId = ref(null);
 const shipmentEligibleStatuses = ['DEPOSITED', 'PROCESSING', 'COMPLETED'];
+
+// ── Real-time SSE: auto-refresh when backend pushes ORDER_UPDATED ──
+const { connected: sseConnected } = useSseOrderUpdates(() => {
+  loadOrders(currentPage.value)
+})
 
 onMounted(() => {
   loadCompaniesForImport();
