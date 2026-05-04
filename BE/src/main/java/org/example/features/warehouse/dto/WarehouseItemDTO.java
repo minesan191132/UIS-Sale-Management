@@ -13,8 +13,6 @@ public class WarehouseItemDTO {
     private String specification;
     private String material;
     private int totalQty;
-    private BigDecimal weight;
-    private int stock;
     private int orderCount;
     private String companyName;
     private List<OrderBreakdown> orders;

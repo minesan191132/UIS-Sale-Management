@@ -20,7 +20,6 @@ public class ShipmentPreviewDTO {
         private String specification;
         private String material;
         private int totalQty;
-        private BigDecimal weight;
         private List<OrderBreakdown> orderBreakdown;
     }
 

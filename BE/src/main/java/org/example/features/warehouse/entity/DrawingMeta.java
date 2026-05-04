@@ -17,12 +17,6 @@ public class DrawingMeta {
     @Column(name = "drawing_number", unique = true, nullable = false, length = 100)
     private String drawingNumber;
 
-    @Column(name = "weight", precision = 10, scale = 2)
-    private BigDecimal weight;
-
-    @Column(name = "stock")
-    private Integer stock = 0;
-
     @Column(name = "default_unit_price", precision = 15, scale = 2)
     private BigDecimal defaultUnitPrice;
 

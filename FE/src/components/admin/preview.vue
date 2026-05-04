@@ -85,9 +85,6 @@
                 <th v-for="grp in dateHeaderGroups" :key="grp.deliveryDate" :colspan="grp.colspan" class="text-center py-2 text-navy fw-bolder small text-uppercase border-bottom border-light">
                   <i class="bi bi-calendar-event me-1 opacity-50"></i> {{ grp.dateDisplay || 'Chưa xếp lịch' }}
                 </th>
-                
-                <th rowspan="2" class="text-center py-3 text-muted fw-bold small text-uppercase border-bottom-0" style="width: 80px;">Tồn kho</th>
-                <th rowspan="2" class="text-center py-3 text-muted fw-bold small text-uppercase border-bottom-0" style="width: 80px;">KL (kg)</th>
               </tr>
               <tr>
                 <th v-for="col in orderColumnsData" :key="col.colKey" class="text-center py-2 text-primary fw-bold font-monospace bg-primary bg-opacity-10 border-top-0" style="font-size: 0.75rem;">
@@ -109,14 +106,6 @@
                 <td v-for="col in orderColumnsData" :key="col.colKey" class="text-center fw-bold text-dark bg-white">
                   {{ getQty(item.drawingNumber, col.colKey) || '—' }}
                 </td>
-                
-                <td class="text-center bg-white" @click.stop>
-                  <input type="text" class="form-control form-control-sm text-center fw-bold text-success shadow-none border-success border-opacity-25 bg-success bg-opacity-10" v-model="stockValues[item.drawingNumber]" placeholder="—" style="max-width: 60px; margin: 0 auto;">
-                </td>
-                
-                <td class="text-center fw-bold text-info bg-white">
-                  {{ item.weight || 0 }}
-                </td>
               </tr>
             </tbody>
             <tfoot v-if="displayItems.length > 0">
@@ -126,8 +115,6 @@
                 <td v-for="col in orderColumnsData" :key="col.colKey" class="text-center py-3 text-dark">
                   {{ getTotalForCol(col.colKey) }}
                 </td>
-                <td class="text-center py-3 text-muted">—</td>
-                <td class="text-center py-3 text-info fs-6">{{ totalWeight.toFixed(1) }}</td>
               </tr>
             </tfoot>
           </table>
@@ -144,16 +131,12 @@ import apiClient from '../../services/api';
 
 // KEEPS ALL YOUR ORIGINAL SCRIPT LOGIC EXACTLY INTACT
 const shipment = ref(null);
-const stockValues = reactive({});
 const exporting = ref(false);
 
 onMounted(() => {
   const data = sessionStorage.getItem('shipmentPreview');
   if (data) {
     shipment.value = JSON.parse(data);
-    shipment.value.items?.forEach(item => {
-      stockValues[item.drawingNumber] = '';
-    });
   }
 });
 
@@ -241,11 +224,6 @@ const dateRangeDisplay = computed(() => {
   dates.sort();
   const min = formatDate(dates[0]), max = formatDate(dates[dates.length - 1]);
   return min === max ? min : `${min} — ${max}`;
-});
-
-const totalWeight = computed(() => {
-  if (!displayItems.value.length) return 0;
-  return displayItems.value.reduce((sum, i) => sum + (i.weight || 0) * (i.totalQty || 0), 0);
 });
 
 const formatVnnShort = (vnn) => {

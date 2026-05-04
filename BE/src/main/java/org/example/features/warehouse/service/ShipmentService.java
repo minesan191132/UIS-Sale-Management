@@ -114,9 +114,6 @@ public class ShipmentService {
                 si.setTotalQty(0);
                 si.setOrderBreakdown(new ArrayList<>());
 
-                drawingMetaRepository.findByDrawingNumber(drawingNumber).ifPresent(meta ->
-                        si.setWeight(meta.getWeight()));
-
                 return si;
             });
 
