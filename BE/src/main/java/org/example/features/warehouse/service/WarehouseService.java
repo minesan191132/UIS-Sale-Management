@@ -71,12 +71,6 @@ public class WarehouseService {
                 dto.setCompanyName(items.get(0).order.getCompany().getCompanyName());
             }
 
-            // Drawing meta (weight, stock)
-            drawingMetaRepository.findByDrawingNumber(drawingNumber).ifPresent(meta -> {
-                dto.setWeight(meta.getWeight());
-                dto.setStock(meta.getStock() != null ? meta.getStock() : 0);
-            });
-
             // Order breakdown
             List<WarehouseItemDTO.OrderBreakdown> breakdowns = new ArrayList<>();
             for (OrderItemWithOrder itemWithOrder : items) {
@@ -106,19 +100,7 @@ public class WarehouseService {
         return result;
     }
 
-    @Transactional
-    public void updateMeta(String drawingNumber, BigDecimal weight, Integer stock) {
-        DrawingMeta meta = drawingMetaRepository.findByDrawingNumber(drawingNumber)
-                .orElseGet(() -> {
-                    DrawingMeta newMeta = new DrawingMeta();
-                    newMeta.setDrawingNumber(drawingNumber);
-                    return newMeta;
-                });
 
-        if (weight != null) meta.setWeight(weight);
-        if (stock != null) meta.setStock(stock);
-        drawingMetaRepository.save(meta);
-    }
 
     public List<String> getCompanyNames() {
         return orderRepository.findAll().stream()

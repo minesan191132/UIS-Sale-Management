@@ -65,8 +65,6 @@
               <th style="width: 12%;" class="text-muted fw-bold small text-uppercase">SPEC</th>
               <th style="width: 10%;" class="text-muted fw-bold small text-uppercase">MATERIAL</th>
               <th style="width: 10%;" class="text-center text-muted fw-bold small text-uppercase">TỔNG QTY</th>
-              <th style="width: 11%;" class="text-center text-muted fw-bold small text-uppercase">KL (kg)</th>
-              <th style="width: 9%;" class="text-center text-muted fw-bold small text-uppercase">TỒN KHO</th>
               <th style="width: 7%;" class="text-center text-muted fw-bold small text-uppercase">SỐ ĐƠN</th>
             </tr>
           </thead>
@@ -88,34 +86,18 @@
                 <td class="text-center">
                   <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-3 py-2 fw-bolder">{{ item.totalQty }}</span>
                 </td>
-                <td class="text-center" @click.stop>
-                  <input type="number" step="0.1" min="0"
-                    class="inline-input weight-input"
-                    :class="{ 'weight-empty': item.weight == null }"
-                    :value="item.weight"
-                    :placeholder="item.weight == null ? 'Chưa có' : ''"
-                    @change="updateMeta(item.drawingNumber, 'weight', $event.target.value)">
-                </td>
-                <td class="text-center" @click.stop>
-                  <input type="number" step="1" min="0"
-                    class="inline-input stock-input fw-bolder fs-6"
-                    :value="item.stock"
-                    @change="updateMeta(item.drawingNumber, 'stock', $event.target.value)">
-                </td>
                 <td class="text-center">
                   <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-1 fw-bold">{{ item.orderCount }}</span>
                 </td>
               </tr>
 
               <tr v-if="expandedDrawing === item.drawingNumber">
-                <td colspan="9" class="p-0 border-0">
+                <td colspan="7" class="p-0 border-0">
                   <div class="expand-content inventory-expand-panel bg-white border-start border-4 border-primary ms-4 p-3 my-2 rounded-3 shadow-sm">
                     <div class="fw-bold small mb-2 text-muted d-flex align-items-center">
                       <i class="bi bi-diagram-3 me-2 fs-5"></i>
                       {{ item.drawingNumber }} — {{ item.partName || '—' }}
                       <span class="ms-3 badge bg-light text-dark border">Tổng: <strong class="text-primary">{{ item.totalQty }}</strong></span>
-                      <span class="ms-2 badge bg-light text-dark border" v-if="item.weight != null">KL: <strong class="text-info">{{ item.weight }} kg</strong></span>
-                      <span class="ms-2 badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 fst-italic" v-else>Chưa có KL</span>
                     </div>
                     <div v-for="ord in item.orders" :key="ord.orderId" class="d-flex align-items-center gap-3 py-2 small text-secondary border-bottom border-light">
                       <i class="bi bi-arrow-return-right text-muted"></i>
@@ -247,30 +229,16 @@ const stats = computed(() => {
   const totalQty = items.reduce((sum, i) => sum + (i.totalQty || 0), 0);
   const orderIds = new Set();
   items.forEach(i => i.orders?.forEach(o => orderIds.add(o.orderId)));
-  const totalWeight = items.reduce((sum, i) => sum + ((i.weight || 0) * (i.totalQty || 0)), 0);
 
   return [
     { label: 'Mã bản vẽ', value: items.length, icon: 'bi bi-grid-3x3-gap-fill', style: 'background:#e0f2fe;color:#2563eb;' },
     { label: 'Tổng sản phẩm', value: totalQty.toLocaleString(), icon: 'bi bi-box-fill', style: 'background:#dcfce7;color:#059669;' },
-    { label: 'Số đơn hàng', value: orderIds.size, icon: 'bi bi-file-earmark-text-fill', style: 'background:#fef3c7;color:#d97706;' },
-    { label: 'Tổng khối lượng', value: totalWeight.toFixed(1), unit: 'kg', icon: 'bi bi-speedometer2', style: 'background:#fee2e2;color:#dc2626;' }
+    { label: 'Số đơn hàng', value: orderIds.size, icon: 'bi bi-file-earmark-text-fill', style: 'background:#fef3c7;color:#d97706;' }
   ];
 });
 
 const toggleExpand = (drawingNumber) => {
   expandedDrawing.value = expandedDrawing.value === drawingNumber ? null : drawingNumber;
-};
-
-const updateMeta = async (drawingNumber, field, value) => {
-  try {
-    const body = {};
-    body[field] = field === 'weight' ? parseFloat(value) || 0 : parseInt(value) || 0;
-    await apiClient.put(`/warehouse/meta/${encodeURIComponent(drawingNumber)}`, body);
-    const item = allItems.value.find(i => i.drawingNumber === drawingNumber);
-    if (item) item[field] = body[field];
-  } catch (e) {
-    console.error('Failed to update meta:', e);
-  }
 };
 
 const formatDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '';
@@ -365,11 +333,6 @@ const formatDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '';
 }
 .inline-input:hover { border-color: #cbd5e1; background: #fff; }
 .inline-input:focus { outline: none; border-color: #3b82f6; background: #fff; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
-
-.weight-input { color: #0ea5e9; }
-.weight-empty { border: 1px dashed #f59e0b !important; background: rgba(245,158,11,.05); color: #f59e0b; }
-.weight-empty::placeholder { color: #f59e0b; opacity: 0.8; font-size: 0.8rem; }
-.stock-input { color: #059669; }
 
 @media (max-width: 768px) {
   .search-box {
