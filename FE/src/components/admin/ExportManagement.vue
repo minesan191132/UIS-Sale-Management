@@ -109,6 +109,7 @@
                 <span class="badge bg-light text-navy border px-2 py-1 fw-bold font-monospace shadow-sm order-code-badge" :title="order.orderNumber">
                   {{ order.orderNumber }}
                 </span>
+                <div v-if="order.customerPoNumber && order.customerPoNumber !== order.orderNumber" class="text-muted small mt-1 d-block" style="font-size: 0.75rem;"><i class="bi bi-tag me-1"></i>PO: {{ order.customerPoNumber }}</div>
               </td>
               <td class="py-3">
                 <h6 class="mb-0 fw-bold text-dark fs-6">{{ order.userName }}</h6>
@@ -312,6 +313,7 @@
                   <p class="mb-1 text-muted small fw-bold text-uppercase">Khách hàng</p>
                   <h6 class="fw-bold text-dark mb-1">{{ selectedOrder?.userName }}</h6>
                   <p class="mb-0 text-secondary small"><i class="bi bi-buildings me-1"></i>{{ selectedOrder?.companyName }}</p>
+                  <p v-if="selectedOrder?.customerPoNumber && selectedOrder.customerPoNumber !== selectedOrder.orderNumber" class="mb-0 text-secondary small mt-1"><i class="bi bi-tag me-1"></i>PO: <span class="badge bg-light text-dark border">{{ selectedOrder.customerPoNumber }}</span></p>
                 </div>
                 <div class="col-md-4 border-end">
                   <p class="mb-1 text-muted small fw-bold text-uppercase">Thông tin đơn</p>

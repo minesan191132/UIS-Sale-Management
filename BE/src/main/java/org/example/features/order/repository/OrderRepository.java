@@ -30,6 +30,9 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
         @Query("SELECT o FROM Order o WHERE LOWER(o.orderNumber) = LOWER(:orderNumber)")
         Optional<Order> findByOrderNumberIgnoreCase(@Param("orderNumber") String orderNumber);
 
+        @Query("SELECT o FROM Order o WHERE o.company.id = :companyId AND LOWER(o.customerPoNumber) = LOWER(:customerPoNumber)")
+        Optional<Order> findByCompanyIdAndCustomerPoNumberIgnoreCase(@Param("companyId") Long companyId, @Param("customerPoNumber") String customerPoNumber);
+
         /**
          * Find orders by user ID
          */

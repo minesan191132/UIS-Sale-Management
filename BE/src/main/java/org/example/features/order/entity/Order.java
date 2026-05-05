@@ -27,6 +27,9 @@ public class Order {
     @Column(name = "order_code", unique = true, nullable = false, length = 50)
     private String orderNumber; // ORD-YYYYMMDD-XXX (mapped to order_code in DB)
 
+    @Column(name = "customer_po_number", length = 100)
+    private String customerPoNumber;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
