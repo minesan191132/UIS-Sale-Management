@@ -98,6 +98,7 @@
           <!-- Mã đơn hàng -->
           <div class="row-cell order-number-cell" style="width:24%">
             <div class="order-number-text">{{ order.orderNumber }}</div>
+            <div v-if="order.customerPoNumber && order.customerPoNumber !== order.orderNumber" class="text-muted small mb-1"><i class="bi bi-tag me-1"></i>PO: {{ order.customerPoNumber }}</div>
             <div class="order-items-count"><i class="bi bi-box me-1"></i>{{ order.items?.length || 0 }} sản phẩm</div>
             <div v-if="order.status === 'PENDING_APPROVAL'" class="mini-alert mini-alert-warning mt-1">
               <i class="bi bi-hourglass-split me-1"></i>Chờ duyệt — sẽ báo giá sau
@@ -262,6 +263,7 @@
                 <p class="mb-1"><strong>Trạng thái:</strong>
                   <span :class="getStatusBadgeClass(selectedOrder.status)">{{ getStatusText(selectedOrder.status, selectedOrder.orderType) }}</span>
                 </p>
+                <p v-if="selectedOrder.customerPoNumber && selectedOrder.customerPoNumber !== selectedOrder.orderNumber" class="mb-1"><strong>Mã PO:</strong> <span class="badge bg-light text-dark border">{{ selectedOrder.customerPoNumber }}</span></p>
                 <p class="mb-1"><strong>Ngày tạo:</strong> {{ formatDate(selectedOrder.createdAt) }}</p>
                 <p class="mb-0"><strong>Ngày giao:</strong>
                   <span v-if="selectedOrder.deliveryDate" :class="isDeliveryDateOverdue(selectedOrder.deliveryDate) ? 'text-danger fw-semibold' : 'text-info fw-semibold'">

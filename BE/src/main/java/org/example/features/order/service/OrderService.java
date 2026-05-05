@@ -301,7 +301,7 @@ public class OrderService {
 
         String normalizedOrderCode = normalizeImportCode(batch.getImportCode());
         OrderStatus previousStatus = orderRepository
-            .findByOrderNumberIgnoreCase(normalizedOrderCode)
+            .findByCompanyIdAndCustomerPoNumberIgnoreCase(batch.getCompany().getId(), normalizedOrderCode)
             .map(Order::getStatus)
             .orElse(null);
 
@@ -309,6 +309,20 @@ public class OrderService {
         batch.setStatus(ImportBatchStatus.APPROVED);
         batch.setApprovedOrder(order);
         orderImportBatchRepository.save(batch);
+
+        java.util.List<OrderImportBatch> otherPendingBatches = orderImportBatchRepository.findOtherPendingBatches(
+                batch.getImportCode(),
+                batch.getCompany().getId(),
+                ImportBatchStatus.PENDING_APPROVAL,
+                batchId
+        );
+        for (OrderImportBatch otherBatch : otherPendingBatches) {
+            otherBatch.setStatus(ImportBatchStatus.REJECTED);
+            otherBatch.setRejectedByRole("SYSTEM");
+            otherBatch.setRejectionReason("Hệ thống tự động hủy do một bản nháp khác (mã PO trùng) đã được duyệt");
+            orderImportBatchRepository.save(otherBatch);
+            log.info("Auto-rejected pending batch {} due to approval of batch {}", otherBatch.getId(), batchId);
+        }
 
         OrderResponseDTO dto = mapToDTO(order);
         OrderRevisionSource revisionSource = batch.getSourceType() == ImportSourceType.ADMIN
@@ -521,16 +535,10 @@ public class OrderService {
             importCode = generateOrderNumber();
         }
 
-        Optional<Order> existingOrderOpt = orderRepository.findByOrderNumberIgnoreCase(importCode);
+        Optional<Order> existingOrderOpt = orderRepository.findByCompanyIdAndCustomerPoNumberIgnoreCase(company.getId(), importCode);
         if (existingOrderOpt.isPresent()) {
             Order existingOrder = existingOrderOpt.get();
-            Long existingCompanyId = existingOrder.getCompany() != null ? existingOrder.getCompany().getId() : null;
-
-            if (existingCompanyId == null || !existingCompanyId.equals(company.getId())) {
-                throw new IllegalArgumentException("Mã đơn hàng đã tồn tại ở công ty khác: " + importCode);
-            }
-
-                if (!isAllowedStatusForReimport(existingOrder.getStatus())) {
+            if (!isAllowedStatusForReimport(existingOrder.getStatus())) {
                 throw new IllegalArgumentException(
                     "Mã đơn hàng (VNN NO) đã tồn tại và đang ở trạng thái "
                         + existingOrder.getStatus()
@@ -579,30 +587,27 @@ public class OrderService {
     }
 
     private Order createOrUpdateOrderFromApprovedBatch(OrderImportBatch batch) {
-        String orderNumber = normalizeImportCode(batch.getImportCode());
+        String customerPoNumber = normalizeImportCode(batch.getImportCode());
 
         Order order;
-        Optional<Order> existing = orderRepository.findByOrderNumberIgnoreCase(orderNumber);
+        Optional<Order> existing = orderRepository.findByCompanyIdAndCustomerPoNumberIgnoreCase(batch.getCompany().getId(), customerPoNumber);
         if (existing.isPresent()) {
             Order existingOrder = existing.get();
-            Long existingCompanyId = existingOrder.getCompany() != null ? existingOrder.getCompany().getId() : null;
-            if (existingCompanyId == null || !existingCompanyId.equals(batch.getCompany().getId())) {
-                throw new IllegalStateException("Mã đơn hàng đã tồn tại ở công ty khác: " + orderNumber);
-            }
-
+            
             if (!isAllowedStatusForReimport(existingOrder.getStatus())) {
                 throw new IllegalStateException(
-                        "Không thể duyệt import cho mã đơn " + orderNumber
+                        "Không thể duyệt import cho mã đơn " + customerPoNumber
                                 + " vì đơn hiện tại đang ở trạng thái " + existingOrder.getStatus()
                                 + ". Chỉ cho phép khi đang CHỜ BÁO GIÁ, CHỜ DUYỆT hoặc ĐÃ HỦY.");
             }
 
             existingOrder.getItems().clear();
             order = existingOrder;
-            log.info("Replace items for existing order {} from approved import batch", orderNumber);
+            log.info("Replace items for existing order {} from approved import batch", customerPoNumber);
         } else {
             order = new Order();
-            order.setOrderNumber(orderNumber);
+            order.setOrderNumber(generateOrderNumber());
+            order.setCustomerPoNumber(customerPoNumber);
         }
 
         order.setUser(batch.getUser());
@@ -1762,6 +1767,7 @@ public class OrderService {
         OrderResponseDTO dto = new OrderResponseDTO();
         dto.setId(batch.getId());
         dto.setOrderNumber(batch.getImportCode());
+        dto.setCustomerPoNumber(batch.getImportCode());
         dto.setUserId(batch.getUser() != null ? batch.getUser().getId() : null);
         dto.setUserName(batch.getUser() != null ? batch.getUser().getFullName() : null);
         dto.setCompanyId(batch.getCompany() != null ? batch.getCompany().getId() : null);
@@ -1819,6 +1825,7 @@ public class OrderService {
         OrderResponseDTO dto = new OrderResponseDTO();
         dto.setId(order.getId());
         dto.setOrderNumber(order.getOrderNumber());
+        dto.setCustomerPoNumber(order.getCustomerPoNumber());
         dto.setUserId(order.getUser() != null ? order.getUser().getId() : null);
         dto.setUserName(order.getUser() != null ? order.getUser().getFullName() : null);
         dto.setCompanyId(order.getCompany() != null ? order.getCompany().getId() : null);

@@ -42,5 +42,18 @@ public interface OrderImportBatchRepository extends JpaRepository<OrderImportBat
             @Param("companyId") Long companyId,
             @Param("status") ImportBatchStatus status);
 
+    @Query("""
+            SELECT b FROM OrderImportBatch b
+            WHERE LOWER(b.importCode) = LOWER(:importCode)
+              AND b.company.id = :companyId
+              AND b.status = :status
+              AND b.id != :excludeId
+            """)
+    List<OrderImportBatch> findOtherPendingBatches(
+            @Param("importCode") String importCode,
+            @Param("companyId") Long companyId,
+            @Param("status") ImportBatchStatus status,
+            @Param("excludeId") Long excludeId);
+
     List<OrderImportBatch> findByUserIdAndStatusOrderByCreatedAtDesc(Long userId, ImportBatchStatus status);
 }
