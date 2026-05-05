@@ -1840,8 +1840,6 @@ public class OrderService {
         dto.setCreatedAt(order.getCreatedAt());
         dto.setUpdatedAt(order.getUpdatedAt());
 
-        Map<String, BigDecimal> weightByDrawing = loadWeightByDrawing(order.getItems());
-
         // Map items
         List<OrderItemDTO> itemDTOs = order.getItems().stream().map(item -> {
             OrderItemDTO itemDTO = new OrderItemDTO();
@@ -1863,7 +1861,6 @@ public class OrderService {
             }
             // Delivery date
             itemDTO.setDeliveryDate(item.getDeliveryDate() != null ? item.getDeliveryDate().toString() : null);
-            itemDTO.setWeight(weightByDrawing.get(item.getDrawingNumber()));
             return itemDTO;
         }).collect(Collectors.toList());
         dto.setItems(itemDTOs);
@@ -1889,28 +1886,5 @@ public class OrderService {
         dto.setCancelReason(latestCancelEvent.getNote());
         dto.setCancelledByRole(actorRole);
         dto.setRejectedByAdmin(actorRole != null && "ADMIN".equalsIgnoreCase(actorRole));
-    }
-
-    private Map<String, BigDecimal> loadWeightByDrawing(List<OrderItem> items) {
-        if (items == null || items.isEmpty()) {
-            return Collections.emptyMap();
-        }
-
-        List<String> drawingNumbers = items.stream()
-                .map(OrderItem::getDrawingNumber)
-                .filter(d -> d != null && !d.isBlank())
-                .distinct()
-                .toList();
-
-        if (drawingNumbers.isEmpty()) {
-            return Collections.emptyMap();
-        }
-
-        Map<String, BigDecimal> result = new HashMap<>();
-        List<DrawingMeta> metas = drawingMetaRepository.findByDrawingNumberIn(drawingNumbers);
-        for (DrawingMeta meta : metas) {
-            result.put(meta.getDrawingNumber(), meta.getWeight());
-        }
-        return result;
     }
 }

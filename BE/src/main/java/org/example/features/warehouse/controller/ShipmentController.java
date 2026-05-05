@@ -128,16 +128,10 @@ public class ShipmentController {
             }
 
             int stockCol = dynamicStartCol + dynamicColumns.size();
-            int weightCol = stockCol + 1;
             Cell stockHeader = mainHeaderRow.createCell(stockCol);
             stockHeader.setCellValue("TON KHO");
             stockHeader.setCellStyle(headerStyle);
             sheet.addMergedRegion(new CellRangeAddress(headerRowIdx, headerRowIdx + 1, stockCol, stockCol));
-
-            Cell weightHeader = mainHeaderRow.createCell(weightCol);
-            weightHeader.setCellValue("KL (KG)");
-            weightHeader.setCellStyle(headerStyle);
-            sheet.addMergedRegion(new CellRangeAddress(headerRowIdx, headerRowIdx + 1, weightCol, weightCol));
 
             List<ShipmentPreviewDTO.ShipmentItem> items = preview.getItems();
             int dataStartRow = headerRowIdx + 2;
@@ -169,9 +163,8 @@ public class ShipmentController {
                 }
 
                 row.createCell(stockCol).setCellValue("");
-                row.createCell(weightCol).setCellValue(item.getWeight() != null ? item.getWeight().doubleValue() : 0);
 
-                for (int c = 0; c <= weightCol; c++) {
+                for (int c = 0; c <= stockCol; c++) {
                     Cell cell = row.getCell(c);
                     if (cell == null) {
                         cell = row.createCell(c);
@@ -206,14 +199,7 @@ public class ShipmentController {
             totalStockCell.setCellValue("-");
             totalStockCell.setCellStyle(totalStyle);
 
-            double totalWeight = items.stream()
-                    .mapToDouble(i -> (i.getWeight() != null ? i.getWeight().doubleValue() : 0) * i.getTotalQty())
-                    .sum();
-            Cell totalWeightCell = totalRow.createCell(weightCol);
-            totalWeightCell.setCellValue(totalWeight);
-            totalWeightCell.setCellStyle(totalStyle);
-
-            for (int i = 0; i <= weightCol; i++) {
+            for (int i = 0; i <= stockCol; i++) {
                 sheet.autoSizeColumn(i);
                 int currentWidth = sheet.getColumnWidth(i);
                 sheet.setColumnWidth(i, Math.min(currentWidth + 600, 15000));
