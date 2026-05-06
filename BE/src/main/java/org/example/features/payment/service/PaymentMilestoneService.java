@@ -69,8 +69,55 @@ public class PaymentMilestoneService {
             throw new IllegalArgumentException("Order is required");
         }
 
-        if (paymentMilestoneRepository.existsByOrderId(order.getId())) {
-            return paymentMilestoneRepository.findByOrderIdOrderByMilestoneOrderAsc(order.getId());
+        List<PaymentMilestone> existingMilestones = paymentMilestoneRepository.findByOrderIdOrderByMilestoneOrderAsc(order.getId());
+        
+        if (!existingMilestones.isEmpty()) {
+            // Nếu có milestone nhưng đã bị hủy hoặc chưa kích hoạt, khôi phục lại để có thể sử dụng
+            boolean allPaid = existingMilestones.stream()
+                    .allMatch(m -> m.getStatus() == MilestoneStatus.PAID);
+            
+            if (!allPaid) {
+                // Cập nhật số tiền milestone dựa trên total price mới
+                BigDecimal total = safe(order.getTotalPrice());
+                BigDecimal firstAmount = order.getDepositAmount() != null
+                        ? order.getDepositAmount()
+                        : total.multiply(BigDecimal.valueOf(0.6)).setScale(0, RoundingMode.HALF_UP);
+                BigDecimal secondAmount = total.subtract(firstAmount);
+                if (secondAmount.compareTo(BigDecimal.ZERO) < 0) {
+                    secondAmount = BigDecimal.ZERO;
+                }
+                
+                // Khôi phục các milestone không phải PAID về PENDING
+                // Để có thể sử dụng lại khi gửi báo giá mới sau khi từ chối hợp đồng
+                boolean changed = false;
+                for (int i = 0; i < existingMilestones.size(); i++) {
+                    PaymentMilestone milestone = existingMilestones.get(i);
+                    if (milestone.getStatus() != MilestoneStatus.PAID) {
+                        milestone.setStatus(MilestoneStatus.PENDING);
+                        milestone.setDueDate(null);
+                        milestone.setPaymentQrUrl(null);
+                        milestone.setPaidAt(null);
+                        milestone.setTransactionRef(null);
+                        milestone.setPaidAmount(null);
+                        milestone.setVerifiedAt(null);
+                        milestone.setVerifiedBy(null);
+                        
+                        // Cập nhật số tiền
+                        if (milestone.getMilestoneOrder() == 1) {
+                            milestone.setAmount(firstAmount);
+                            milestone.setPercentage(BigDecimal.valueOf(60).setScale(2, RoundingMode.UNNECESSARY));
+                        } else if (milestone.getMilestoneOrder() == 2) {
+                            milestone.setAmount(secondAmount);
+                            milestone.setPercentage(BigDecimal.valueOf(40).setScale(2, RoundingMode.UNNECESSARY));
+                        }
+                        changed = true;
+                    }
+                }
+                if (changed) {
+                    paymentMilestoneRepository.saveAll(existingMilestones);
+                }
+            }
+            return existingMilestones;
         }
 
         BigDecimal total = safe(order.getTotalPrice());
