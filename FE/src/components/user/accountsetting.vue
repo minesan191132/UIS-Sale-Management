@@ -90,33 +90,60 @@
                 <div class="profile-form profile-view">
                   <div class="form-row">
                     <label class="form-label">Email cá nhân</label>
-                    <div class="form-input-wrap">
+                    <div class="form-input-container">
                       <div class="form-value">{{ currentUser?.email || '' }}</div>
                     </div>
                   </div>
                   <div class="form-row">
                     <label class="form-label">Họ và tên</label>
-                    <div class="form-input-wrap">
-                      <div class="form-value">{{ currentUser?.fullName || '' }}</div>
+                    <div class="form-input-container">
+                      <input 
+                        v-model="form.fullName" 
+                        type="text" 
+                        class="form-input" 
+                        placeholder="Nhập họ và tên" />
+                      <div v-if="errors.fullName" class="form-error small text-danger mt-2">{{ errors.fullName }}</div>
                     </div>
                   </div>
                   <div class="form-row">
                     <label class="form-label">Email Công Ty</label>
-                    <div class="form-input-wrap">
-                      <div class="form-value">{{ currentUser?.companyEmail || '---' }}</div>
+                    <div class="form-input-container">
+                      <input 
+                        v-model="form.companyEmail" 
+                        type="email" 
+                        class="form-input" 
+                        placeholder="Nhập email công ty" />
+                      <div v-if="errors.companyEmail" class="form-error small text-danger mt-2">{{ errors.companyEmail }}</div>
                     </div>
                   </div>
                   <div class="form-row">
                     <label class="form-label">Số điện thoại cá nhân</label>
-                    <div class="form-input-wrap">
-                      <div class="form-value">{{ currentUser?.phone || '---' }}</div>
+                    <div class="form-input-container">
+                      <input 
+                        v-model="form.phone" 
+                        type="tel" 
+                        class="form-input" 
+                        placeholder="Nhập số điện thoại cá nhân" />
+                      <div v-if="errors.phone" class="form-error small text-danger mt-2">{{ errors.phone }}</div>
                     </div>
                   </div>
                   <div class="form-row">
                     <label class="form-label">Số điện thoại công ty</label>
-                    <div class="form-input-wrap">
-                      <div class="form-value">{{ currentUser?.companyPhone || '---' }}</div>
+                    <div class="form-input-container">
+                      <input 
+                        v-model="form.companyPhone" 
+                        type="tel" 
+                        class="form-input" 
+                        placeholder="Nhập số điện thoại công ty" />
                     </div>
+                  </div>
+                  <div class="form-row" style="margin-top: 24px; justify-content: flex-start;">
+                    <div style="width: 150px;"></div>
+                    <button @click="saveProfile" :disabled="isLoading" class="btn btn-primary rounded-pill px-6 py-2 fw-bold" style="pointer-events: auto; cursor: pointer;">
+                      <i class="bi bi-check-circle me-2" v-if="!isLoading"></i>
+                      <span v-if="!isLoading">Lưu thay đổi</span>
+                      <span v-else><span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Đang lưu...</span>
+                    </button>
                   </div>
                 </div>
 
@@ -212,9 +239,9 @@ const validateForm = () => {
   }
   
   if (form.value.phone && form.value.phone.trim() !== '') {
-    const phoneRegex = /^[0-9\s+()-]*$/
-    if (!phoneRegex.test(form.value.phone)) {
-      errors.value.phone = 'Số điện thoại không hợp lệ'
+    const phoneRegex = /^0\d{9}$/
+    if (!phoneRegex.test(form.value.phone.trim())) {
+      errors.value.phone = 'Số điện thoại cá nhân phải bắt đầu bằng số 0 và đúng 10 chữ số'
     }
   }
   
@@ -409,17 +436,27 @@ const handleUnreadCountChanged = (count) => {
 }
 
 const loadUserProfile = async () => {
+  console.log('🔄 Loading user profile...')
   const storedUser = getStoredUser()
+  console.log('📦 Stored user:', storedUser)
+  
   if (storedUser) {
     currentUser.value = storedUser
     form.value.fullName = storedUser.fullName || ''
     form.value.email = storedUser.email || ''
+    form.value.phone = storedUser.phone || ''
+    form.value.companyEmail = storedUser.companyEmail || ''
+    form.value.companyPhone = storedUser.companyPhone || ''
     const name = encodeURIComponent(storedUser.fullName || 'User')
     avatarSrc.value = `https://ui-avatars.com/api/?name=${name}&background=1e3a8a&color=fff&size=150`
+    console.log('✅ Form populated from stored user:', form.value)
   }
 
   try {
+    console.log('🌐 Fetching profile from API...')
     const profile = await userAPI.getProfile()
+    console.log('📥 API Response:', profile)
+    
     currentUser.value = { ...currentUser.value, ...profile }
     form.value.fullName = profile.fullName || form.value.fullName
     form.value.email = profile.email || form.value.email
@@ -430,8 +467,9 @@ const loadUserProfile = async () => {
     form.value.dobYear = profile.dobYear || ''
     form.value.companyEmail = profile.companyEmail || ''
     form.value.companyPhone = profile.companyPhone || ''
-  } catch {
-    console.warn('Could not load full profile from API, using stored data.')
+    console.log('✅ Form populated from API:', form.value)
+  } catch (error) {
+    console.warn('⚠️ Could not load full profile from API:', error.message)
   }
 }
 
@@ -478,9 +516,16 @@ onBeforeRouteLeave(async () => {
 })
 
 const saveProfile = async () => {
-  if (isLoading.value) return
+  console.log('🔵 saveProfile called')
+  console.log('📋 Form data:', form.value)
+  
+  if (isLoading.value) {
+    console.warn('⚠️ Already loading, returning')
+    return
+  }
   
   if (!validateForm()) {
+    console.error('❌ Validation failed:', errors.value)
     Swal.fire({
       icon: 'warning',
       title: 'Lỗi validation',
@@ -490,9 +535,10 @@ const saveProfile = async () => {
     return
   }
 
+  console.log('✅ Validation passed')
   isLoading.value = true
   try {
-    const updated = await userAPI.updateProfile({
+    const payload = {
       fullName: form.value.fullName,
       email: form.value.email,
       phone: form.value.phone,
@@ -502,16 +548,23 @@ const saveProfile = async () => {
       dobYear: form.value.dobYear || null,
       companyEmail: form.value.companyEmail,
       companyPhone: form.value.companyPhone,
-    })
+    }
+    
+    console.log('📤 Sending payload:', payload)
+    const updated = await userAPI.updateProfile(payload)
+    console.log('📥 Response:', updated)
 
     // Sync stored user with updated values
     const storedUser = getStoredUser()
     if (storedUser) {
       storedUser.fullName = updated.fullName || form.value.fullName
       storedUser.email = updated.email || form.value.email
+      storedUser.phone = updated.phone || form.value.phone
+      storedUser.companyEmail = updated.companyEmail || form.value.companyEmail
+      storedUser.companyPhone = updated.companyPhone || form.value.companyPhone
       const storage = sessionStorage.getItem('user') ? sessionStorage : localStorage
       storage.setItem('user', JSON.stringify(storedUser))
-      currentUser.value = { ...currentUser.value, ...storedUser, ...form.value, email: updated.email || form.value.email }
+      currentUser.value = { ...currentUser.value, ...storedUser, ...form.value }
       const name = encodeURIComponent(form.value.fullName || 'User')
       avatarSrc.value = `https://ui-avatars.com/api/?name=${name}&background=1e3a8a&color=fff&size=150`
     }
@@ -519,11 +572,27 @@ const saveProfile = async () => {
     clearProfileDraft()
     setInitialProfileState()
 
-    Swal.fire({ icon: 'success', title: 'Thành công!', text: 'Hồ sơ đã được cập nhật.', timer: 1500, showConfirmButton: false })
+    console.log('✅ Profile updated successfully')
+    Swal.fire({ 
+      icon: 'success', 
+      title: 'Thành công!', 
+      text: 'Hồ sơ đã được cập nhật.', 
+      timer: 1500, 
+      showConfirmButton: false 
+    })
   } catch (err) {
-    const errorMessage = err.response?.data?.message || err.response?.data?.error || 'Không thể cập nhật hồ sơ. Vui lòng kiểm tra lại thông tin.';
+    console.error('❌ Error saving profile:', err)
+    const errorMsg = err.response?.data?.message || 
+                     err.response?.data?.error || 
+                     err.message ||
+                     'Không thể cập nhật hồ sơ. Vui lòng kiểm tra lại thông tin.'
     
-    Swal.fire({ icon: 'error', title: 'Lỗi', text: err.response?.data?.error || 'Không thể cập nhật hồ sơ.' })
+    Swal.fire({ 
+      icon: 'error', 
+      title: 'Lỗi', 
+      text: errorMsg,
+      confirmButtonText: 'OK'
+    })
   } finally {
     isLoading.value = false
   }
@@ -877,27 +946,58 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
 }
 
+.form-input-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .form-input {
   width: 100%;
-  padding: 8px 12px;
-  border: 1px solid #e2e8f0;
+  padding: 10px 14px;
+  border: 1px solid #d1d5db;
   border-radius: 6px;
   font-size: 14px;
-  outline: none;
-  color: #1e293b;
-  transition: border-color 0.2s, box-shadow 0.2s;
-  background: #fff;
+  font-weight: 400;
+  color: #1f2937;
+  background: #ffffff;
+  cursor: text;
+  pointer-events: auto;
+  user-select: text;
+  -webkit-user-select: text;
+  transition: all 0.2s ease;
+}
+
+.form-input:hover {
+  border-color: #9ca3af;
+  background: #fafbfc;
 }
 
 .form-input:focus {
+  outline: none;
   border-color: #2563eb;
+  background: #ffffff;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.form-input:disabled {
+  background: #f3f4f6;
+  color: #9ca3af;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 .form-input--readonly {
   background: #f8fafc;
   color: #94a3b8;
   cursor: not-allowed;
+}
+
+.form-error {
+  color: #dc2626;
+  font-size: 12px;
+  margin-top: 4px;
 }
 
 .form-value {

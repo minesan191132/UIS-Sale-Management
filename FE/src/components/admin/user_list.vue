@@ -144,10 +144,6 @@
                   <button class="btn btn-action-circle bg-light text-primary border" @click="openEdit(user)" title="Xem & Chỉnh sửa">
                     <i class="bi bi-pencil-fill"></i>
                   </button>
-
-                  <button class="btn btn-action-circle bg-light text-danger border" @click="handleDeleteUser(user)" title="Xóa tài khoản">
-                    <i class="bi bi-trash-fill"></i>
-                  </button>
                 </div>
               </td>
             </tr>
